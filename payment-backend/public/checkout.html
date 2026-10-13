@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STUDY WITH VEER - Test Payment</title>
+</head>
+<body style="font-family:Arial,sans-serif;padding:24px;text-align:center">
+  <h2>STUDY WITH VEER</h2>
+  <p>Razorpay Test Payment</p>
+  <button id="pay" style="padding:14px 24px;font-size:16px">
+    Pay ₹49 (Test)
+  </button>
+  <p id="status"></p>
+
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script>
+    const statusEl = document.getElementById('status');
+
+    document.getElementById('pay').onclick = async () => {
+      const button = document.getElementById('pay');
+      button.disabled = true;
+      statusEl.textContent = 'Creating test order...';
+
+      try {
+        const response = await fetch('/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ courseId: 'paid-course-49' })
+        });
+
+        const order = await response.json();
+        if (!response.ok || !order.orderId) {
+          throw new Error(order.error || 'Order creation failed');
+        }
+
+        const checkout = new Razorpay({
+          key: order.keyId,
+          amount: order.amount,
+          currency: order.currency,
+          name: 'STUDY WITH VEER',
+          description: 'Test purchase',
+          order_id: order.orderId,
+          handler: async function (result) {
+            statusEl.textContent = 'Verifying test payment...';
+
+            const verification = await fetch('/verify-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(result)
+            });
+
+            const data = await verification.json();
+            statusEl.textContent = data.verified
+              ? 'Test payment verified successfully!'
+              : 'Payment verification failed. Do not treat this as paid.';
+          },
+          modal: {
+            ondismiss: () => {
+              statusEl.textContent = 'Checkout closed. No payment confirmation.';
+              button.disabled = false;
+            }
+          },
+          theme: { color: '#123A70' }
+        });
+
+        checkout.on('payment.failed', function () {
+          statusEl.textContent = 'Test payment failed. Please try again.';
+          button.disabled = false;
+        });
+
+        checkout.open();
+      } catch (error) {
+        statusEl.textContent = error.message || 'Could not start checkout';
+        button.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>

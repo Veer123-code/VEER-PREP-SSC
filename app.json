@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "veer-prep-ssc",
-    "slug": "snack-44d67d60-be10-4f5a-a483-b5b5fbb2c0f8",
+    "name": "STUDY WITH VEER",
+    "slug": "veer-prep-ssc",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#F3F6FC"
     },
     "ios": {
       "supportsTablet": true
@@ -20,11 +20,21 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": false,
+      "package": "com.veerteam.veerprepssc"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "description": "Free SSC exam preparation app with practice questions, mock tests, and progress tracking."
+    "description": "Free SSC exam preparation app with practice questions, mock tests, and progress tracking.",
+    "extra": {
+      "eas": {
+        "projectId": "b318cfdb-5e03-4895-a351-68516fad110c"
+      }
+    },
+    "owner": "veer-team",
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

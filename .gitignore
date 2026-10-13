@@ -1,0 +1,17 @@
+.expo/
+payment-backend/firebase-service-account.json
+
+# Payment backend secrets and runtime data
+payment-backend/.env
+payment-backend/node_modules/
+payment-backend/firebase-service-account.json
+payment-backend/payment-orders.json
+payment-backend/unlocked-courses.json
+payment-backend/*.log
+node_modules/
+.env
+.env.*
+!.env.example
+payment-backend/.env
+dist/
+backups/
