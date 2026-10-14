@@ -72,9 +72,12 @@
                 body: JSON.stringify(result)
               });
               const data = await verification.json();
-              statusEl.textContent = data.verified
-                ? 'Payment verified. Return to the app to access your course.'
-                : (data.error || 'Payment verification failed. Do not treat this as paid.');
+              if (data.verified && data.unlocked) {
+                statusEl.textContent = 'Payment verified. Returning to STUDY WITH VEER...';
+                setTimeout(() => { location.href = 'studywithveer://payment-success'; }, 700);
+              } else {
+                statusEl.textContent = data.error || 'Payment verification failed. Do not treat this as paid.';
+              }
             } catch {
               statusEl.textContent = 'Could not verify payment. Please contact support before retrying.';
             }
