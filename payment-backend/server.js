@@ -8,7 +8,24 @@ const fs = require('fs');
 const path = require('path');
 const { initializeApp, cert, getApps } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
-const serviceAccount = require('./firebase-service-account.json');
+function loadServiceAccount() {
+  const encoded = process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64;
+  const raw = encoded
+    ? Buffer.from(encoded, 'base64').toString('utf8')
+    : process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+
+  if (!raw) {
+    throw new Error('Firebase service account environment variables are missing');
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error('Firebase service account environment variable contains invalid JSON');
+  }
+}
+
+const serviceAccount = loadServiceAccount();
 if (!getApps().length) initializeApp({ credential: cert(serviceAccount) });
 const firebaseAdminAuth = getAuth();
 const unlockFile = path.join(__dirname, 'unlocked-courses.json');
