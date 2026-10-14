@@ -3,35 +3,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>STUDY WITH VEER - Test Payment</title>
+  <title>STUDY WITH VEER - Checkout</title>
++
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body style="font-family:Arial,sans-serif;padding:24px;text-align:center">
   <h2>STUDY WITH VEER</h2>
-  <p>Razorpay Test Payment</p>
-  <button id="pay" style="padding:14px 24px;font-size:16px">
-    Pay ₹49 (Test)
-  </button>
+  <p>Secure Course Checkout</p>
+  <button id="pay" style="padding:14px 24px;font-size:16px">Continue to Payment</button>
   <p id="status"></p>
 
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <script>
     const statusEl = document.getElementById('status');
+    const button = document.getElementById('pay');
+    const params = new URLSearchParams(location.hash.slice(1));
+    const sessionToken = params.get('session');
 
-    document.getElementById('pay').onclick = async () => {
-      const button = document.getElementById('pay');
+    // Remove the session token from the visible URL after reading it.
+    history.replaceState(null, '', location.pathname + location.search);
+
+    button.onclick = async () => {
+      if (!sessionToken) {
+        statusEl.textContent = 'Checkout session missing. Please return to the app and try again.';
+        return;
+      }
+
       button.disabled = true;
-      statusEl.textContent = 'Creating test order...';
+      statusEl.textContent = 'Preparing secure checkout...';
+
+      const headers = {
+        'Content-Type': 'application/json',
+        'X-Checkout-Session': sessionToken
+      };
 
       try {
+        const infoResponse = await fetch('/checkout-session-info', {
+          headers: { 'X-Checkout-Session': sessionToken }
+        });
+        const info = await infoResponse.json();
+        if (!infoResponse.ok || !info.courseId) {
+          throw new Error(info.error || 'Checkout session expired. Return to the app and try again.');
+        }
+
+        statusEl.textContent = 'Creating order...';
         const response = await fetch('/create-order', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ courseId: 'paid-course-49' })
+          headers,
+          body: JSON.stringify({ courseId: info.courseId })
         });
-
         const order = await response.json();
         if (!response.ok || !order.orderId) {
-          throw new Error(order.error || 'Order creation failed');
+          throw new Error(order.error || 'Order creation failed.');
         }
 
         const checkout = new Razorpay({
@@ -39,39 +61,40 @@
           amount: order.amount,
           currency: order.currency,
           name: 'STUDY WITH VEER',
-          description: 'Test purchase',
+          description: 'Course purchase',
           order_id: order.orderId,
           handler: async function (result) {
-            statusEl.textContent = 'Verifying test payment...';
-
-            const verification = await fetch('/verify-payment', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(result)
-            });
-
-            const data = await verification.json();
-            statusEl.textContent = data.verified
-              ? 'Test payment verified successfully!'
-              : 'Payment verification failed. Do not treat this as paid.';
+            statusEl.textContent = 'Verifying payment...';
+            try {
+              const verification = await fetch('/verify-payment', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(result)
+              });
+              const data = await verification.json();
+              statusEl.textContent = data.verified
+                ? 'Payment verified. Return to the app to access your course.'
+                : (data.error || 'Payment verification failed. Do not treat this as paid.');
+            } catch {
+              statusEl.textContent = 'Could not verify payment. Please contact support before retrying.';
+            }
           },
           modal: {
             ondismiss: () => {
-              statusEl.textContent = 'Checkout closed. No payment confirmation.';
+              statusEl.textContent = 'Checkout closed. Payment is not confirmed.';
               button.disabled = false;
             }
           },
           theme: { color: '#123A70' }
         });
 
-        checkout.on('payment.failed', function () {
-          statusEl.textContent = 'Test payment failed. Please try again.';
+        checkout.on('payment.failed', () => {
+          statusEl.textContent = 'Payment failed. Please try again.';
           button.disabled = false;
         });
-
         checkout.open();
       } catch (error) {
-        statusEl.textContent = error.message || 'Could not start checkout';
+        statusEl.textContent = error.message || 'Could not start checkout.';
         button.disabled = false;
       }
     };

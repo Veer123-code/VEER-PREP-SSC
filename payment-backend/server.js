@@ -60,6 +60,122 @@ async function getAuthenticatedUser(req) {
   }
 }
 
+
+const checkoutSessionSecret = process.env.CHECKOUT_SESSION_SECRET;
+
+if (!checkoutSessionSecret || checkoutSessionSecret.length < 64) {
+  console.error('CHECKOUT_SESSION_SECRET is missing or invalid.');
+  process.exit(1);
+}
+
+const allowedCheckoutCourses = new Set([
+  'ssc-reasoning-masterclass',
+  'ssc-general-awareness'
+]);
+
+function createCheckoutSessionToken(uid, courseId) {
+  const payload = Buffer.from(JSON.stringify({
+    uid,
+    courseId,
+    expiresAt: Date.now() + 15 * 60 * 1000,
+    nonce: crypto.randomBytes(16).toString('hex')
+  })).toString('base64url');
+
+  const signature = crypto
+    .createHmac('sha256', checkoutSessionSecret)
+    .update(payload)
+    .digest('base64url');
+
+  return payload + '.' + signature;
+}
+
+function readCheckoutSession(token) {
+  if (typeof token !== 'string' || token.length > 4096) return null;
+
+  const parts = token.split('.');
+  if (parts.length !== 2) return null;
+
+  const expected = crypto
+    .createHmac('sha256', checkoutSessionSecret)
+    .update(parts[0])
+    .digest();
+
+  const received = Buffer.from(parts[1], 'base64url');
+
+  if (
+    received.length !== expected.length ||
+    !crypto.timingSafeEqual(received, expected)
+  ) return null;
+
+  try {
+    const session = JSON.parse(
+      Buffer.from(parts[0], 'base64url').toString('utf8')
+    );
+
+    if (
+      typeof session.uid !== 'string' ||
+      !session.uid ||
+      !allowedCheckoutCourses.has(session.courseId) ||
+      !Number.isFinite(session.expiresAt) ||
+      session.expiresAt <= Date.now()
+    ) return null;
+
+    return session;
+  } catch {
+    return null;
+  }
+}
+
+app.post('/create-checkout-session', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Please log in again.' });
+    }
+
+    const courseId = req.body && req.body.courseId;
+    if (!allowedCheckoutCourses.has(courseId)) {
+      return res.status(400).json({ error: 'Invalid course selection' });
+    }
+
+    const sessionToken = createCheckoutSessionToken(user.uid, courseId);
+    return res.json({ sessionToken, expiresIn: 900 });
+  } catch (error) {
+    console.error('Checkout session creation failed:', error.message);
+    return res.status(500).json({ error: 'Could not start checkout.' });
+  }
+});
+
+async function getPaymentUser(req) {
+  const firebaseUser = await getAuthenticatedUser(req);
+  if (firebaseUser) {
+    return { user: firebaseUser, sessionCourseId: null };
+  }
+
+  const token = req.get('x-checkout-session') || '';
+  const session = readCheckoutSession(token);
+
+  if (!session) return null;
+
+  return {
+    user: { uid: session.uid },
+    sessionCourseId: session.courseId
+  };
+}
+
+app.get('/checkout-session-info', (req, res) => {
+  const token = req.get('x-checkout-session') || '';
+  const session = readCheckoutSession(token);
+
+  if (!session) {
+    return res.status(401).json({
+      error: 'Checkout session expired. Return to the app and try again.'
+    });
+  }
+
+  return res.json({ courseId: session.courseId });
+});
+
 const orderFile = path.join(__dirname, 'payment-orders.json');
 
 function readOrders() {
@@ -76,11 +192,15 @@ function saveOrders(data) {
 
 app.post('/create-order', async (req, res) => {
   try {
-    const user = await getAuthenticatedUser(req);
+    const auth = await getPaymentUser(req);
+    const user = auth && auth.user;
     if (!user) {
       return res.status(401).json({ error: 'Please log in again.' });
     }
 
+    if (auth.sessionCourseId && req.body.courseId !== auth.sessionCourseId) {
+      return res.status(403).json({ error: 'Checkout session course mismatch.' });
+    }
     if (!['ssc-reasoning-masterclass', 'ssc-general-awareness'].includes(req.body.courseId)) {
       return res.status(400).json({ error: 'Invalid course selection' });
     }
@@ -118,7 +238,8 @@ app.post('/create-order', async (req, res) => {
 
 app.post('/verify-payment', async (req, res) => {
   try {
-    const user = await getAuthenticatedUser(req);
+    const auth = await getPaymentUser(req);
+    const user = auth && auth.user;
     if (!user) {
       return res.status(401).json({ verified: false, error: 'Please log in again.' });
     }
@@ -139,6 +260,13 @@ app.post('/verify-payment', async (req, res) => {
       return res.status(403).json({
         verified: false,
         error: 'Order does not belong to this account.',
+      });
+    }
+
+    if (auth.sessionCourseId && record.courseId !== auth.sessionCourseId) {
+      return res.status(403).json({
+        verified: false,
+        error: 'Checkout session course mismatch.',
       });
     }
 
