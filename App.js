@@ -2,25 +2,38 @@ import React, {useState, useEffect, useRef} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  View, Text, ScrollView, TouchableOpacity, Image, Animated, Platform, useWindowDimensions,
-  TextInput, StyleSheet, StatusBar, Linking
+  View, Text, ScrollView, TouchableOpacity, Image, Animated, Easing, Platform, useWindowDimensions,
+  TextInput, StyleSheet, StatusBar, Linking, AppState, Alert
 } from 'react-native';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword
-  , signOut
+  , signOut,
+  updateProfile
 } from 'firebase/auth';
 import { auth } from './firebase';
 import { Feather } from '@expo/vector-icons';
 
 const BLUE = '#173B83';
 const BG = '#F3F6FC';
+const ARTICLES_API = 'https://' + 'study-with-veer-payment-backend.onrender.com';
 
 export default function App() {
   const { width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const loadingSpin = useRef(new Animated.Value(0)).current;
+  const heroSpin = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const animation = Animated.loop(Animated.timing(heroSpin, {
+      toValue: 1,
+      duration: 3000,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    }));
+    animation.start();
+    return () => animation.stop();
+  }, [heroSpin]);
   useEffect(() => {
     const ringAnimation = Animated.loop(
       Animated.timing(loadingSpin, {
@@ -62,6 +75,8 @@ export default function App() {
   const mutedText = darkMode ? '#B0BDD0' : '#64748B';
   const [authError, setAuthError] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
+  const [fullName, setFullName] = useState('');
+const [fullNameFocused, setFullNameFocused] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailFocused, setEmailFocused] = useState(false);
@@ -256,6 +271,23 @@ export default function App() {
         pointer-events: none !important;
         animation: veer-pulse 4s ease-in-out infinite !important;
       }
+      #veer-auth-card::before {
+        content: "" !important;
+        position: absolute !important;
+        width: 200% !important;
+        height: 200% !important;
+        left: -50% !important;
+        top: -50% !important;
+        border-radius: 50% !important;
+        background: conic-gradient(from 0deg, transparent 0deg 285deg, #ff0000 310deg, #ff4545 330deg, transparent 355deg 360deg) !important;
+        animation: veer-red-spin 2.2s linear infinite !important;
+        pointer-events: none !important;
+        z-index: 0 !important;
+      }
+      @keyframes veer-red-spin {
+        to { transform: rotate(360deg); }
+      }
+
       .veer-label-letter {
         display: inline-block !important;
         transition-property: transform !important;
@@ -269,8 +301,33 @@ export default function App() {
     document.head.appendChild(style);
   }, []);
 
+  const fullNameLetterAnims = useRef('Full Name'.split('').map(() => new Animated.Value(0))).current;
   const emailLetterAnims = useRef('Email'.split('').map(() => new Animated.Value(0))).current;
   const passwordLetterAnims = useRef('Password'.split('').map(() => new Animated.Value(0))).current;
+  const redBlobAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.timing(redBlobAnim, {
+        toValue: 1,
+        duration: 5000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+    animation.start();
+    return () => animation.stop();
+  }, []);
+
+
+
+  useEffect(() => {
+    Animated.stagger(50, fullNameLetterAnims.map(anim => Animated.timing(anim, {
+      toValue: (fullNameFocused || !!fullName) ? 1 : 0,
+      duration: 300,
+      useNativeDriver: false,
+    }))).start();
+  }, [fullNameFocused, !!fullName]);
 
   useEffect(() => {
     Animated.stagger(50, emailLetterAnims.map(anim => Animated.timing(anim, {
@@ -290,6 +347,8 @@ export default function App() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [page, setPage] = useState('Courses');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
 
   const authGlowAnim = useRef(new Animated.Value(0)).current;
@@ -321,9 +380,9 @@ export default function App() {
   // HOME_DASHBOARD_SLIDESHOW
   const [activeSlide, setActiveSlide] = useState(0);
   const slideImages = [
-    require('./assets/slideshow/slide1.png'),
-    require('./assets/slideshow/slide2.png'),
-    require('./assets/slideshow/slide3.jpg'),
+    require('./assets/slideshow/RRB.png'),
+    require('./assets/slideshow/SSC.png'),
+    require('./assets/slideshow/TGPSC.png'),
   ];
   useEffect(() => {
     if (!loggedIn || page !== 'Home') return;
@@ -433,6 +492,40 @@ export default function App() {
     }
 
     return () => { cancelled = true; };
+  }, [loggedIn]);
+
+  useEffect(() => {
+    let paymentReturnSubscription;
+
+    const refreshCourses = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        const idToken = await user.getIdToken();
+        const response = await fetch(
+'https://study-with-veer-payment-backend.onrender.com/my-courses',
+          { headers: { Authorization: 'Bearer ' + idToken } }
+        );
+        const data = await response.json();
+
+        if (response.ok) {
+          setUnlockedCourses(data.courses || {});
+        } else {
+          console.log('Course refresh failed:', data.error || response.status);
+        }
+      } catch (error) {
+        console.log('Course refresh error:', error.message);
+      }
+    };
+
+    paymentReturnSubscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && loggedIn) {
+        refreshCourses();
+      }
+    });
+
+    return () => paymentReturnSubscription?.remove();
   }, [loggedIn]);
 
   useEffect(() => {
@@ -570,12 +663,18 @@ export default function App() {
       return;
     }
 
+    if (isCreatingAccount && !fullName.trim()) {
+      setAuthError('Please enter your full name.');
+      return;
+    }
+
     setAuthBusy(true);
     setAuthError('');
 
     try {
       if (isCreatingAccount) {
-        await createUserWithEmailAndPassword(auth, cleanEmail, password);
+        const credential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+        await updateProfile(credential.user, { displayName: fullName.trim() });
         await signOut(auth);
         setIsCreatingAccount(false);
         setPassword('');
@@ -621,7 +720,7 @@ export default function App() {
             }}
           />
           <Image
-            source={require('./assets/slideshow/slide2.png')}
+            source={require('./assets/slideshow/SSC.png')}
             style={{width:200,height:200,borderRadius:100,resizeMode:'cover'}}
           />
         </View>
@@ -658,7 +757,8 @@ export default function App() {
             </Text>
           </View>
 
-          <View style={{backgroundColor:cardBg, borderRadius:22, padding:22, borderWidth:1, borderColor:darkMode ? '#334155' : '#E5EAF4'}}>
+          <View nativeID="veer-auth-card" style={{position:'relative',borderRadius:24,padding:3,backgroundColor:'transparent',overflow:'hidden',shadowColor:'#EF4444',shadowOffset:{width:0,height:0},shadowOpacity:0,shadowRadius:0,elevation:0}}>
+            <View style={{position:'relative',zIndex:1,backgroundColor:cardBg,borderRadius:21,padding:22,borderWidth:1,borderColor:darkMode?'#334155':'#FFFFFF'}}>
             <Text style={{fontSize:25, fontWeight:'800', color:mainText}}>
               {isCreatingAccount ? t('Create Account', 'ఖాతా సృష్టించండి') : t('Welcome Back!', 'తిరిగి స్వాగతం!')}
             </Text>
@@ -666,6 +766,27 @@ export default function App() {
               {isCreatingAccount ? t('Create your account and start preparing', 'మీ ఖాతాను సృష్టించి సిద్ధం కావడం ప్రారంభించండి') : t('Login to continue your preparation', 'మీ ప్రిపరేషన్ కొనసాగించడానికి లాగిన్ అవ్వండి')}
             </Text>
 
+
+            {isCreatingAccount && (
+              <View style={{marginBottom:22, paddingTop:10}}>
+                <TextInput
+                  value={fullName}
+                  onChangeText={setFullName}
+                  onFocus={() => setFullNameFocused(true)}
+                  onBlur={() => setFullNameFocused(false)}
+                  placeholder=""
+                  placeholderTextColor={mutedText}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  style={{backgroundColor:'transparent',borderWidth:0,outlineStyle:'none',borderColor:'transparent',borderBottomWidth:2,borderBottomColor:(fullNameFocused || fullName) ? '#87CEFA' : '#DCE3F0',paddingHorizontal:0,paddingTop:15,paddingBottom:10,fontSize:18,color:mainText}}
+                />
+                <View pointerEvents="none" style={{position:'absolute',left:0,top:15,flexDirection:'row'}}>
+                  {'Full Name'.split('').map((letter,index) => (
+                    <Animated.Text key={index} style={{fontSize:18,minWidth:letter === ' ' ? 5 : 5,color:(fullNameFocused || fullName) ? '#38BDF8' : mutedText,transform:[{translateY:fullNameLetterAnims[index].interpolate({inputRange:[0,1],outputRange:[0,-30]})}]}}>{letter}</Animated.Text>
+                  ))}
+                </View>
+              </View>
+            )}
 
             <View style={{marginBottom:22, paddingTop:10}}>
               <TextInput
@@ -750,6 +871,7 @@ export default function App() {
                 </Text>
               </View>
             </TouchableOpacity>
+            </View>
           </View>
 
           <Text style={{textAlign:'center', color:'#718096', fontSize:12, marginTop:20}}>
@@ -768,71 +890,75 @@ export default function App() {
     );
   }
 
-  const navItems = [     ['Home', '⌂'],     ['My Courses', '🎓'],     ['Live Classes', '📡'],     ['Downloads', '📥']
+  const navItems = [     ['Home', '⌂'],     ['My Courses', '🎓'],     ['Live Classes', '📡'],     ['Chat', '💬'],     ['Downloads', '📥']
   ];
 
   return (
     <View style={[styles.app, {backgroundColor:pageBg}]}>
       <StatusBar barStyle="light-content" backgroundColor={BLUE} />
 
-      <View style={{backgroundColor:'#08152F',paddingTop:12,paddingHorizontal:14,paddingBottom:14,borderBottomWidth:1,borderBottomColor:'#244579'}}>
+      <View style={{backgroundColor:'#F3EEFF',paddingTop:12,paddingHorizontal:14,paddingBottom:14,borderBottomWidth:1,borderBottomColor:'#E2D6FF'}}>
         <View style={{flexDirection:'row',alignItems:'center',minHeight:54}}>
           <TouchableOpacity
             onPress={() => setMenuOpen(v => !v)}
             activeOpacity={0.75}
-            style={{width:46,height:46,alignItems:'center',justifyContent:'center',borderRadius:15,backgroundColor:'#13284B',borderWidth:0,borderColor:'transparent',marginRight:11}}
+            style={{width:46,height:46,alignItems:'center',justifyContent:'center',borderRadius:15,backgroundColor:'#E9DEFF',borderWidth:0,borderColor:'transparent',marginRight:11}}
           >
-            <Text style={{fontSize:25,color:'#FFFFFF',fontWeight:'700'}}>{menuOpen ? '✕' : '☰'}</Text>
+            <Text style={{fontSize:25,color:'#35245C',fontWeight:'700'}}>{menuOpen ? '✕' : '☰'}</Text>
           </TouchableOpacity>
 
           <View style={{flex:1}}>
-            <Text style={{fontSize:10,fontWeight:'900',color:'#70A7FF',letterSpacing:1.5}}>{t('WELCOME TO', 'స్వాగతం')}</Text>
-            <Text style={{fontSize:16,fontWeight:'900',color:'#FFFFFF',letterSpacing:0.3}}>STUDY WITH VEER</Text>
-            <Text style={{fontSize:10,color:'#C5D4EE',marginTop:2}}>{t('Prepare  •  Practice  •  Succeed', 'సిద్ధం అవ్వండి  •  సాధన చేయండి  •  విజయం సాధించండి')}</Text>
+            <Text style={{fontSize:10,fontWeight:'900',color:'#7952C7',letterSpacing:1.5}}>{t('WELCOME TO', 'స్వాగతం')}</Text>
+            <Text numberOfLines={1} style={{fontSize:16,fontWeight:'900',color:'#35245C',letterSpacing:2}}>{(auth.currentUser?.displayName?.trim() || auth.currentUser?.email?.split('@')[0] || 'Student').toUpperCase().split('').join(' ')}</Text>
+            <Text style={{fontSize:10,color:'#766A91',marginTop:2}}>{t('Prepare  •  Practice  •  Succeed', 'సిద్ధం అవ్వండి  •  సాధన చేయండి  •  విజయం సాధించండి')}</Text>
           </View>
 
           <TouchableOpacity
-            onPress={() => alert('Search will be available soon.')}
+            onPress={() => { setSearchQuery(''); setSearchOpen(true); }}
             activeOpacity={0.75}
-            style={{width:42,height:42,alignItems:'center',justifyContent:'center',borderRadius:14,backgroundColor:'#142A50',borderWidth:0,borderColor:'transparent',marginRight:8}}
+            style={{width:42,height:42,alignItems:'center',justifyContent:'center',borderRadius:14,backgroundColor:'#E9DEFF',borderWidth:0,borderColor:'transparent',marginRight:8}}
           >
-            <Text style={{fontSize:25,color:'#FFFFFF'}}>⌕</Text>
+            <Text style={{fontSize:25,color:'#35245C'}}>⌕</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => alert('No new notifications.')}
+            onPress={() => {
+              const user = auth.currentUser;
+              const name = user?.displayName?.trim() || user?.email?.split('@')[0] || 'Student';
+              Alert.alert('Thank you for using STUDY WITH VEER, ' + name + '!');
+            }}
             activeOpacity={0.75}
-            style={{width:42,height:42,alignItems:'center',justifyContent:'center',borderRadius:14,backgroundColor:'#142A50',borderWidth:0,borderColor:'transparent'}}
+            style={{width:42,height:42,alignItems:'center',justifyContent:'center',borderRadius:14,backgroundColor:'#E9DEFF',borderWidth:0,borderColor:'transparent'}}
           >
-            <Text style={{fontSize:20,color:'#FFD77A'}}>♧</Text>
+            <Text style={{fontSize:20,color:'#FFD77A'}}>🔔</Text>
             <View style={{position:'absolute',top:5,right:5,width:8,height:8,borderRadius:4,backgroundColor:'#FF5364',borderWidth:0,borderColor:'transparent'}} />
           </TouchableOpacity>
         </View>
 
-        <View style={{flexDirection:'row',backgroundColor:'#101F3D',borderRadius:17,padding:5,marginTop:14,borderWidth:1,borderColor:'#29446E'}}>
+{!menuOpen && (
+        <View style={{flexDirection:'row',backgroundColor:'#FFFFFF',borderRadius:17,padding:5,marginTop:14,borderWidth:1,borderColor:'#E2D6FF'}}>
           <TouchableOpacity
             onPress={() => setPage('Courses')}
             activeOpacity={0.8}
-            style={{flex:1,flexDirection:'row',paddingVertical:12,alignItems:'center',justifyContent:'center',backgroundColor:page==='Courses'?'#2563EB':'transparent',borderRadius:12,borderWidth:page==='Courses'?1:0,borderColor:'#75A7FF'}}
+            style={{flex:1,flexDirection:'row',paddingVertical:12,alignItems:'center',justifyContent:'center',backgroundColor:page==='Courses'?'#E9DEFF':'transparent',borderRadius:12,borderWidth:page==='Courses'?1:0,borderColor:'#C4AEFF'}}
           >
-            <Text style={{fontSize:15,marginRight:7}}>▣</Text>
-            <Text style={{color:'#FFFFFF',fontWeight:'800',fontSize:13}}>{t('VEER Classes', 'వీర్ తరగతులు')}</Text>
+            <Text style={{color:'#173B83',fontWeight:'800',fontSize:13}}>{t('VEER Classes', 'వీర్ తరగతులు')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setPage('Mock Test Folders')}
             activeOpacity={0.8}
-            style={{flex:1,flexDirection:'row',paddingVertical:12,alignItems:'center',justifyContent:'center',backgroundColor:page==='Mock Test Folders'?'#2563EB':'transparent',borderRadius:12,borderWidth:page==='Mock Test Folders'?1:0,borderColor:'#75A7FF'}}
+            style={{flex:1,flexDirection:'row',paddingVertical:12,alignItems:'center',justifyContent:'center',backgroundColor:page==='Mock Test Folders'?'#E9DEFF':'transparent',borderRadius:12,borderWidth:page==='Mock Test Folders'?1:0,borderColor:'#C4AEFF'}}
           >
-            <Text style={{fontSize:15,marginRight:7}}>◈</Text>
-            <Text style={{color:'#FFFFFF',fontWeight:'800',fontSize:13}}>{t('VEER Tests', 'వీర్ పరీక్షలు')}</Text>
+            <Text style={{color:'#35245C',fontWeight:'800',fontSize:13}}>{t('VEER Tests', 'వీర్ పరీక్షలు')}</Text>
           </TouchableOpacity>
         </View>
+        )}
       </View>
 
       {menuOpen && (
         <View style={{
           backgroundColor:darkMode?'#06142D':'#FFFFFF',
-          marginHorizontal:12,marginTop:10,marginBottom:8,
+          marginHorizontal:12,marginTop:2,marginBottom:8,
           borderRadius:22,padding:14,
           borderWidth:1.5,borderColor:darkMode?'#237BFF':'#B9D2FF',
           elevation:9,shadowColor:'#1677FF',shadowOpacity:0.22,
@@ -850,7 +976,7 @@ export default function App() {
             </View>
             <View style={{flex:1}}>
               <Text style={{fontSize:10,fontWeight:'900',color:'#3995FF',letterSpacing:1.4}}>{t('WELCOME TO', 'స్వాగతం')}</Text>
-              <Text style={{fontSize:17,fontWeight:'900',color:darkMode?'#FFFFFF':'#10264A'}}>STUDY WITH VEER</Text>
+              <Text numberOfLines={1} style={{fontSize:17,fontWeight:'900',color:darkMode?'#FFFFFF':'#10264A',letterSpacing:2}}>{(auth.currentUser?.displayName?.trim() || auth.currentUser?.email?.split('@')[0] || 'Student').toUpperCase().split('').join(' ')}</Text>
               <Text style={{fontSize:11,color:darkMode?'#B7C9E8':'#61738F',marginTop:3}}>{t('Prepare  •  Practice  •  Succeed', 'సిద్ధం అవ్వండి  •  సాధన చేయండి  •  విజయం సాధించండి')}</Text>
             </View>
             <TouchableOpacity onPress={() => setMenuOpen(false)} style={{
@@ -967,9 +1093,9 @@ export default function App() {
             style={{
               flexDirection:'row',
               alignItems:'center',
-              minHeight:54,
-              paddingHorizontal:15,
-              paddingVertical:13,
+              minHeight:56,
+              paddingHorizontal:11,
+              paddingVertical:9,
               borderRadius:15,
               backgroundColor:darkMode?'#3A1728':'#FFF0F2',
               borderWidth:1.5,
@@ -978,10 +1104,10 @@ export default function App() {
               marginTop:3
             }}>
             <View style={{
-              width:36,height:36,borderRadius:11,
+              width:35,height:35,borderRadius:11,
               backgroundColor:darkMode?'#67233A':'#FFDDE3',
               alignItems:'center',justifyContent:'center',
-              marginRight:12
+              marginRight:11
             }}>
               <Text style={{fontSize:22,color:darkMode?'#FFB3C3':'#C32643'}}>↪</Text>
             </View>
@@ -1008,7 +1134,134 @@ export default function App() {
         </View>
       )}
 
-      <ScrollView style={[styles.content, {backgroundColor:pageBg}]} contentContainerStyle={{paddingBottom:24}}>
+      
+{searchOpen && (
+  <View style={{
+    position:'absolute',top:0,bottom:0,left:0,right:0,
+    zIndex:999,elevation:25,backgroundColor:pageBg,padding:16
+  }}>
+    <View style={{flexDirection:'row',alignItems:'center',marginBottom:16}}>
+      <Text style={{fontSize:22,fontWeight:'900',color:darkMode?'#FFFFFF':'#173B83',flex:1}}>
+        Search STUDY WITH VEER
+      </Text>
+      <TouchableOpacity onPress={() => setSearchOpen(false)}
+        style={{padding:10,borderRadius:12,backgroundColor:darkMode?'#243650':'#E9DEFF'}}>
+        <Text style={{fontSize:20,fontWeight:'900',color:darkMode?'#FFFFFF':'#35245C'}}>✕</Text>
+      </TouchableOpacity>
+    </View>
+
+    <View style={{
+      flexDirection:'row',alignItems:'center',borderRadius:15,
+      borderWidth:1.5,borderColor:'#8B6BE8',paddingHorizontal:12,
+      backgroundColor:darkMode?'#10213A':'#FFFFFF',marginBottom:15
+    }}>
+      <Text style={{fontSize:22,color:'#8B6BE8',marginRight:8}}>⌕</Text>
+      <TextInput
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Search Maths, Reasoning, PYQ..."
+        placeholderTextColor={darkMode?'#A9B8D0':'#7B8497'}
+        autoFocus
+        selectionColor="#8B6BE8"
+        underlineColorAndroid="transparent"
+        style={{flex:1,paddingVertical:14,color:darkMode?'#FFFFFF':'#172B4D',fontSize:15,borderWidth:0,outlineWidth:0,outlineStyle:'none',backgroundColor:'transparent'}}
+      />
+      {!!searchQuery && (
+        <TouchableOpacity onPress={() => setSearchQuery('')}>
+          <Text style={{fontSize:19,color:darkMode?'#FFFFFF':'#173B83'}}>✕</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+
+    <Text style={{fontSize:12,fontWeight:'800',color:darkMode?'#B8C8E0':'#687795',marginBottom:9}}>
+      'SEARCH RESULTS'
+    </Text>
+
+    {!!searchQuery.trim() && (
+    <ScrollView keyboardShouldPersistTaps="handled">
+      {([
+        {title:'Mathematics / Maths',keywords:'maths mathematics arithmetic quant practice numbers',page:'Quant Practice'},
+        {title:'Quant Practice',keywords:'quant quantitative aptitude maths practice',page:'Quant Practice'},
+        {title:'Reasoning',keywords:'reasoning logical verbal non verbal puzzles',page:'Mock Test Folders'},
+        {title:'English Grammar',keywords:'english grammar vocabulary synonyms antonyms',page:'Mock Test Folders'},
+        {title:'General Knowledge / GS',keywords:'general knowledge gs gk history polity geography science',page:'Mock Test Folders'},
+        {title:'Current Affairs 2026',keywords:'current affairs news daily affairs 2026',page:'Current Affairs 2026'},
+        {title:'Previous Year Papers / PYQ',keywords:'previous year papers pyq old papers question papers',page:'Previous Year Papers'},
+        {title:'SSC Papers',keywords:'ssc papers gd cgl chsl mts je cpo',page:'SSC Papers'},
+        {title:'RRB Papers',keywords:'rrb papers ntpc group d alp technician railway',page:'RRB Papers'},
+        {title:'TGPSC Papers',keywords:'tgpsc papers group 1 group 2 group 3 group 4',page:'TGPSC Papers'},
+        {title:'Free Ebooks',keywords:'free ebooks books pdf study material',page:'Free Ebooks'},
+        {title:'Free Courses',keywords:'free courses free course ssc mathematics english foundation',page:'Free Courses'},
+        {title:'Mock Test Folders',keywords:'mock test folders subjects practice exam tests',page:'Mock Test Folders'},
+        {title:'Mock Tests',keywords:'mock tests online test exam practice',page:'Mock Test Folders'},
+        {title:'Courses',keywords:'courses ssc tgpsc rrb classes',page:'Courses'},
+        {title:'SSC Courses',keywords:'ssc course staff selection commission',page:'SSC Courses'},
+        {title:'TGPSC Courses',keywords:'tgpsc telangana public service commission',page:'TGPSC Courses'},
+        {title:'RRB Courses',keywords:'rrb railway recruitment board',page:'RRB Courses'},
+        {title:'Downloads',keywords:'downloads downloaded files materials',page:'Downloads'},
+        {title:'Live Classes',keywords:'live classes online classes lessons',page:'Live Classes'},
+        {title:'My Progress',keywords:'my progress scores performance results',page:'My Progress'},
+        {title:'Home',keywords:'home dashboard main page',page:'Home'}
+      ]).filter(item => {
+        const q = searchQuery.trim().toLowerCase();
+        return !q || (item.title + ' ' + item.keywords).toLowerCase().includes(q);
+      }).map((item) => (
+        <TouchableOpacity key={item.title}
+          onPress={() => {
+            setPage(item.page);
+            setSearchOpen(false);
+            setSearchQuery('');
+            setMenuOpen(false);
+          }}
+          activeOpacity={0.75}
+          style={{
+            flexDirection:'row',alignItems:'center',padding:14,
+            borderRadius:13,marginBottom:8,
+            backgroundColor:darkMode?'#10213A':'#FFFFFF',
+            borderWidth:1,borderColor:darkMode?'#294366':'#E0D8F5'
+          }}>
+          <View style={{
+            width:38,height:38,borderRadius:11,alignItems:'center',
+            justifyContent:'center',backgroundColor:darkMode?'#24365A':'#E9DEFF',
+            marginRight:11
+          }}>
+            <Text style={{fontSize:19,color:darkMode?'#FFFFFF':'#35245C'}}>⌕</Text>
+          </View>
+          <Text style={{flex:1,fontSize:14,fontWeight:'800',color:darkMode?'#FFFFFF':'#173B83'}}>
+            {item.title}
+          </Text>
+          <Text style={{fontSize:20,color:'#8B6BE8'}}>›</Text>
+        </TouchableOpacity>
+      ))}
+      {!!searchQuery.trim() && !([
+        {title:'Mathematics / Maths',keywords:'maths mathematics arithmetic quant practice numbers'},
+        {title:'Reasoning',keywords:'reasoning logical verbal non verbal puzzles'},
+        {title:'English Grammar',keywords:'english grammar vocabulary synonyms antonyms'},
+        {title:'General Knowledge / GS',keywords:'general knowledge gs gk history polity geography science'},
+        {title:'Current Affairs 2026',keywords:'current affairs news daily affairs 2026'},
+        {title:'Previous Year Papers / PYQ',keywords:'previous year papers pyq old papers question papers'},
+        {title:'SSC Papers',keywords:'ssc papers gd cgl chsl mts je cpo'},
+        {title:'RRB Papers',keywords:'rrb papers ntpc group d alp technician railway'},
+        {title:'TGPSC Papers',keywords:'tgpsc papers group 1 group 2 group 3 group 4'},
+        {title:'Free Ebooks',keywords:'free ebooks books pdf study material'},
+        {title:'Free Courses',keywords:'free courses free course ssc mathematics english foundation'},
+        {title:'Mock Test Folders',keywords:'mock test folders subjects practice exam tests'},
+        {title:'Courses',keywords:'courses ssc tgpsc rrb classes'},
+        {title:'Downloads',keywords:'downloads downloaded files materials'},
+        {title:'Live Classes',keywords:'live classes online classes lessons'},
+        {title:'My Progress',keywords:'my progress scores performance results'},
+        {title:'Home',keywords:'home dashboard main page'}
+      ].some(item => (item.title+' '+item.keywords).toLowerCase().includes(searchQuery.trim().toLowerCase()))) && (
+        <Text style={{textAlign:'center',padding:20,color:darkMode?'#B8C8E0':'#687795'}}>
+          No matching results found. Try another keyword.
+        </Text>
+      )}
+    </ScrollView>
+    )}
+  </View>
+)}
+
+<ScrollView style={[styles.content, {backgroundColor:pageBg}]} contentContainerStyle={{paddingBottom:24}}>
         {page === 'Home' && <>
   <View style={{marginHorizontal:16,marginTop:16,marginBottom:4,borderRadius:18,overflow:'hidden',backgroundColor:cardBg,borderWidth:1,borderColor:darkMode?'#334155':'#DCE5F5'}}>
     <Image
@@ -1024,13 +1277,33 @@ export default function App() {
     </View>
   </View>
 
-  <View style={styles.hero}>
+  <Animated.View style={{
+    margin:16,
+    borderRadius:24,
+    padding:4,
+    borderWidth:3,
+    borderColor:heroSpin.interpolate({
+      inputRange:[0,0.5,1],
+      outputRange:['#FF30FF','#00B7FF','#FF30FF']
+    }),
+    backgroundColor:'#07182E',
+    elevation:10,
+    shadowColor:heroSpin.interpolate({
+      inputRange:[0,0.5,1],
+      outputRange:['#FF30FF','#00B7FF','#FF30FF']
+    }),
+    shadowOpacity:0.9,
+    shadowRadius:12
+  }}><View style={[styles.hero,{margin:0,borderRadius:20}]} >
     <Text style={styles.heroSmall}>{t('YOUR GOAL, YOUR FUTURE','మీ లక్ష్యం, మీ భవిష్యత్తు')}</Text>
-    <Text style={[styles.heroTitle,{fontSize:17,fontStyle:'italic',fontWeight:'500',lineHeight:25,marginTop:12,textAlign:'center'}]}>{t('Thank you for choosing this app','ఈ యాప్‌ను ఎంచుకున్నందుకు ధన్యవాదాలు')}</Text>
-    <Text style={[styles.heroTitle,{fontSize:25,fontStyle:'italic',fontWeight:'900',marginTop:8,textAlign:'center'}]}>STUDY WITH VEER</Text>
+    <Text style={[styles.heroTitle,{color:'#FFFFFF',fontSize:17,fontStyle:'italic',fontWeight:'500',lineHeight:25,marginTop:12,textAlign:'center'}]}>{t('Thank you for choosing this app','ఈ యాప్‌ను ఎంచుకున్నందుకు ధన్యవాదాలు')}</Text>
+    <Text style={[styles.heroTitle,{color:'#FFFFFF',fontSize:25,fontStyle:'italic',fontWeight:'900',marginTop:8,textAlign:'center'}]}>STUDY WITH VEER</Text>
     <Text style={styles.heroDesc}>{typedTagline}<Text style={{color:"#FBBF24"}}>{typedTagline.length < 39 ? "▍" : ""}</Text></Text>
-    {button(t('START MOCK TEST  →','మాక్ టెస్ట్ ప్రారంభించండి  →'), startTest, true)}
+    <TouchableOpacity onPress={() => setPage('Mock Test Folders')} activeOpacity={0.8} style={{backgroundColor:'#07182E',borderWidth:2,borderColor:'#00D9FF',borderRadius:14,paddingVertical:15,paddingHorizontal:16,alignItems:'center',justifyContent:'center',marginTop:10,elevation:5}}>
+      <Text style={{color:'#FFFFFF',fontSize:17,fontWeight:'900',textAlign:'center',includeFontPadding:false}}>{t('START MOCK TEST  →','మాక్ టెస్ట్ ప్రారంభించండి  →')}</Text>
+    </TouchableOpacity>
   </View>
+  </Animated.View>
   <Text style={[styles.sectionTitle,{color:mainText}]}>{t('Your Study Overview','మీ చదువు వివరాలు')}</Text>
   <View style={styles.statsRow}>
     <View style={[styles.stat,{backgroundColor:cardBg,borderWidth:1,borderColor:darkMode?"#334155":"#E5EAF4"}]}><Text style={styles.statNum}>4</Text><Text style={[styles.muted,{color:mutedText}]}>{t('Subjects','విషయాలు')}</Text></View>
@@ -1042,11 +1315,12 @@ export default function App() {
     {[
       ['My Purchases','🛍️','Courses'],
       ['Paid Courses','🎓','Courses'],
-      ['Current Affairs','📰','Subjects'],
-      ['Previous Year Papers','📚','Mock Test Folders'],
+      ['Current Affairs','📰','Current Affairs 2026'],
+      ['Previous Year Papers','📚','Previous Year Papers'],
       ['Mock Tests','📝','Mock Test Folders'],
       ['My Progress','📊','My Progress'],
-      ['Free Courses','📖','Courses']
+      ['Free Courses','📖','Free Courses'],
+      ['Free Ebooks','📚','Free Ebooks']
     ].map(([title, icon, destination]) => (
       <TouchableOpacity key={title} onPress={() => setPage(destination)}
         style={{
@@ -1097,26 +1371,112 @@ export default function App() {
           <View style={{padding:18}}>
             <Text style={styles.pageTitle}>{t('Mock Test Folders','మాక్ టెస్ట్ విభాగాలు')}</Text>
             <Text style={[styles.muted,{color:mutedText}]}>{t('Choose a subject to start your practice test.','ప్రాక్టీస్ టెస్ట్ ప్రారంభించడానికి ఒక విషయాన్ని ఎంచుకోండి.')}</Text>
+            <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',alignItems:'stretch'}}>
             {[
-              ['Mathematics','📐','Arithmetic, Percentage, Algebra'],
-              ['Reasoning','🧠','Series, Analogy, Coding-Decoding'],
-              ['English','📖','Grammar, Vocabulary, Spelling'],
-              ['General Knowledge','🌍','History, Geography, Polity, Science']
+              ['Mathematics','01','Arithmetic, Percentage, Algebra'],
+              ['Reasoning','02','Series, Analogy, Coding-Decoding'],
+              ['English','03','Grammar, Vocabulary, Spelling'],
+              ['General Knowledge','04','History, Geography, Polity, Science']
             ].map(([subject, icon, description]) => (
               <TouchableOpacity
                 key={subject}
                 onPress={() => startTest(subject)}
-                style={[styles.subjectCard,{marginTop:14,backgroundColor:darkMode?'#1E293B':'#FFFFFF',borderRadius:18,padding:18,borderWidth:1,borderColor:darkMode?'#334155':'#DCE5F5'}]}>
-                <Text style={{fontSize:32,marginBottom:8}}>{icon}</Text>
+                style={{width:'48%',alignSelf:'flex-start',marginTop:14,backgroundColor:darkMode?'#1E293B':'#FFFFFF',borderRadius:18,padding:14,borderWidth:1,borderColor:darkMode?'#334155':'#DCCBFF'}}>
+                <View style={{width:44,height:44,borderRadius:12,backgroundColor:darkMode?"#352653":"#F0E8FF",alignItems:"center",justifyContent:"center",marginBottom:12}}><Text style={{fontSize:18,fontWeight:"900",color:"#7952C7"}}>{icon}</Text></View>
                 <Text style={[styles.subjectTitle,{color:darkMode?'#FFFFFF':'#173B83'}]}>{t(subject + ' Mock Tests', subject==='Mathematics'?'గణిత మాక్ టెస్టులు':subject==='Reasoning'?'రీజనింగ్ మాక్ టెస్టులు':subject==='English'?'ఇంగ్లీష్ మాక్ టెస్టులు':'జనరల్ నాలెడ్జ్ మాక్ టెస్టులు')}</Text>
                 <Text style={[styles.muted,{color:mutedText}]}>{description}</Text>
-                <View style={{marginTop:12,backgroundColor:'#173B83',padding:11,borderRadius:10}}>
-                  <Text style={{color:'#FFFFFF',fontWeight:'800',textAlign:'center'}}>{t('Start Test →','పరీక్ష ప్రారంభించండి →')}</Text>
+                <View style={{marginTop:12,backgroundColor:darkMode?'#352653':'#E9DEFF',padding:11,borderRadius:10}}>
+                  <Text style={{color:darkMode?'#FFFFFF':'#5B36A5',fontWeight:'800',textAlign:'center'}}>{t('Start Test →','పరీక్ష ప్రారంభించండి →')}</Text>
                 </View>
               </TouchableOpacity>
             ))}
+            </View>
+          
+            <TouchableOpacity onPress={() => setPage('Home')} style={{backgroundColor:BLUE,paddingVertical:16,borderRadius:30,alignItems:'center',justifyContent:'center',marginTop:24,marginBottom:12}}>
+              <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'800'}}>🏠  ← Back to Home</Text>
+            </TouchableOpacity>
           </View>
         </>}
+
+          {page === "Current Affairs 2026" && <>
+            <View style={{padding:18}}>
+              <Text style={styles.pageTitle}>2026 Current Affairs</Text>
+      
+              <Text style={{color:mutedText,marginTop:8}}>Current Affairs PDF</Text>
+              <TouchableOpacity onPress={() => Linking.openURL("https://drive.google.com/file/d/1cUXADG1-JrIlXgjPFIZvsPMwk3E9gMWk/view?usp=drivesdk")} style={{backgroundColor:BLUE,padding:18,borderRadius:14,marginTop:16}}>
+                <Text style={{color:"#FFFFFF",fontSize:16,fontWeight:"800",textAlign:"center"}}>📄 Open 2026 Current Affairs PDF</Text>
+              </TouchableOpacity>
+            </View>
+          
+      <TouchableOpacity onPress={() => setPage('Home')} style={{backgroundColor:BLUE,paddingVertical:16,borderRadius:30,alignItems:'center',justifyContent:'center',marginTop:24,marginBottom:12}}>
+        <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'800'}}>🏠  ← Back to Home</Text>
+      </TouchableOpacity></>}
+          
+{page === 'Free Ebooks' && <>
+  <View style={{padding:18}}>
+    <Text style={styles.pageTitle}>📚 Free Ebooks</Text>
+      
+    <Text style={[styles.muted,{color:mutedText,marginTop:8}]}>
+      Open and read free study materials.
+    </Text>
+    <TouchableOpacity
+      onPress={() => Linking.openURL(String.fromCharCode(104,116,116,112,115,58,47,47,100,114,105,118,101,46,103,111,111,103,108,101,46,99,111,109,47,102,105,108,101,47,100,47,49,56,85,51,105,65,55,107,71,72,95,65,75,78,109,76,51,109,83,97,51,114,80,51,86,78,98,53,114,105,121,85,76,47,118,105,101,119,63,117,115,112,61,100,114,105,118,101,115,100,107))}
+      style={{backgroundColor:BLUE,padding:18,borderRadius:14,marginTop:16}}>
+      <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'800',textAlign:'center'}}>
+        📖 Open Ebook PDF
+      </Text>
+    </TouchableOpacity>
+  </View>
+
+      <TouchableOpacity onPress={() => setPage('Home')} style={{backgroundColor:BLUE,paddingVertical:16,borderRadius:30,alignItems:'center',justifyContent:'center',marginTop:24,marginBottom:12}}>
+        <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'800'}}>🏠  ← Back to Home</Text>
+      </TouchableOpacity></>}
+
+{page === 'Previous Year Papers' && <>
+            <View style={{padding:18}}>
+              <Text style={styles.pageTitle}>Previous Year Papers</Text>
+      
+              <Text style={[styles.muted,{color:mutedText}]}>Choose your exam board.</Text>
+              {['SSC Papers','RRB Papers','TGPSC Papers'].map(board => (
+                <TouchableOpacity key={board} onPress={() => setPage(board)} style={{backgroundColor:BLUE,padding:16,borderRadius:12,marginTop:14}}>
+                  <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'800'}}>{board}  ›</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          
+      <TouchableOpacity onPress={() => setPage('Home')} style={{backgroundColor:BLUE,paddingVertical:16,borderRadius:30,alignItems:'center',justifyContent:'center',marginTop:24,marginBottom:12}}>
+        <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'800'}}>🏠  ← Back to Home</Text>
+      </TouchableOpacity></>}
+          {['SSC Papers','RRB Papers','TGPSC Papers'].includes(page) && <>
+            <View style={{padding:18}}>
+              <TouchableOpacity onPress={() => setPage('Previous Year Papers')} style={{paddingVertical:10}}>
+                <Text style={{color:BLUE,fontWeight:'800'}}>‹ Back to Previous Year Papers</Text>
+              </TouchableOpacity>
+              <Text style={styles.pageTitle}>{page}</Text>
+              <Text style={[styles.muted,{color:mutedText}]}>Choose your exam.</Text>
+              {(page === 'SSC Papers' ? ['SSC GD','SSC CGL','SSC CHSL','SSC MTS','SSC JE','SSC CPO'] : page === 'RRB Papers' ? ['RRB NTPC','RRB Group D','RRB ALP','RRB Technician'] : ['TGPSC Group 1','TGPSC Group 2','TGPSC Group 3','TGPSC Group 4']).map(exam => (
+                <TouchableOpacity key={exam} onPress={() => {
+                  if (page === 'SSC Papers') {
+                    Linking.openURL(String.fromCharCode(104,116,116,112,115,58,47,47,100,114,105,118,101,46,103,111,111,103,108,101,46,99,111,109,47,102,105,108,101,47,100,47,49,86,86,73,116,104,114,81,100,45,68,120,66,48,68,98,52,75,45,79,114,73,116,66,65,56,108,53,49,90,115,97,98,47,118,105,101,119,63,117,115,112,61,100,114,105,118,101,115,100,107)).catch(() => {});
+                  } else {
+                    setPage(exam + ' - Papers Link Not Added');
+                  }
+                }} style={{backgroundColor:cardBg,padding:15,borderRadius:12,marginTop:12,borderWidth:1,borderColor:mutedText}}>
+                  <Text style={{color:mainText,fontSize:15,fontWeight:'700'}}>{exam}  ›</Text>
+                  <Text style={[styles.muted,{color:mutedText,fontSize:12,marginTop:4}]}>{page === 'SSC Papers' ? 'Open available SSC papers PDF' : 'Papers link not added yet'}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>}
+          {page.endsWith(' - Papers Link Not Added') && <>
+            <View style={{padding:18}}>
+              <TouchableOpacity onPress={() => setPage(page.startsWith('RRB') ? 'RRB Papers' : 'TGPSC Papers')} style={{paddingVertical:10}}>
+                <Text style={{color:BLUE,fontWeight:'800'}}>‹ Back to exam folders</Text>
+              </TouchableOpacity>
+              <Text style={styles.pageTitle}>Papers Link Not Added</Text>
+              <Text style={[styles.muted,{color:mutedText,marginTop:10}]}>Question papers for this exam have not been added yet.</Text>
+            </View>
+          </>}
 
         {page === 'Subjects' && <>
           <Text style={styles.pageTitle}>{t('All Subjects','అన్ని విషయాలు')}</Text>
@@ -1129,41 +1489,60 @@ export default function App() {
           </View>)}
         </>}
 
-        {(page === 'Courses' || page === 'SSC Courses' || page === 'TGPSC Courses' || page === 'RRB Courses') && <>
+        {(page === 'Courses' || page === 'SSC Courses' || page === 'TGPSC Courses' || page === 'RRB Courses' || page.startsWith('SSC Exam:')) && <>
           <View style={{padding:18}}>
             <TouchableOpacity
-              onPress={() => setPage(page === 'Courses' ? 'Home' : 'Courses')}
+              onPress={() => setPage(page.startsWith('SSC Exam:') ? 'SSC Courses' : page === 'Courses' ? 'Home' : 'Courses')}
               style={{paddingVertical:8}}>
               <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'800'}}>
-                ← {page === 'Courses' ? t('Back to Home','హోమ్‌కు తిరిగి వెళ్లండి') : t('All Exam Categories','అన్ని పరీక్షల విభాగాలు')}
+                ← {page === 'Courses' ? t('Back to Home','హోమ్‌కు తిరిగి వెళ్లండి') : page.startsWith('SSC Exam:') ? t('Back to SSC Folders','SSC ఫోల్డర్లకు తిరిగి వెళ్లండి') : t('All Exam Categories','అన్ని పరీక్షల విభాగాలు')}
               </Text>
             </TouchableOpacity>
 
             <Text style={{fontSize:25,fontWeight:'900',color:'#087F67',marginTop:8}}>
-              {page === 'Courses' ? t('Choose Your Exam','మీ పరీక్షను ఎంచుకోండి') : page === 'SSC Courses' ? t('SSC Exams','SSC పరీక్షలు') : page === 'TGPSC Courses' ? t('TGPSC Exams','TGPSC పరీక్షలు') : t('RRB Exams','RRB పరీక్షలు')}
+              {page === 'Courses' ? t('Choose Your Exam','మీ పరీక్షను ఎంచుకోండి') : page.startsWith('SSC Exam:') ? page.replace('SSC Exam: ','') : page === 'SSC Courses' ? t('SSC Exams','SSC పరీక్షలు') : page === 'TGPSC Courses' ? t('TGPSC Exams','TGPSC పరీక్షలు') : t('RRB Exams','RRB పరీక్షలు')}
             </Text>
             <Text style={{fontSize:13,color:'#718096',marginTop:6}}>
               {t('STUDY WITH VEER • Prepare Smart. Achieve More.','STUDY WITH VEER • తెలివిగా సిద్ధం అవ్వండి. మరింత సాధించండి.')}
             </Text>
 
             {page === 'Courses' && [
-              {title:'SSC Exams',desc:'CGL, CHSL, MTS, GD and CPO',icon:'📘',target:'SSC Courses'},
-              {title:'TGPSC Exams',desc:'Group 1, Group 2, Group 3 and Group 4',icon:'🏛️',target:'TGPSC Courses'},
-              {title:'RRB Exams',desc:'NTPC, Group D, ALP and Technician',icon:'🚆',target:'RRB Courses'}
+              {title:'SSC Exams',desc:'CGL, CHSL, MTS, GD and CPO',image:require('./assets/images/SSC.png'),target:'SSC Courses'},
+              {title:'TGPSC Exams',desc:'Group 1, Group 2, Group 3 and Group 4',image:require('./assets/images/TGPSC.png'),target:'TGPSC Courses'},
+              {title:'RRB Exams',desc:'NTPC, Group D, ALP and Technician',image:require('./assets/images/RRB.png'),target:'RRB Courses'}
             ].map(exam => (
               <TouchableOpacity key={exam.title}
                 onPress={() => setPage(exam.target)}
-                style={{backgroundColor:'#FFFFFF',borderRadius:16,padding:18,marginTop:14,borderWidth:1,borderColor:'#DCEAE4',flexDirection:'row',alignItems:'center'}}>
-                <Text style={{fontSize:30,marginRight:14}}>{exam.icon}</Text>
+                style={{backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:24,padding:18,marginTop:18,borderWidth:1.5,borderColor:darkMode?'#35516B':'#D5F0E6',flexDirection:'row',alignItems:'center',elevation:8,shadowColor:darkMode?'#000000':'#087F67',shadowOffset:{width:0,height:6},shadowOpacity:darkMode?0.25:0.16,shadowRadius:10}}>
+                <Image source={exam.image} style={{width:100,height:76,borderRadius:12,marginRight:14}} resizeMode="cover" />
                 <View style={{flex:1}}>
                   <Text style={{fontSize:17,fontWeight:'900',color:'#173B35'}}>{exam.title}</Text>
                   <Text style={{fontSize:13,color:'#718096',marginTop:5}}>{t(exam.desc, ({'CGL, CHSL, MTS, GD and CPO':'CGL, CHSL, MTS, GD మరియు CPO','Group 1, Group 2, Group 3 and Group 4':'గ్రూప్ 1, గ్రూప్ 2, గ్రూప్ 3 మరియు గ్రూప్ 4','NTPC, Group D, ALP and Technician':'NTPC, గ్రూప్ D, ALP మరియు టెక్నీషియన్'})[exam.desc] || exam.desc)}</Text>
                 </View>
-                <Text style={{fontSize:22,color:'#087F67'}}>›</Text>
+                <View style={{width:38,height:38,borderRadius:19,backgroundColor:darkMode?'#145B50':'#0D987A',alignItems:'center',justifyContent:'center',marginLeft:8,elevation:4}}><Text style={{fontSize:27,fontWeight:'900',color:'#FFFFFF'}}>›</Text></View>
               </TouchableOpacity>
             ))}
 
-            {page === 'SSC Courses' && <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>{[
+            {page === 'SSC Courses' && <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>
+              {[
+                {title:'SSC GD',icon:'🛡️',accent:'#2563EB',tint:'#E8F0FF'},
+                {title:'SSC CGL',icon:'🏛️',accent:'#7C3AED',tint:'#F0EAFE'},
+                {title:'SSC CHSL',icon:'📋',accent:'#059669',tint:'#DDF8EE'},
+                {title:'SSC MTS',icon:'📚',accent:'#D97706',tint:'#FFF0D8'},
+                {title:'SSC JE',icon:'⚙️',accent:'#0891B2',tint:'#DDF7FC'},
+                {title:'SSC CPO',icon:'👮',accent:'#DB2777',tint:'#FCE7F3'}
+              ].map(exam => (
+                <TouchableOpacity key={exam.title} onPress={() => setPage('SSC Exam: ' + exam.title)} style={{width:'48.2%',backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:18,padding:screenWidth < 360 ? 7 : 11,marginTop:14,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#E0E7F2',elevation:3}}>
+                  <View style={{height:76,borderRadius:13,backgroundColor:darkMode?exam.accent+'33':exam.tint,alignItems:'center',justifyContent:'center',marginBottom:10}}>
+                    <Text style={{fontSize:34}}>{exam.icon}</Text>
+                  </View>
+                  <Text style={{fontSize:15,fontWeight:'900',color:darkMode?'#F3F6FC':'#17233B',textAlign:'center'}}>{exam.title}</Text>
+                  <Text style={{fontSize:12,color:darkMode?'#B4C1D6':'#68758B',textAlign:'center',marginTop:7}}>Open Folder →</Text>
+                </TouchableOpacity>
+              ))}
+            </View>}
+
+            {page.startsWith('SSC Exam:') && <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>{[
               {title:'SSC Mathematics',desc:'Arithmetic, algebra and topic-wise practice',price:'FREE',icon:'🧮',accent:'#8B5CF6',tint:'#F0EAFE'},
               {id:'ssc-reasoning-masterclass',title:'SSC Reasoning Masterclass',desc:'Verbal and non-verbal reasoning',price:'₹49',icon:'🧠',accent:'#2563EB',tint:'#E8F0FF'},
               {id:'ssc-general-awareness',title:'SSC General Awareness',desc:'History, geography, polity and science',price:'₹49',icon:'🌍',accent:'#059669',tint:'#DDF8EE'},
@@ -1173,7 +1552,7 @@ export default function App() {
                 <View style={{height:76,borderRadius:13,backgroundColor:darkMode?course.accent+'33':course.tint,alignItems:'center',justifyContent:'center',marginBottom:10}}>
     <Text style={{fontSize:34}}>{course.icon}</Text>
     <View style={{position:'absolute',top:5,right:5,backgroundColor:course.price==='FREE'?'#0D9668':'#D9A323',paddingHorizontal:6,paddingVertical:4,borderRadius:6}}>
-      <Text style={{fontSize:9,fontWeight:'900',color:'#FFFFFF'}}>{course.price==='FREE'?'FREE':'PREMIUM'}</Text>
+      <Text style={{fontSize:9,fontWeight:'900',color:'#35245C'}}>{course.price==='FREE'?'FREE':'PREMIUM'}</Text>
     </View>
   </View>
   <Text style={{fontSize:14,fontWeight:'900',lineHeight:19,minHeight:38,color:darkMode?'#F3F6FC':'#17233B'}}>{course.title}</Text>
@@ -1182,17 +1561,42 @@ export default function App() {
                 <TouchableOpacity
                   onPress={() => {
                     if (course.price !== 'FREE' && (unlockedCourses[course.id])) {
-                      alert('This paid course bundle is already purchased.');
+                      Alert.alert('This paid course bundle is already purchased.');
                       return;
                     }
 
                     if (course.title === 'SSC Mathematics') {
                       setPage('Quant Practice');
                     } else if (course.title === 'SSC English Foundation') {
-                      alert('English Foundation lessons will be available here soon.');
+                      Alert.alert('English Foundation lessons will be available here soon.');
                     } else {
                       if (Platform.OS !== 'web') {
-                    Linking.openURL("https://study-with-veer-payment-backend.onrender.com/checkout.html").catch(() => alert("Could not open test checkout. Please try again."));
+                    (async () => {
+                      try {
+                        const user = auth.currentUser;
+                        if (!user) throw new Error('Please log in before purchasing.');
+                        const idToken = await user.getIdToken();
+                        const response = await fetch('https://study-with-veer-payment-backend.onrender.com/create-checkout-session', {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + idToken
+                          },
+                          body: JSON.stringify({ courseId: course.id })
+                        });
+                        const data = await response.json();
+                        if (!response.ok || !data.sessionToken) {
+                          throw new Error(data.error || 'Could not start secure checkout.');
+                        }
+                        await Linking.openURL(
+                          'https://study-with-veer-payment-backend.onrender.com/checkout.html#session=' +
+                          encodeURIComponent(data.sessionToken)
+                        );
+                      } catch (error) {
+                        Alert.alert(error.message || 'Could not open checkout. Please try again.');
+                      }
+                    })();
+                      }
                     else {
                       (async () => {
                         try {
@@ -1243,7 +1647,7 @@ export default function App() {
                                 const result = await verification.json();
 
                                 if (!verification.ok || !result.verified || !result.unlocked) {
-                                  alert(result.error || 'Payment verification failed. Course access was not unlocked.');
+                                  Alert.alert(result.error || 'Payment verification failed. Course access was not unlocked.');
                                   return;
                                 }
 
@@ -1260,16 +1664,16 @@ export default function App() {
                                   }
                                 }
 
-                                alert('Payment verified. Course access has been saved.');
+                                Alert.alert('Payment verified. Course access has been saved.');
                               } catch (error) {
-                                alert('Could not verify payment. Please contact support.');
+                                Alert.alert('Could not verify payment. Please contact support.');
                               }
                             }
                           };
 
                           new window.Razorpay(options).open();
                         } catch (error) {
-                          alert(error.message || 'Could not open Razorpay checkout.');
+                          Alert.alert(error.message || 'Could not open Razorpay checkout.');
                         }
                       })();
                     }
@@ -1294,13 +1698,13 @@ export default function App() {
                 <View style={{height:76,borderRadius:13,backgroundColor:darkMode?exam.accent+'33':exam.tint,alignItems:'center',justifyContent:'center',marginBottom:10}}>
                   <Text style={{fontSize:34}}>{exam.icon}</Text>
                   <View style={{position:'absolute',top:5,right:5,backgroundColor:'#D9A323',paddingHorizontal:6,paddingVertical:4,borderRadius:6}}>
-                    <Text style={{fontSize:9,fontWeight:'900',color:'#FFFFFF'}}>PREMIUM</Text>
+                    <Text style={{fontSize:9,fontWeight:'900',color:'#35245C'}}>PREMIUM</Text>
                   </View>
                 </View>
                 <Text style={{fontSize:15,fontWeight:'900',color:darkMode?'#F3F6FC':'#17233B',minHeight:38}}>{exam.title}</Text>
                 <Text style={{fontSize:11,lineHeight:16,minHeight:48,color:darkMode?'#B4C1D6':'#68758B',marginTop:5}}>{t('Telangana history, polity, economy and general studies','తెలంగాణ చరిత్ర, రాజ్యాంగం, ఆర్థిక వ్యవస్థ మరియు జనరల్ స్టడీస్')}</Text>
                 <Text style={{fontSize:16,fontWeight:'900',color:darkMode?'#F6C453':'#B77908',marginTop:7}}>₹49</Text>
-                <TouchableOpacity onPress={() => alert(exam.title + ' course content will be added next.')} style={{backgroundColor:darkMode?'#2563EB':'#2457D6',paddingVertical:11,paddingHorizontal:4,borderRadius:10,alignItems:'center',marginTop:10,minHeight:40,justifyContent:'center'}}>
+                <TouchableOpacity onPress={() => Alert.alert(exam.title + ' course content will be added next.')} style={{backgroundColor:darkMode?'#2563EB':'#2457D6',paddingVertical:11,paddingHorizontal:4,borderRadius:10,alignItems:'center',marginTop:10,minHeight:40,justifyContent:'center'}}>
                   <Text style={{color:'#FFFFFF',fontSize:12,fontWeight:'800',textAlign:'center'}}>{t('Explore Course →','కోర్సును చూడండి →')}</Text>
                 </TouchableOpacity>
               </View>
@@ -1318,18 +1722,125 @@ export default function App() {
                 <View style={{height:76,borderRadius:13,backgroundColor:darkMode?exam.accent+'33':exam.tint,alignItems:'center',justifyContent:'center',marginBottom:10}}>
                   <Text style={{fontSize:34}}>{exam.icon}</Text>
                   <View style={{position:'absolute',top:5,right:5,backgroundColor:'#D9A323',paddingHorizontal:6,paddingVertical:4,borderRadius:6}}>
-                    <Text style={{fontSize:9,fontWeight:'900',color:'#FFFFFF'}}>PREMIUM</Text>
+                    <Text style={{fontSize:9,fontWeight:'900',color:'#35245C'}}>PREMIUM</Text>
                   </View>
                 </View>
                 <Text style={{fontSize:15,fontWeight:'900',color:darkMode?'#F3F6FC':'#17233B',minHeight:38}}>{exam.title}</Text>
                 <Text style={{fontSize:11,lineHeight:16,minHeight:48,color:darkMode?'#B4C1D6':'#68758B',marginTop:5}}>{t('Mathematics, reasoning, general science and awareness','గణితం, రీజనింగ్, జనరల్ సైన్స్ మరియు జనరల్ అవేర్‌నెస్')}</Text>
                 <Text style={{fontSize:16,fontWeight:'900',color:darkMode?'#F6C453':'#B77908',marginTop:7}}>₹49</Text>
-                <TouchableOpacity onPress={() => alert(exam.title + ' course content will be added next.')} style={{backgroundColor:darkMode?'#2563EB':'#2457D6',paddingVertical:11,paddingHorizontal:4,borderRadius:10,alignItems:'center',marginTop:10,minHeight:40,justifyContent:'center'}}>
+                <TouchableOpacity onPress={() => Alert.alert(exam.title + ' course content will be added next.')} style={{backgroundColor:darkMode?'#2563EB':'#2457D6',paddingVertical:11,paddingHorizontal:4,borderRadius:10,alignItems:'center',marginTop:10,minHeight:40,justifyContent:'center'}}>
                   <Text style={{color:'#FFFFFF',fontSize:12,fontWeight:'800',textAlign:'center'}}>Explore Course →</Text>
                 </TouchableOpacity>
               </View>
             ))}
           </View>}          </View>
+        </>}
+
+        {page === 'Free Courses' && <>
+          <View style={{padding:18}}>
+            <TouchableOpacity onPress={() => setPage('Home')} style={{paddingVertical:10}}>
+              <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'800'}}>← Back to Home</Text>
+            </TouchableOpacity>
+            <Text style={[styles.pageTitle,{color:mainText,marginTop:8}]}>Free Courses</Text>
+            <Text style={{color:mutedText,marginTop:5}}>Learn for free with these courses.</Text>
+            {[
+              {title:'SSC Mathematics',desc:'Arithmetic and topic-wise practice',icon:'🧮',action:() => setPage('Quant Practice')},
+              {title:'SSC English Foundation',desc:'Grammar and vocabulary basics',icon:'📚',action:() => setPage('SSC English Folders')}
+            ].map(course => (
+              <View key={course.title} style={{backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:18,padding:16,marginTop:16,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5'}}>
+                <View style={{flexDirection:'row',alignItems:'center'}}>
+                  <Text style={{fontSize:32,marginRight:12}}>{course.icon}</Text>
+                  <View style={{flex:1}}>
+                    <Text style={{fontSize:16,fontWeight:'900',color:mainText}}>{course.title}</Text>
+                    <Text style={{fontSize:12,color:mutedText,marginTop:5}}>{course.desc}</Text>
+                  </View>
+                  <Text style={{color:'#0D9668',fontWeight:'900'}}>FREE</Text>
+                </View>
+                <TouchableOpacity onPress={course.action} style={{backgroundColor:'#0D9668',padding:12,borderRadius:10,alignItems:'center',marginTop:15}}>
+                  <Text style={{color:'#FFFFFF',fontWeight:'800'}}>Start Learning →</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        </>}
+
+        {page === 'SSC English Folders' && <>
+          <View style={{padding:18}}>
+            <TouchableOpacity onPress={() => setPage('Free Courses')} style={{paddingVertical:10}}>
+              <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'800'}}>← Back to Free Courses</Text>
+            </TouchableOpacity>
+            <Text style={[styles.pageTitle,{color:mainText,marginTop:8}]}>SSC English Foundation</Text>
+            <Text style={{color:mutedText,marginTop:5}}>English Syllabus • Topic-wise Folders</Text>
+            {[
+              'Articles','Prepositions','Nouns','Pronouns','Verbs','Tenses',
+              'Subject-Verb Agreement','Adjectives & Adverbs','Conjunctions',
+              'Active & Passive Voice','Direct & Indirect Speech',
+              'Error Spotting','Sentence Improvement','Fill in the Blanks',
+              'Cloze Test','Reading Comprehension','Synonyms & Antonyms',
+              'One Word Substitution','Idioms & Phrases','Spelling Correction'
+            ].map((topic,index) => (
+              <TouchableOpacity key={topic} onPress={() => setPage('SSC English Topic: '+topic)}
+                style={{flexDirection:'row',alignItems:'center',padding:15,marginTop:10,borderRadius:13,backgroundColor:darkMode?'#17243B':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5'}}>
+                <View style={{width:36,height:36,borderRadius:10,backgroundColor:darkMode?'#0D966833':'#E3F4EE',alignItems:'center',justifyContent:'center',marginRight:12}}>
+                  <Text style={{fontWeight:'900',color:darkMode?'#6EE7B7':'#087F67'}}>{index+1}</Text>
+                </View>
+                <Text style={{flex:1,fontSize:15,fontWeight:'800',color:mainText}}>{topic}</Text>
+                <Text style={{fontSize:20,color:mutedText}}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>}
+
+        {page.startsWith('SSC English Topic: ') && <>
+          <View style={{padding:18}}>
+            <TouchableOpacity onPress={() => setPage('SSC English Folders')} style={{paddingVertical:10}}>
+              <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'800'}}>← Back to English Syllabus</Text>
+            </TouchableOpacity>
+            <Text style={[styles.pageTitle,{color:mainText,marginTop:8}]}>{page.replace('SSC English Topic: ','')}</Text>
+            {page.replace('SSC English Topic: ','') === 'Articles' ? (
+              <TouchableOpacity
+                onPress={async () => {
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert('Please log in to view Articles.');
+      return;
+    }
+    const headers = { Authorization: 'Bearer ' + await user.getIdToken() };
+    let response = await fetch(ARTICLES_API + '/english/articles-full-url', { headers });
+    let result = await response.json();
+    if (response.ok && result.url) {
+      await Linking.openURL(result.url);
+      return;
+    }
+    if (response.status !== 403) {
+      Alert.alert(result.error || 'Could not open Articles PDF.');
+      return;
+    }
+    response = await fetch(ARTICLES_API + '/english/articles-preview-url', { headers });
+    result = await response.json();
+    if (!response.ok || !result.url) {
+      Alert.alert(result.error || 'Could not open Articles preview.');
+      return;
+    }
+    await Linking.openURL(result.url);
+  } catch (error) {
+    Alert.alert('Could not open Articles PDF. Please try again.');
+  }
+}}
+                style={{marginTop:18,padding:20,borderRadius:16,backgroundColor:darkMode?'#17243B':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5',alignItems:'center'}}>
+                <Text style={{fontSize:36}}>📄</Text>
+                <Text style={{fontSize:17,fontWeight:'900',color:mainText,marginTop:10}}>Articles PDF</Text>
+                <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'800',marginTop:12}}>Open PDF ↗</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={{marginTop:18,padding:20,borderRadius:16,backgroundColor:darkMode?'#17243B':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5',alignItems:'center'}}>
+                <Text style={{fontSize:36}}>📚</Text>
+                <Text style={{fontSize:17,fontWeight:'900',color:mainText,marginTop:10}}>Study Material Coming Soon</Text>
+                <Text style={{color:mutedText,textAlign:'center',marginTop:8}}>This folder is ready. Lessons, rules, examples and practice questions can be added later.</Text>
+              </View>
+            )}
+          </View>
         </>}
 
         {page === 'Quant Practice' && <>
@@ -1418,7 +1929,7 @@ export default function App() {
                     setQuantFinished(false);
                   }}
                   style={{backgroundColor:'#087F67',padding:14,borderRadius:12,marginTop:20}}>
-                  <Text style={{color:'#FFFFFF',fontWeight:'900',textAlign:'center'}}>
+                  <Text style={{color:'#35245C',fontWeight:'900',textAlign:'center'}}>
                     {t('Retry Practice','మళ్లీ సాధన చేయండి')}
                   </Text>
                 </TouchableOpacity>
@@ -1486,7 +1997,7 @@ export default function App() {
                       }
                     }}
                     style={{backgroundColor:'#087F67',padding:14,borderRadius:12,marginTop:18}}>
-                    <Text style={{color:'#FFFFFF',fontWeight:'900',textAlign:'center'}}>
+                    <Text style={{color:'#35245C',fontWeight:'900',textAlign:'center'}}>
                       {quantQuestion + 1 < quantQuestions.length ? t('Next Question →','తదుపరి ప్రశ్న →') : t('View Final Score','తుది స్కోరు చూడండి')}
                     </Text>
                   </TouchableOpacity>
@@ -1670,6 +2181,22 @@ export default function App() {
           </View>
         </>}
 
+        {page === 'Chat' && <>
+          <View style={{padding:18}}>
+            <Text style={styles.pageTitle}>Chat</Text>
+            <Text style={[styles.muted,{color:mutedText}]}>
+              Connect with the admin for study-related help.
+            </Text>
+            <View style={{padding:24,marginTop:18,borderRadius:18,backgroundColor:darkMode?'#1E293B':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#334155':'#DCE5F5',alignItems:'center'}}>
+              <Text style={{fontSize:48}}>💬</Text>
+              <Text style={{fontSize:19,fontWeight:'900',color:mainText,marginTop:12}}>Student Support Chat</Text>
+              <Text style={{color:mutedText,textAlign:'center',marginTop:8}}>
+                Chat feature coming soon. Student-admin messaging will be enabled after backend setup.
+              </Text>
+            </View>
+          </View>
+        </>}
+
         {page === 'Downloads' && <>
           <View style={{padding:18}}>
             <Text style={styles.pageTitle}>Downloads</Text>
@@ -1724,7 +2251,7 @@ const styles = StyleSheet.create({
   app: {flex:1, backgroundColor:BG},
   loginPage: {flex:1, backgroundColor:BLUE, justifyContent:'center', padding:24},
   logo: {fontSize:48, textAlign:'center'},
-  brand: {fontSize:27, fontWeight:'900', color:'#FFFFFF', textAlign:'center', marginTop:8},
+  brand: {fontSize:27, fontWeight:'900', color:'#35245C', textAlign:'center', marginTop:8},
   tagline: {color:'#D8E4FF', textAlign:'center', marginTop:6, marginBottom:28},
   loginCard: {backgroundColor:'#FFFFFF', borderRadius:22, padding:22},
   heading: {fontSize:25, fontWeight:'800', color:'#172B55'},
@@ -1737,12 +2264,12 @@ const styles = StyleSheet.create({
   note: {fontSize:11, color:'#77839A', textAlign:'center', marginTop:14},
   header: {backgroundColor:BLUE, paddingHorizontal:20, paddingTop:22, paddingBottom:22, minHeight:88, flexDirection:'row', alignItems:'center', justifyContent:'space-between'},
   headerSmall: {color:'#CFDDFF', fontSize:12, letterSpacing:1.5},
-  headerTitle: {color:'#FFFFFF', fontSize:22, fontWeight:'900', marginTop:5},
+  headerTitle: {color:'#35245C', fontSize:22, fontWeight:'900', marginTop:5},
   headerIcon: {fontSize:28},
   content: {flex:1},
   hero: {backgroundColor:BLUE, margin:16, borderRadius:20, padding:20},
   heroSmall: {color:'#C8D9FF', fontSize:10, letterSpacing:1.5, fontWeight:'700'},
-  heroTitle: {color:'#FFFFFF', fontSize:27, fontWeight:'900', marginTop:12, lineHeight:34},
+  heroTitle: {color:'#35245C', fontSize:27, fontWeight:'900', marginTop:12, lineHeight:34},
   heroDesc: {color:'#E0E9FF', fontSize:13, marginTop:8},
   sectionTitle: {fontSize:17, fontWeight:'800', color:'#172B55', marginHorizontal:16, marginTop:18, marginBottom:10},
   statsRow: {flexDirection:'row', marginHorizontal:12, marginTop:8},

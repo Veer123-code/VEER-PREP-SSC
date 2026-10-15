@@ -35,6 +35,7 @@
     "owner": "veer-team",
     "plugins": [
       "expo-font"
-    ]
+    ],
+    "scheme": "studywithveer"
   }
 }

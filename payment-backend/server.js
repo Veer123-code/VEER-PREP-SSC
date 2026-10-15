@@ -1,6 +1,15 @@
 require('dotenv').config();
 
 const express = require('express');
+const { createClient } = require("@supabase/supabase-js");
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
+if (!supabaseUrl || !supabaseSecretKey) {
+  console.error('Supabase server environment variables are missing.');
+  process.exit(1);
+}
+const supabase = createClient(supabaseUrl, supabaseSecretKey);
+
 const cors = require('cors');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
@@ -362,6 +371,36 @@ app.get('/my-courses', async (req, res) => {
   } catch (error) {
     console.error('Course access lookup failed:', error.message);
     return res.status(500).json({ error: 'Could not load course access.' });
+  }
+});
+
+app.get('/english/articles-preview-url', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Please log in to view the preview.' });
+    const result = await supabase.storage.from('English -pdfs').createSignedUrl('Articles/Articles preview.pdf', 60);
+    if (result.error) throw result.error;
+    return res.json({ url: result.data.signedUrl, expiresIn: 60 });
+  } catch (error) {
+    console.error('Articles preview access failed:', error.message);
+    return res.status(500).json({ error: 'Could not open the Articles preview.' });
+  }
+});
+
+app.get('/english/articles-full-url', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Please log in to access the full PDF.' });
+    const unlocks = readUnlocks();
+    const courses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
+    const eligible = courses['ssc-reasoning-masterclass'] || courses['ssc-general-awareness'] || courses['english-articles-pdf'];
+    if (!eligible) return res.status(403).json({ error: 'Full PDF requires an eligible course purchase or Articles PDF purchase.' });
+    const result = await supabase.storage.from('English -pdfs').createSignedUrl('Articles/Articles notes.pdf', 60);
+    if (result.error) throw result.error;
+    return res.json({ url: result.data.signedUrl, expiresIn: 60 });
+  } catch (error) {
+    console.error('Articles full PDF access failed:', error.message);
+    return res.status(500).json({ error: 'Could not open the full Articles PDF.' });
   }
 });
 
