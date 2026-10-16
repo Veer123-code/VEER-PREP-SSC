@@ -421,7 +421,8 @@ app.get('/english/topic-pdf-url', async (req, res) => {
       'Adjectives & Adverbs': 'Adjectives/Adjective notes.pdf',
       'Conjunctions': 'Conjunction/Conjunction notes.pdf',
       'Active & Passive Voice': 'Active and Passive/Active and passive voice notes2.pdf',
-      'Cloze Test': 'Cloze tests/Cloze test notes.pdf'
+      'Cloze Test': 'Cloze tests/Cloze test notes.pdf',
+      'Question Tags': 'Question Tags/Questions tags.pdf'
     };
 
     const filePath = topicFiles[req.query.topic];
