@@ -1842,6 +1842,15 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
                   result = await response.json();
 
+                  if (response.status === 403) {
+                    const studentName =
+                      auth.currentUser?.displayName ||
+                      auth.currentUser?.email?.split('@')[0] ||
+                      'Student';
+                    setPurchasePopupName(studentName);
+                    return;
+                  }
+
                   if (!response.ok || !result.url) {
                     Alert.alert(result.error || 'PDF not available for this topic yet.');
                     return;
