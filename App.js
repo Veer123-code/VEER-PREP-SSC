@@ -1791,55 +1791,66 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           </View>
         </>}
 
+
         {page.startsWith('SSC English Topic: ') && <>
           <View style={{padding:18}}>
             <TouchableOpacity onPress={() => setPage('SSC English Folders')} style={{paddingVertical:10}}>
               <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'800'}}>← Back to English Syllabus</Text>
             </TouchableOpacity>
             <Text style={[styles.pageTitle,{color:mainText,marginTop:8}]}>{page.replace('SSC English Topic: ','')}</Text>
-            {page.replace('SSC English Topic: ','') === 'Articles' ? (
-              <TouchableOpacity
-                onPress={async () => {
-  try {
-    const user = auth.currentUser;
-    if (!user) {
-      Alert.alert('Please log in to view Articles.');
-      return;
-    }
-    const headers = { Authorization: 'Bearer ' + await user.getIdToken() };
-    let response = await fetch(ARTICLES_API + '/english/articles-full-url', { headers });
-    let result = await response.json();
-    if (response.ok && result.url) {
-      await Linking.openURL(result.url);
-      return;
-    }
-    if (response.status !== 403) {
-      Alert.alert(result.error || 'Could not open Articles PDF.');
-      return;
-    }
-    response = await fetch(ARTICLES_API + '/english/articles-preview-url', { headers });
-    result = await response.json();
-    if (!response.ok || !result.url) {
-      Alert.alert(result.error || 'Could not open Articles preview.');
-      return;
-    }
-    await Linking.openURL(result.url);
-  } catch (error) {
-    Alert.alert('Could not open Articles PDF. Please try again.');
-  }
-}}
-                style={{marginTop:18,padding:20,borderRadius:16,backgroundColor:darkMode?'#17243B':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5',alignItems:'center'}}>
-                <Text style={{fontSize:36}}>📄</Text>
-                <Text style={{fontSize:17,fontWeight:'900',color:mainText,marginTop:10}}>Articles PDF</Text>
-                <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'800',marginTop:12}}>Open PDF ↗</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={{marginTop:18,padding:20,borderRadius:16,backgroundColor:darkMode?'#17243B':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5',alignItems:'center'}}>
-                <Text style={{fontSize:36}}>📚</Text>
-                <Text style={{fontSize:17,fontWeight:'900',color:mainText,marginTop:10}}>Study Material Coming Soon</Text>
-                <Text style={{color:mutedText,textAlign:'center',marginTop:8}}>This folder is ready. Lessons, rules, examples and practice questions can be added later.</Text>
-              </View>
-            )}
+            <TouchableOpacity
+              onPress={async () => {
+                const topic = page.replace('SSC English Topic: ','');
+                try {
+                  const user = auth.currentUser;
+                  if (!user) {
+                    Alert.alert('Please log in to view English study material.');
+                    return;
+                  }
+
+                  const headers = { Authorization: 'Bearer ' + await user.getIdToken() };
+                  let response;
+                  let result;
+
+                  if (topic === 'Articles') {
+                    response = await fetch(ARTICLES_API + '/english/articles-full-url', {headers});
+                    result = await response.json();
+
+                    if (response.ok && result.url) {
+                      await Linking.openURL(result.url);
+                      return;
+                    }
+
+                    if (response.status !== 403) {
+                      Alert.alert(result.error || 'Could not open Articles PDF.');
+                      return;
+                    }
+
+                    response = await fetch(ARTICLES_API + '/english/articles-preview-url', {headers});
+                  } else {
+                    response = await fetch(
+                      ARTICLES_API + '/english/topic-pdf-url?topic=' + encodeURIComponent(topic),
+                      {headers}
+                    );
+                  }
+
+                  result = await response.json();
+
+                  if (!response.ok || !result.url) {
+                    Alert.alert(result.error || 'PDF not available for this topic yet.');
+                    return;
+                  }
+
+                  await Linking.openURL(result.url);
+                } catch (error) {
+                  Alert.alert('Could not open PDF. Please try again.');
+                }
+              }}
+              style={{marginTop:18,padding:20,borderRadius:16,backgroundColor:darkMode?'#17243B':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5',alignItems:'center'}}>
+              <Text style={{fontSize:36}}>📄</Text>
+              <Text style={{fontSize:17,fontWeight:'900',color:mainText,marginTop:10}}>{page.replace('SSC English Topic: ','')} PDF</Text>
+              <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'800',marginTop:12}}>Open PDF ↗</Text>
+            </TouchableOpacity>
           </View>
         </>}
 

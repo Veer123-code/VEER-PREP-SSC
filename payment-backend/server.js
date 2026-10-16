@@ -404,6 +404,44 @@ app.get('/english/articles-full-url', async (req, res) => {
   }
 });
 
+
+app.get('/english/topic-pdf-url', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Please log in to view English study material.' });
+    }
+
+    const topicFiles = {
+      'Nouns': 'Nouns/Nouns notes.pdf',
+      'Pronouns': 'Pronoun/pronoun notes.pdf',
+      'Verbs': 'Verb tenses/Verb tense notes.pdf',
+      'Tenses': 'Tenses/Tense notes.pdf',
+      'Subject-Verb Agreement': 'Concord/Concord notes.pdf',
+      'Adjectives & Adverbs': 'Adjectives/Adjective notes.pdf',
+      'Conjunctions': 'Conjunction/Conjunction notes.pdf',
+      'Active & Passive Voice': 'Active and Passive/Active and passive voice notes2.pdf',
+      'Cloze Test': 'Cloze tests/Cloze test notes.pdf'
+    };
+
+    const filePath = topicFiles[req.query.topic];
+    if (!filePath) {
+      return res.status(404).json({ error: 'No matching PDF is available for this topic yet.' });
+    }
+
+    const result = await supabase.storage
+      .from('English -pdfs')
+      .createSignedUrl(filePath, 60);
+
+    if (result.error) throw result.error;
+
+    return res.json({ url: result.data.signedUrl, expiresIn: 60 });
+  } catch (error) {
+    console.error('English topic PDF access failed:', error.message);
+    return res.status(500).json({ error: 'Could not open this English PDF.' });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, '0.0.0.0', () => {
