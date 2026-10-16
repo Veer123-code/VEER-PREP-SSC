@@ -1393,8 +1393,8 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             ))}
             </View>
           
-            <TouchableOpacity onPress={() => setPage('Home')} style={{backgroundColor:BLUE,paddingVertical:16,borderRadius:30,alignItems:'center',justifyContent:'center',marginTop:24,marginBottom:12}}>
-              <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'800'}}>🏠  ← Back to Home</Text>
+            <TouchableOpacity onPress={() => setPage('Home')} style={{paddingVertical:16,paddingHorizontal:18,marginTop:4,marginBottom:8,borderRadius:14,backgroundColor:darkMode?'#173B35':'#E3F4EE',borderWidth:1,borderColor:darkMode?'#2D7668':'#A7DCCB',alignItems:'center',justifyContent:'center',minHeight:58}}>
+              <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'900',fontSize:17}}>{'🏠  ← Back to Home'}</Text>
             </TouchableOpacity>
           </View>
         </>}
@@ -1409,8 +1409,8 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               </TouchableOpacity>
             </View>
           
-      <TouchableOpacity onPress={() => setPage('Home')} style={{backgroundColor:BLUE,paddingVertical:16,borderRadius:30,alignItems:'center',justifyContent:'center',marginTop:24,marginBottom:12}}>
-        <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'800'}}>🏠  ← Back to Home</Text>
+      <TouchableOpacity onPress={() => setPage('Home')} style={{paddingVertical:16,paddingHorizontal:18,marginTop:4,marginBottom:8,borderRadius:14,backgroundColor:darkMode?'#173B35':'#E3F4EE',borderWidth:1,borderColor:darkMode?'#2D7668':'#A7DCCB',alignItems:'center',justifyContent:'center',minHeight:58}}>
+        <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'900',fontSize:17}}>{'🏠  ← Back to Home'}</Text>
       </TouchableOpacity></>}
           
 {page === 'Free Ebooks' && <>
@@ -1429,8 +1429,8 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
     </TouchableOpacity>
   </View>
 
-      <TouchableOpacity onPress={() => setPage('Home')} style={{backgroundColor:BLUE,paddingVertical:16,borderRadius:30,alignItems:'center',justifyContent:'center',marginTop:24,marginBottom:12}}>
-        <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'800'}}>🏠  ← Back to Home</Text>
+      <TouchableOpacity onPress={() => setPage('Home')} style={{paddingVertical:16,paddingHorizontal:18,marginTop:4,marginBottom:8,borderRadius:14,backgroundColor:darkMode?'#173B35':'#E3F4EE',borderWidth:1,borderColor:darkMode?'#2D7668':'#A7DCCB',alignItems:'center',justifyContent:'center',minHeight:58}}>
+        <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'900',fontSize:17}}>{'🏠  ← Back to Home'}</Text>
       </TouchableOpacity></>}
 
 {page === 'Previous Year Papers' && <>
@@ -1445,8 +1445,8 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               ))}
             </View>
           
-      <TouchableOpacity onPress={() => setPage('Home')} style={{backgroundColor:BLUE,paddingVertical:16,borderRadius:30,alignItems:'center',justifyContent:'center',marginTop:24,marginBottom:12}}>
-        <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'800'}}>🏠  ← Back to Home</Text>
+      <TouchableOpacity onPress={() => setPage('Home')} style={{paddingVertical:16,paddingHorizontal:18,marginTop:4,marginBottom:8,borderRadius:14,backgroundColor:darkMode?'#173B35':'#E3F4EE',borderWidth:1,borderColor:darkMode?'#2D7668':'#A7DCCB',alignItems:'center',justifyContent:'center',minHeight:58}}>
+        <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'900',fontSize:17}}>{'🏠  ← Back to Home'}</Text>
       </TouchableOpacity></>}
           {['SSC Papers','RRB Papers','TGPSC Papers'].includes(page) && <>
             <View style={{padding:18}}>
@@ -1739,7 +1739,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
         {page === 'Free Courses' && <>
           <View style={{padding:18}}>
-            <TouchableOpacity onPress={() => setPage('Home')} style={{paddingVertical:10}}>
+            <TouchableOpacity onPress={() => setPage('Home')} style={{paddingVertical:16,paddingHorizontal:18,marginTop:4,marginBottom:8,borderRadius:14,backgroundColor:darkMode?'#173B35':'#E3F4EE',borderWidth:1,borderColor:darkMode?'#2D7668':'#A7DCCB',alignItems:'center',justifyContent:'center',minHeight:58}}>
               <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'800'}}>← Back to Home</Text>
             </TouchableOpacity>
             <Text style={[styles.pageTitle,{color:mainText,marginTop:8}]}>Free Courses</Text>
@@ -1869,8 +1869,8 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         {page === 'Quant Practice' && <>
           <View style={{padding:18}}>
             <TouchableOpacity onPress={() => setPage('Courses')}
-              style={{paddingVertical:8}}>
-              <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'800'}}>{t('← Back to Courses','← కోర్సులకు తిరిగి వెళ్లండి')}</Text>
+              style={{paddingVertical:16,paddingHorizontal:18,marginTop:4,marginBottom:8,borderRadius:14,backgroundColor:darkMode?'#173B35':'#E3F4EE',borderWidth:1,borderColor:darkMode?'#2D7668':'#A7DCCB',alignItems:'center',justifyContent:'center',minHeight:58}}>
+              <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'900',fontSize:17}}>{t('← Back to Courses','← కోర్సులకు తిరిగి వెళ్లండి')}</Text>
             </TouchableOpacity>
             <Text style={{fontSize:25,fontWeight:'900',color:'#087F67',marginTop:8}}>
               SSC Mathematics
