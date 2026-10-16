@@ -1491,14 +1491,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         </>}
 
         {(page === 'Courses' || page === 'SSC Courses' || page === 'TGPSC Courses' || page === 'RRB Courses' || page.startsWith('SSC Exam:')) && <>
-          <View style={{padding:18}}>
-            <TouchableOpacity
-              onPress={() => setPage(page.startsWith('SSC Exam:') ? 'SSC Courses' : page === 'Courses' ? 'Home' : 'Courses')}
-              style={{paddingVertical:8}}>
-              <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'800'}}>
-                ← {page === 'Courses' ? t('Back to Home','హోమ్‌కు తిరిగి వెళ్లండి') : page.startsWith('SSC Exam:') ? t('Back to SSC Folders','SSC ఫోల్డర్లకు తిరిగి వెళ్లండి') : t('All Exam Categories','అన్ని పరీక్షల విభాగాలు')}
-              </Text>
-            </TouchableOpacity>
+
 
             <Text style={{fontSize:25,fontWeight:'900',color:'#087F67',marginTop:8}}>
               {page === 'Courses' ? t('Choose Your Exam','మీ పరీక్షను ఎంచుకోండి') : page.startsWith('SSC Exam:') ? page.replace('SSC Exam: ','') : page === 'SSC Courses' ? t('SSC Exams','SSC పరీక్షలు') : page === 'TGPSC Courses' ? t('TGPSC Exams','TGPSC పరీక్షలు') : t('RRB Exams','RRB పరీక్షలు')}
@@ -1523,6 +1516,15 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 <View style={{width:38,height:38,borderRadius:19,backgroundColor:darkMode?'#145B50':'#0D987A',alignItems:'center',justifyContent:'center',marginLeft:8,elevation:4}}><Text style={{fontSize:27,fontWeight:'900',color:'#FFFFFF'}}>›</Text></View>
               </TouchableOpacity>
             ))}
+
+          <View style={{padding:18}}>
+            <TouchableOpacity
+              onPress={() => setPage(page.startsWith('SSC Exam:') ? 'SSC Courses' : page === 'Courses' ? 'Home' : 'Courses')}
+              style={{paddingVertical:16,paddingHorizontal:18,marginTop:4,marginBottom:8,borderRadius:14,backgroundColor:darkMode?'#173B35':'#E3F4EE',borderWidth:1,borderColor:darkMode?'#2D7668':'#A7DCCB',alignItems:'center',justifyContent:'center',minHeight:58}}>
+              <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'800'}}>
+                ← {page === 'Courses' ? t('Back to Home','హోమ్‌కు తిరిగి వెళ్లండి') : page.startsWith('SSC Exam:') ? t('Back to SSC Folders','SSC ఫోల్డర్లకు తిరిగి వెళ్లండి') : t('All Exam Categories','అన్ని పరీక్షల విభాగాలు')}
+              </Text>
+            </TouchableOpacity>
 
             {page === 'SSC Courses' && <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>
               {[
