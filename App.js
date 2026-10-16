@@ -1773,13 +1773,9 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             <Text style={[styles.pageTitle,{color:mainText,marginTop:8}]}>SSC English Foundation</Text>
             <Text style={{color:mutedText,marginTop:5}}>English Syllabus • Topic-wise Folders</Text>
             {[
-              'Articles','Prepositions','Nouns','Pronouns','Verbs','Tenses',
+  'Articles','Nouns','Pronouns','Verbs','Tenses',
               'Subject-Verb Agreement','Adjectives & Adverbs','Conjunctions',
-              'Active & Passive Voice','Direct & Indirect Speech',
-              'Error Spotting','Sentence Improvement','Fill in the Blanks',
-              'Cloze Test','Question Tags','Reading Comprehension','Synonyms & Antonyms',
-              'One Word Substitution','Idioms & Phrases','Spelling Correction'
-            ].map((topic,index) => (
+              'Active & Passive Voice','Cloze Test','Question Tags',].map((topic,index) => (
               <TouchableOpacity key={topic} onPress={() => setPage('SSC English Topic: '+topic)}
                 style={{flexDirection:'row',alignItems:'center',padding:15,marginTop:10,borderRadius:13,backgroundColor:darkMode?'#17243B':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5'}}>
                 <View style={{width:36,height:36,borderRadius:10,backgroundColor:darkMode?'#0D966833':'#E3F4EE',alignItems:'center',justifyContent:'center',marginRight:12}}>
