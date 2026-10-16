@@ -1791,8 +1791,8 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
         {page.startsWith('SSC English Topic: ') && <>
           <View style={{padding:18}}>
-            <TouchableOpacity onPress={() => setPage('SSC English Folders')} style={{paddingVertical:10}}>
-              <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'800'}}>← Back to English Syllabus</Text>
+            <TouchableOpacity onPress={() => setPage('SSC English Folders')} style={{paddingVertical:16,paddingHorizontal:18,marginTop:4,marginBottom:8,borderRadius:14,backgroundColor:darkMode?'#173B35':'#E3F4EE',borderWidth:1,borderColor:darkMode?'#2D7668':'#A7DCCB',alignItems:'center',justifyContent:'center',minHeight:58}}>
+              <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'900',fontSize:17}}>← Back to English Syllabus</Text>
             </TouchableOpacity>
             <Text style={[styles.pageTitle,{color:mainText,marginTop:8}]}>{page.replace('SSC English Topic: ','')}</Text>
             <TouchableOpacity
