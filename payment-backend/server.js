@@ -430,6 +430,18 @@ app.get('/english/topic-pdf-url', async (req, res) => {
       return res.status(404).json({ error: 'No matching PDF is available for this topic yet.' });
     }
 
+    const unlocks = readUnlocks();
+    const courses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
+    const eligible = courses['ssc-reasoning-masterclass'] ||
+      courses['ssc-general-awareness'] ||
+      courses['english-articles-pdf'];
+
+    if (!eligible) {
+      return res.status(403).json({
+        error: 'English study PDFs require an eligible course purchase.'
+      });
+    }
+
     const result = await supabase.storage
       .from('English -pdfs')
       .createSignedUrl(filePath, 60);

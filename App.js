@@ -74,6 +74,7 @@ export default function App() {
   const mainText = darkMode ? '#F1F5F9' : '#102A56';
   const mutedText = darkMode ? '#B0BDD0' : '#64748B';
   const [authError, setAuthError] = useState('');
+  const [purchasePopupName, setPurchasePopupName] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
   const [fullName, setFullName] = useState('');
 const [fullNameFocused, setFullNameFocused] = useState(false);
@@ -1776,7 +1777,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               'Subject-Verb Agreement','Adjectives & Adverbs','Conjunctions',
               'Active & Passive Voice','Direct & Indirect Speech',
               'Error Spotting','Sentence Improvement','Fill in the Blanks',
-              'Cloze Test','Reading Comprehension','Synonyms & Antonyms',
+              'Cloze Test','Question Tags','Reading Comprehension','Synonyms & Antonyms',
               'One Word Substitution','Idioms & Phrases','Spelling Correction'
             ].map((topic,index) => (
               <TouchableOpacity key={topic} onPress={() => setPage('SSC English Topic: '+topic)}
@@ -1821,12 +1822,17 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                       return;
                     }
 
-                    if (response.status !== 403) {
-                      Alert.alert(result.error || 'Could not open Articles PDF.');
+                    if (response.status === 403) {
+                      const studentName =
+                        user.displayName?.trim() ||
+                        user.email?.split('@')[0] ||
+                        'Student';
+                      setPurchasePopupName(studentName);
                       return;
                     }
 
-                    response = await fetch(ARTICLES_API + '/english/articles-preview-url', {headers});
+                    Alert.alert(result.error || 'Could not open Articles PDF.');
+                    return;
                   } else {
                     response = await fetch(
                       ARTICLES_API + '/english/topic-pdf-url?topic=' + encodeURIComponent(topic),
@@ -2227,7 +2233,23 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           <Text style={[styles.navLabel, page===name && styles.activeNav]}>{t(name, ({Home:'హోమ్','My Courses':'నా కోర్సులు','Live Classes':'లైవ్ తరగతులు',Downloads:'డౌన్‌లోడ్స్'})[name] || name)}</Text>
         </TouchableOpacity>)}
       </View>
-    </View>
+
+      {purchasePopupName ? (
+        <View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(15,23,42,0.62)',justifyContent:'center',alignItems:'center',padding:24,zIndex:9999,elevation:9999}}>
+          <View style={{width:'100%',maxWidth:360,backgroundColor:darkMode?'#172337':'#FFFFFF',borderRadius:24,padding:24,alignItems:'center',borderWidth:1,borderColor:darkMode?'#334155':'#E2D6FF',elevation:12}}>
+            <View style={{width:72,height:72,borderRadius:22,backgroundColor:darkMode?'#312E81':'#F3EEFF',alignItems:'center',justifyContent:'center',marginBottom:16}}>
+              <Text style={{fontSize:34}}>🔒</Text>
+            </View>
+            <Text style={{fontSize:11,fontWeight:'900',letterSpacing:1.5,color:'#7952C7'}}>STUDY WITH VEER</Text>
+            <Text style={{fontSize:22,fontWeight:'900',color:mainText,textAlign:'center',marginTop:10}}>Course Purchase Required</Text>
+            <Text style={{fontSize:15,color:mutedText,textAlign:'center',lineHeight:22,marginTop:10}}>Please purchase course first, {purchasePopupName}.</Text>
+            <TouchableOpacity onPress={() => setPurchasePopupName('')} activeOpacity={0.85} style={{marginTop:22,width:'100%',backgroundColor:'#173B83',paddingVertical:14,borderRadius:14,alignItems:'center'}}>
+              <Text style={{color:'#FFFFFF',fontSize:15,fontWeight:'900'}}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+</View>
   );
 }
 
