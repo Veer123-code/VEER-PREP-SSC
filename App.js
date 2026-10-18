@@ -65,6 +65,10 @@ export default function App() {
 
   const t = (english, telugu) => language === 'te' ? telugu : english;
   const [unlockedCourses, setUnlockedCourses] = useState({});
+  const [generalAwarenessFiles, setGeneralAwarenessFiles] = useState([]);
+  const [generalAwarenessLoading, setGeneralAwarenessLoading] = useState(false);
+  const [generalAwarenessError, setGeneralAwarenessError] = useState('');
+
   const [authLoading, setAuthLoading] = useState(true);
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
@@ -347,7 +351,89 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   }, [passwordFocused, !!password]);
 
   const [showPassword, setShowPassword] = useState(false);
+  const [showAccountSuccess, setShowAccountSuccess] = useState(false);
+  const successScale = useRef(new Animated.Value(0.65)).current;
+  const successFade = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!showAccountSuccess) return;
+    successScale.setValue(0.65);
+    successFade.setValue(0);
+    const animation = Animated.parallel([
+      Animated.spring(successScale, {
+        toValue: 1,
+        friction: 5,
+        tension: 65,
+        useNativeDriver: true,
+      }),
+      Animated.timing(successFade, {
+        toValue: 1,
+        duration: 550,
+        useNativeDriver: true,
+      }),
+    ]);
+    animation.start();
+    return () => animation.stop();
+  }, [showAccountSuccess, successScale, successFade]);
+
   const [page, setPage] = useState('Courses');
+  // GENERAL_AWARENESS_PDF_LIST_EFFECT
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadGeneralAwarenessFiles = async () => {
+      if (!page.startsWith('SSC General Awareness Topic: ')) return;
+
+      const title = page.replace('SSC General Awareness Topic: ', '');
+      const folderMap = {
+        'Ancient Indian History': 'History',
+        'Medieval & Modern History': 'History',
+        'Indian Polity': 'Polity',
+        'Indian Geography': 'Geography',
+        'General Science': 'Science'
+      };
+      const folder = folderMap[title];
+
+      setGeneralAwarenessFiles([]);
+      setGeneralAwarenessError('');
+
+      if (!unlockedCourses['ssc-general-awareness']) {
+        setGeneralAwarenessLoading(false);
+        return;
+      }
+
+      if (!folder) {
+        setGeneralAwarenessLoading(false);
+        return;
+      }
+
+      setGeneralAwarenessLoading(true);
+
+      try {
+        const user = auth.currentUser;
+        if (!user) throw new Error('Please log in again to access PDFs.');
+
+        const token = await user.getIdToken();
+        const response = await fetch(
+          ARTICLES_API + '/general-awareness/topic-files?topic=' + encodeURIComponent(folder),
+          { headers: { Authorization: 'Bearer ' + token } }
+        );
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.error || 'Could not load PDFs.');
+
+        if (!cancelled) setGeneralAwarenessFiles(data.files || []);
+      } catch (error) {
+        if (!cancelled) setGeneralAwarenessError(error.message || 'Could not load PDFs.');
+      } finally {
+        if (!cancelled) setGeneralAwarenessLoading(false);
+      }
+    };
+
+    loadGeneralAwarenessFiles();
+    return () => { cancelled = true; };
+  }, [page, unlockedCourses]);
+
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -425,6 +511,9 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   const [question, setQuestion] = useState(0);
   const [currentSubject, setCurrentSubject] = useState('Mathematics');
   const [timeLeft, setTimeLeft] = useState(900);
+  const [isTestPaused, setIsTestPaused] = useState(false);
+  const [showCancelTestConfirm, setShowCancelTestConfirm] = useState(false);
+  const [cancelTestMessage, setCancelTestMessage] = useState('');
   const [answers, setAnswers] = useState({});
   const [score, setScore] = useState(null);
   const [results, setResults] = useState([]);
@@ -615,6 +704,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
     setAnswers({});
     setScore(null);
     setTimeLeft(900);
+  setIsTestPaused(false);
     setPage('Mock Tests');
   };
 
@@ -638,14 +728,14 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   };
 
   useEffect(() => {
-    if (page !== 'Mock Tests' || score !== null) return;
+    if (page !== 'Mock Tests' || score !== null || isTestPaused) return;
     if (timeLeft <= 0) {
       submitTest();
       return;
     }
     const timer = setTimeout(() => setTimeLeft(t => t - 1), 1000);
     return () => clearTimeout(timer);
-  }, [page, score, timeLeft]);
+  }, [page, score, timeLeft, isTestPaused]);
 
   const button = (label, action, primary = false) => (
     <TouchableOpacity onPress={action}
@@ -655,6 +745,14 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
       </Text>
     </TouchableOpacity>
   );
+
+  const passwordChecks = [
+    { label: 'At least 8 characters', valid: password.length >= 8 },
+    { label: 'One uppercase letter (A-Z)', valid: /[A-Z]/.test(password) },
+    { label: 'One lowercase letter (a-z)', valid: /[a-z]/.test(password) },
+    { label: 'One number (0-9)', valid: /[0-9]/.test(password) },
+    { label: 'One special character (@, #, !)', valid: /[^A-Za-z0-9]/.test(password) },
+  ];
 
   const handleAuth = async () => {
     const cleanEmail = email.trim();
@@ -669,6 +767,11 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
       return;
     }
 
+    if (isCreatingAccount && !passwordChecks.every(rule => rule.valid)) {
+      setAuthError('Please meet all password requirements.');
+      return;
+    }
+
     setAuthBusy(true);
     setAuthError('');
 
@@ -677,9 +780,9 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         const credential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
         await updateProfile(credential.user, { displayName: fullName.trim() });
         await signOut(auth);
-        setIsCreatingAccount(false);
         setPassword('');
-        setAuthError('Account created successfully. Please log in.');
+        setAuthError('');
+        setShowAccountSuccess(true);
       } else {
         await signInWithEmailAndPassword(auth, cleanEmail, password);
       }
@@ -729,6 +832,214 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
     );
   }
 
+  if (showAccountSuccess) {
+    return (
+      <View style={{
+        flex:1,
+        backgroundColor:'#F3F6FC',
+        alignItems:'center',
+        justifyContent:'center',
+        paddingHorizontal:22,
+        paddingTop:insets.top + 20,
+        paddingBottom:insets.bottom + 20,
+        overflow:'hidden'
+      }}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F3F6FC" />
+
+        <View style={{position:'absolute',top:'12%',left:24}}>
+          <Text style={{fontSize:28,color:'#60A5FA'}}>✦</Text>
+        </View>
+        <View style={{position:'absolute',top:'19%',right:30}}>
+          <Text style={{fontSize:23,color:'#F59E0B'}}>✧</Text>
+        </View>
+        <View style={{position:'absolute',bottom:'17%',left:35}}>
+          <Text style={{fontSize:25,color:'#818CF8'}}>✦</Text>
+        </View>
+        <View style={{position:'absolute',bottom:'23%',right:25}}>
+          <Text style={{fontSize:28,color:'#34D399'}}>✧</Text>
+        </View>
+
+        <View style={{alignItems:'center',marginBottom:25}}>
+          <Image
+            source={require('./assets/icon.png')}
+            style={{width:66,height:66,borderRadius:18,marginBottom:10}}
+            resizeMode="contain"
+          />
+          <Text style={{fontSize:21,fontWeight:'900',letterSpacing:1,color:'#173B83'}}>
+            STUDY WITH VEER
+          </Text>
+          <Text style={{fontSize:12,color:'#64748B',marginTop:5}}>
+            SUCCESS STARTS HERE
+          </Text>
+        </View>
+
+        <Animated.View style={{
+          width:'100%',
+          maxWidth:420,
+          opacity:successFade,
+          transform:[{scale:successScale}]
+        }}>
+          <View style={{
+            backgroundColor:'#173B83',
+            borderRadius:30,
+            padding:7,
+            paddingBottom:13,
+            shadowColor:'#173B83',
+            shadowOffset:{width:0,height:13},
+            shadowOpacity:0.25,
+            shadowRadius:18,
+            elevation:14
+          }}>
+            <View style={{
+              backgroundColor:'#FFFFFF',
+              borderRadius:24,
+              paddingHorizontal:22,
+              paddingTop:29,
+              paddingBottom:23,
+              alignItems:'center',
+              borderWidth:1,
+              borderColor:'#DCE7FA'
+            }}>
+              <View style={{
+                width:112,
+                height:112,
+                borderRadius:56,
+                backgroundColor:'#DBEAFE',
+                alignItems:'center',
+                justifyContent:'center',
+                marginBottom:20,
+                borderWidth:5,
+                borderColor:'#BFDBFE',
+                elevation:8,
+                shadowColor:'#2563EB',
+                shadowOffset:{width:0,height:6},
+                shadowOpacity:0.22,
+                shadowRadius:9
+              }}>
+                <View style={{
+                  width:82,
+                  height:82,
+                  borderRadius:41,
+                  backgroundColor:'#16A34A',
+                  alignItems:'center',
+                  justifyContent:'center',
+                  borderWidth:4,
+                  borderColor:'#86EFAC',
+                  elevation:7
+                }}>
+                  <Feather name="check" size={49} color="#FFFFFF" />
+                </View>
+              </View>
+
+              <Text style={{
+                fontSize:25,
+                fontWeight:'900',
+                color:'#173B83',
+                textAlign:'center'
+              }}>
+                Congratulations!
+              </Text>
+              <Text style={{
+                fontSize:18,
+                fontWeight:'800',
+                color:'#16A34A',
+                marginTop:7,
+                textAlign:'center'
+              }}>
+                Account Created!
+              </Text>
+              <Text style={{
+                fontSize:13,
+                lineHeight:20,
+                color:'#64748B',
+                textAlign:'center',
+                marginTop:9,
+                marginBottom:21
+              }}>
+                Welcome to STUDY WITH VEER. Your learning journey starts now!
+              </Text>
+
+              <View style={{
+                width:'100%',
+                backgroundColor:'#F0FDF4',
+                borderRadius:16,
+                padding:14,
+                marginBottom:21,
+                borderWidth:1,
+                borderColor:'#BBF7D0'
+              }}>
+                {[
+                  'Account created successfully',
+                  'Password requirements verified',
+                  'Ready to start learning'
+                ].map(item => (
+                  <View key={item} style={{
+                    flexDirection:'row',
+                    alignItems:'center',
+                    marginVertical:6
+                  }}>
+                    <Feather name="check-circle" size={17} color="#16A34A" />
+                    <Text style={{
+                      marginLeft:9,
+                      fontSize:12,
+                      color:'#166534',
+                      flex:1
+                    }}>
+                      {item}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setShowAccountSuccess(false);
+                  setIsCreatingAccount(false);
+                  setPassword('');
+                  setAuthError('');
+                }}
+                activeOpacity={0.85}
+                style={{
+                  width:'100%',
+                  minHeight:54,
+                  borderRadius:28,
+                  backgroundColor:'#173B83',
+                  alignItems:'center',
+                  justifyContent:'center',
+                  flexDirection:'row',
+                  elevation:5,
+                  shadowColor:'#173B83',
+                  shadowOffset:{width:0,height:4},
+                  shadowOpacity:0.2,
+                  shadowRadius:5
+                }}
+              >
+                <Text style={{
+                  color:'#FFFFFF',
+                  fontSize:13,
+                  fontWeight:'900',
+                  letterSpacing:1.3
+                }}>
+                  CONTINUE TO LOGIN
+                </Text>
+                <Feather name="arrow-right" size={19} color="#FFFFFF" style={{marginLeft:9}} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Animated.View>
+
+        <Text style={{
+          fontSize:12,
+          color:'#64748B',
+          marginTop:22,
+          textAlign:'center'
+        }}>
+          Every expert was once a beginner.
+        </Text>
+      </View>
+    );
+  }
+
   if (!loggedIn) {
     return (
       <View style={{flex:1, backgroundColor:pageBg, justifyContent:'center', paddingHorizontal:22, paddingVertical:24}}>
@@ -758,7 +1069,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             </Text>
           </View>
 
-          <View nativeID="veer-auth-card" style={{position:'relative',borderRadius:24,padding:3,backgroundColor:'transparent',overflow:'hidden',shadowColor:'#EF4444',shadowOffset:{width:0,height:0},shadowOpacity:0,shadowRadius:0,elevation:0}}>
+          <Animated.View nativeID="veer-auth-card" style={{position:'relative',borderRadius:24,padding:4,backgroundColor:'#EF4444',overflow:'hidden',borderWidth:3,borderColor:heroSpin.interpolate({inputRange:[0,0.5,1],outputRange:['#FF1744','#FF6B6B','#B91C1C']}),shadowColor:heroSpin.interpolate({inputRange:[0,0.5,1],outputRange:['#FF1744','#FF6B6B','#B91C1C']}),shadowOffset:{width:0,height:0},shadowOpacity:0.9,shadowRadius:12,elevation:10}}>
             <View style={{position:'relative',zIndex:1,backgroundColor:cardBg,borderRadius:21,padding:22,borderWidth:1,borderColor:darkMode?'#334155':'#FFFFFF'}}>
             <Text style={{fontSize:25, fontWeight:'800', color:mainText}}>
               {isCreatingAccount ? t('Create Account', 'ఖాతా సృష్టించండి') : t('Welcome Back!', 'తిరిగి స్వాగతం!')}
@@ -836,6 +1147,24 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 <Feather name={showPassword ? 'eye-off' : 'eye'} size={21} color="#2455B8" />
               </TouchableOpacity>
             </View>
+
+            {isCreatingAccount && (
+              <View style={{marginTop:-8, marginBottom:14}}>
+                {passwordChecks.map(rule => (
+                  <View key={rule.label} style={{flexDirection:'row', alignItems:'center', marginBottom:5}}>
+                    <Feather
+                      name={rule.valid ? 'check-circle' : 'circle'}
+                      size={14}
+                      color={rule.valid ? '#16A34A' : '#94A3B8'}
+                    />
+                    <Text style={{marginLeft:7, fontSize:12, color:rule.valid ? '#16A34A' : mutedText}}>
+                      {rule.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
             {!!authError && (
               <Text style={{color:'#C62828', fontSize:12, marginBottom:12}}>
                 {authError}
@@ -846,7 +1175,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               nativeID="veer-login-space" className="veer-space-btn"
               onPress={handleAuth}
               disabled={authBusy}
-              style={{backgroundColor:'#173B83',paddingVertical:15,borderRadius:50,alignItems:'center',justifyContent:'center',marginTop:8,minHeight:54,position:'relative',overflow:'hidden'}}
+              style={{backgroundColor:'#173B83',borderWidth:2,borderColor:heroSpin.interpolate({inputRange:[0,0.5,1],outputRange:['#FF1744','#FF6B6B','#B91C1C']}),shadowColor:'#173B83',shadowOffset:{width:0,height:4},shadowOpacity:0.35,shadowRadius:7,elevation:6,paddingVertical:15,borderRadius:50,alignItems:'center',justifyContent:'center',marginTop:8,minHeight:54,position:'relative',overflow:'hidden'}}
             >
               <View className="veer-space-content" style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:9}}>
                 {!authBusy && !isCreatingAccount && <Feather name="shield" size={20} color="#FFFFFF" />}
@@ -864,7 +1193,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 setAuthError('');
                 setShowPassword(false);
               }}
-              style={{backgroundColor:'#173B83',marginTop:16,paddingVertical:12,borderRadius:50,alignItems:'center',justifyContent:'center',minHeight:50,position:'relative',overflow:'hidden'}}
+              style={{backgroundColor:'#173B83',borderWidth:2,borderColor:heroSpin.interpolate({inputRange:[0,0.5,1],outputRange:['#FF1744','#FF6B6B','#B91C1C']}),shadowColor:'#173B83',shadowOffset:{width:0,height:4},shadowOpacity:0.35,shadowRadius:7,elevation:6,marginTop:16,paddingVertical:12,borderRadius:50,alignItems:'center',justifyContent:'center',minHeight:50,position:'relative',overflow:'hidden'}}
             >
               <View className="veer-space-content" style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:9}}>
                 <Text className="veer-space-text" style={{color:'#FFFFFF',fontWeight:'800',fontSize:12,letterSpacing:2}}>
@@ -873,7 +1202,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               </View>
             </TouchableOpacity>
             </View>
-          </View>
+          </Animated.View>
 
           <Text style={{textAlign:'center', color:'#718096', fontSize:12, marginTop:20}}>
             {t('Prepare  •  Practice  •  Succeed', 'సిద్ధం అవ్వండి  •  సాధన చేయండి  •  విజయం సాధించండి')}
@@ -1097,12 +1426,12 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               minHeight:56,
               paddingHorizontal:11,
               paddingVertical:9,
+              marginTop:-25,
               borderRadius:15,
               backgroundColor:darkMode?'#3A1728':'#FFF0F2',
               borderWidth:1.5,
               borderColor:darkMode?'#E34D72':'#F2A1B0',
-              elevation:3,
-              marginTop:3
+              elevation:3
             }}>
             <View style={{
               width:35,height:35,borderRadius:11,
@@ -1192,6 +1521,9 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         {title:'RRB Papers',keywords:'rrb papers ntpc group d alp technician railway',page:'RRB Papers'},
         {title:'TGPSC Papers',keywords:'tgpsc papers group 1 group 2 group 3 group 4',page:'TGPSC Papers'},
         {title:'Free Ebooks',keywords:'free ebooks books pdf study material',page:'Free Ebooks'},
+        {title:'SSC GS',keywords:'ssc gs general science general studies science technology physics chemistry biology ebook pdf',page:'Free Ebooks'},
+        {title:'SSC Quantitative Aptitude',keywords:'ssc quantitative aptitude quant arithmetic algebra geometry ebook pdf',page:'Free Ebooks'},
+        {title:'SSC PureMaths',keywords:'ssc puremaths pure maths maths mathematics formula ebook pdf',page:'Free Ebooks'},
         {title:'Free Courses',keywords:'free courses free course ssc mathematics english foundation',page:'Free Courses'},
         {title:'Mock Test Folders',keywords:'mock test folders subjects practice exam tests',page:'Mock Test Folders'},
         {title:'Mock Tests',keywords:'mock tests online test exam practice',page:'Mock Test Folders'},
@@ -1245,6 +1577,9 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         {title:'RRB Papers',keywords:'rrb papers ntpc group d alp technician railway'},
         {title:'TGPSC Papers',keywords:'tgpsc papers group 1 group 2 group 3 group 4'},
         {title:'Free Ebooks',keywords:'free ebooks books pdf study material'},
+        {title:'SSC GS',keywords:'ssc gs general science general studies science technology physics chemistry biology ebook pdf'},
+        {title:'SSC Quantitative Aptitude',keywords:'ssc quantitative aptitude quant arithmetic algebra geometry ebook pdf'},
+        {title:'SSC PureMaths',keywords:'ssc puremaths pure maths maths mathematics formula ebook pdf'},
         {title:'Free Courses',keywords:'free courses free course ssc mathematics english foundation'},
         {title:'Mock Test Folders',keywords:'mock test folders subjects practice exam tests'},
         {title:'Courses',keywords:'courses ssc tgpsc rrb classes'},
@@ -1368,6 +1703,19 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   </View>
 </>}
 
+{cancelTestMessage !== '' && <View style={{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:10000,elevation:30,backgroundColor:darkMode?'#0F172A':'#F3F6FC',alignItems:'center',justifyContent:'center',padding:28}}>
+  <View style={{width:'100%',maxWidth:420,alignItems:'center',justifyContent:'center',padding:28,borderRadius:24,backgroundColor:darkMode?'#1E293B':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#334155':'#D1FAE5'}}>
+    <View style={{width:86,height:86,borderRadius:43,backgroundColor:darkMode?'#065F46':'#D1FAE5',alignItems:'center',justifyContent:'center',marginBottom:24}}>
+      <Text style={{fontSize:48,color:darkMode?'#A7F3D0':'#047857',fontWeight:'900'}}>✓</Text>
+    </View>
+    <Text style={{fontSize:25,fontWeight:'900',color:darkMode?'#FFFFFF':'#173B83',textAlign:'center',marginBottom:14}}>Test Cancelled Successfully!</Text>
+    <Text style={{fontSize:16,lineHeight:24,color:darkMode?'#CBD5E1':'#475569',textAlign:'center',marginBottom:28}}>{cancelTestMessage}</Text>
+    <TouchableOpacity onPress={() => setCancelTestMessage('')} style={{width:'100%',paddingVertical:15,borderRadius:14,backgroundColor:'#173B83',alignItems:'center'}}>
+      <Text style={{fontSize:16,fontWeight:'900',color:'#FFFFFF'}}>OK, Continue</Text>
+    </TouchableOpacity>
+  </View>
+</View>}
+
 {page === 'Mock Test Folders' && <>
           <View style={{padding:18}}>
             <Text style={styles.pageTitle}>{t('Mock Test Folders','మాక్ టెస్ట్ విభాగాలు')}</Text>
@@ -1414,24 +1762,52 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
       </TouchableOpacity></>}
           
 {page === 'Free Ebooks' && <>
-  <View style={{padding:18}}>
-    <Text style={styles.pageTitle}>📚 Free Ebooks</Text>
-      
-    <Text style={[styles.muted,{color:mutedText,marginTop:8}]}>
-      Open and read free study materials.
-    </Text>
-    <TouchableOpacity
-      onPress={() => Linking.openURL(String.fromCharCode(104,116,116,112,115,58,47,47,100,114,105,118,101,46,103,111,111,103,108,101,46,99,111,109,47,102,105,108,101,47,100,47,49,56,85,51,105,65,55,107,71,72,95,65,75,78,109,76,51,109,83,97,51,114,80,51,86,78,98,53,114,105,121,85,76,47,118,105,101,119,63,117,115,112,61,100,114,105,118,101,115,100,107))}
-      style={{backgroundColor:BLUE,padding:18,borderRadius:14,marginTop:16}}>
-      <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'800',textAlign:'center'}}>
-        📖 Open Ebook PDF
-      </Text>
-    </TouchableOpacity>
+  <View style={{paddingHorizontal:16,paddingTop:18,paddingBottom:10}}>
+    <View style={{backgroundColor:darkMode?'#102C59':'#073B8C',borderRadius:22,padding:20,marginBottom:22,overflow:'hidden',borderWidth:1,borderColor:darkMode?'#315B91':'#1556B0'}}>
+      <Text style={{fontSize:13,fontWeight:'800',letterSpacing:2,color:'#70F0D0'}}>STUDY WITH VEER</Text>
+      <Text style={{fontSize:30,fontWeight:'900',color:'#FFFFFF',marginTop:8}}>Free <Text style={{color:'#54E6C0'}}>Ebook</Text></Text>
+      <Text style={{fontSize:14,color:'#E0ECFF',marginTop:8,lineHeight:21}}>Your study library</Text>
+      <Text style={{fontSize:14,color:'#E0ECFF',lineHeight:21}}>Explore free SSC notes, books and PDFs.</Text>
+      <View style={{flexDirection:'row',alignItems:'center',marginTop:16}}>
+        <Text style={{fontSize:13,fontWeight:'800',color:'#FFFFFF',backgroundColor:'#1764B9',paddingVertical:8,paddingHorizontal:12,borderRadius:20}}>📚  4 SUBJECT FOLDERS</Text>
+      </View>
+    </View>
+
+    {[
+      {title:'SSC PureMaths',desc:'Formulae • Concepts • Practice',icon:'📐',color:'#0878E8',pale:darkMode?'#172B49':'#EDF6FF'},
+      {title:'SSC Quantitative Aptitude',desc:'Arithmetic • Algebra • Geometry',icon:'🧮',color:'#009F83',pale:darkMode?'#123A37':'#E9FBF6'},
+      {title:'SSC Reasoning',desc:'Verbal • Non-Verbal • Logical',icon:'🧠',color:'#6344E8',pale:darkMode?'#282247':'#F2EEFF'},
+      {title:'SSC General Science And Technology',desc:'Physics • Chemistry • Biology',icon:'🔬',color:'#E83F61',pale:darkMode?'#3B202D':'#FFF0F3'}
+    ].map(folder => (
+      <TouchableOpacity key={folder.title}
+        onPress={() => Linking.openURL(String.fromCharCode(104,116,116,112,115,58,47,47,100,114,105,118,101,46,103,111,111,103,108,101,46,99,111,109,47,102,105,108,101,47,100,47,49,56,85,51,105,65,55,107,71,72,95,65,75,78,109,76,51,109,83,97,51,114,80,51,86,78,98,53,114,105,121,85,76,47,118,105,101,119,63,117,115,112,61,100,114,105,118,101,115,100,107))}
+        style={{flexDirection:'row',alignItems:'center',backgroundColor:folder.pale,borderRadius:21,padding:13,marginBottom:14,borderWidth:1,borderColor:folder.color+'55',borderLeftWidth:5,borderLeftColor:folder.color,elevation:4,shadowColor:folder.color,shadowOffset:{width:0,height:3},shadowOpacity:darkMode?0.15:0.08,shadowRadius:7,minHeight:108}}>
+        <View style={{width:66,height:70,borderRadius:17,backgroundColor:folder.color+'20',alignItems:'center',justifyContent:'center',marginRight:13}}>
+          <Text style={{fontSize:34}}>{folder.icon}</Text>
+          <Text style={{fontSize:10,fontWeight:'900',color:folder.color}}>PDF</Text>
+        </View>
+        <View style={{flex:1}}>
+          <Text style={{fontSize:16,fontWeight:'900',color:darkMode?'#FFFFFF':'#12366F',lineHeight:22}}>{folder.title}</Text>
+          <Text style={{fontSize:12,color:darkMode?'#D1DDEC':'#526987',marginTop:5,lineHeight:17}}>{folder.desc}</Text>
+          <View style={{alignSelf:'flex-start',backgroundColor:folder.color+'18',paddingVertical:5,paddingHorizontal:9,borderRadius:14,marginTop:8}}>
+            <Text style={{fontSize:11,fontWeight:'800',color:folder.color}}>📘 Free Study Materials</Text>
+          </View>
+        </View>
+        <View style={{width:38,height:38,borderRadius:19,backgroundColor:folder.color,alignItems:'center',justifyContent:'center',marginLeft:7}}>
+          <Text style={{fontSize:27,fontWeight:'900',color:'#FFFFFF'}}>›</Text>
+        </View>
+      </TouchableOpacity>
+    ))}
+
+
+
+    <Text style={{textAlign:'center',fontSize:13,color:mutedText,marginBottom:12}}>📚 Learn  •  Practice  •  Succeed</Text>
   </View>
 
-      <TouchableOpacity onPress={() => setPage('Home')} style={{paddingVertical:16,paddingHorizontal:18,marginTop:4,marginBottom:8,borderRadius:14,backgroundColor:darkMode?'#173B35':'#E3F4EE',borderWidth:1,borderColor:darkMode?'#2D7668':'#A7DCCB',alignItems:'center',justifyContent:'center',minHeight:58}}>
-        <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'900',fontSize:17}}>{'🏠  ← Back to Home'}</Text>
-      </TouchableOpacity></>}
+  <TouchableOpacity onPress={() => setPage('Home')} style={{marginHorizontal:16,paddingVertical:15,paddingHorizontal:18,marginTop:4,marginBottom:16,borderRadius:16,backgroundColor:darkMode?'#173B35':'#E3F4EE',borderWidth:1,borderColor:darkMode?'#2D7668':'#A7DCCB',alignItems:'center',justifyContent:'center',minHeight:54}}>
+    <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'900',fontSize:16}}>🏠  ← Back to Home</Text>
+  </TouchableOpacity>
+</>}
 
 {page === 'Previous Year Papers' && <>
             <View style={{padding:18}}>
@@ -1493,10 +1869,10 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         {(page === 'Courses' || page === 'SSC Courses' || page === 'TGPSC Courses' || page === 'RRB Courses' || page.startsWith('SSC Exam:')) && <>
 
 
-            <Text style={{fontSize:25,fontWeight:'900',color:'#087F67',marginTop:8}}>
+            <Text style={{fontSize:28,fontWeight:'900',color:darkMode?'#6EE7B7':'#087F67',marginTop:12,marginBottom:4,marginLeft:10}}>
               {page === 'Courses' ? t('Choose Your Exam','మీ పరీక్షను ఎంచుకోండి') : page.startsWith('SSC Exam:') ? page.replace('SSC Exam: ','') : page === 'SSC Courses' ? t('SSC Exams','SSC పరీక్షలు') : page === 'TGPSC Courses' ? t('TGPSC Exams','TGPSC పరీక్షలు') : t('RRB Exams','RRB పరీక్షలు')}
             </Text>
-            <Text style={{fontSize:13,color:'#718096',marginTop:6}}>
+            <Text style={{fontSize:13,color:'#718096',marginTop:6,marginLeft:10}}>
               {t('STUDY WITH VEER • Prepare Smart. Achieve More.','STUDY WITH VEER • తెలివిగా సిద్ధం అవ్వండి. మరింత సాధించండి.')}
             </Text>
 
@@ -1507,11 +1883,11 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             ].map(exam => (
               <TouchableOpacity key={exam.title}
                 onPress={() => setPage(exam.target)}
-                style={{backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:24,padding:18,marginTop:18,borderWidth:1.5,borderColor:darkMode?'#35516B':'#D5F0E6',flexDirection:'row',alignItems:'center',elevation:8,shadowColor:darkMode?'#000000':'#087F67',shadowOffset:{width:0,height:6},shadowOpacity:darkMode?0.25:0.16,shadowRadius:10}}>
-                <Image source={exam.image} style={{width:100,height:76,borderRadius:12,marginRight:14}} resizeMode="cover" />
+                style={{backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:20,padding:screenWidth<360?12:16,marginTop:14,borderWidth:2,borderColor:darkMode?'#4B7890':'#72CDB1',flexDirection:'row',alignItems:'center',minHeight:112,elevation:7,shadowColor:darkMode?'#000000':'#087F67',shadowOffset:{width:0,height:5},shadowOpacity:darkMode?0.28:0.14,shadowRadius:8}}>
+                <Image source={exam.image} style={{width:screenWidth<360?76:92,height:76,borderRadius:12,marginRight:12}} resizeMode="cover" />
                 <View style={{flex:1}}>
-                  <Text style={{fontSize:17,fontWeight:'900',color:'#173B35'}}>{exam.title}</Text>
-                  <Text style={{fontSize:13,color:'#718096',marginTop:5}}>{t(exam.desc, ({'CGL, CHSL, MTS, GD and CPO':'CGL, CHSL, MTS, GD మరియు CPO','Group 1, Group 2, Group 3 and Group 4':'గ్రూప్ 1, గ్రూప్ 2, గ్రూప్ 3 మరియు గ్రూప్ 4','NTPC, Group D, ALP and Technician':'NTPC, గ్రూప్ D, ALP మరియు టెక్నీషియన్'})[exam.desc] || exam.desc)}</Text>
+                  <Text style={{fontSize:screenWidth<360?16:18,fontWeight:'900',color:darkMode?'#FFFFFF':'#123B32',flexShrink:1}}>{exam.title}</Text>
+                  <Text style={{fontSize:13,color:darkMode?'#D2DCE8':'#46566B',marginTop:6,lineHeight:18}}>{t(exam.desc, ({'CGL, CHSL, MTS, GD and CPO':'CGL, CHSL, MTS, GD మరియు CPO','Group 1, Group 2, Group 3 and Group 4':'గ్రూప్ 1, గ్రూప్ 2, గ్రూప్ 3 మరియు గ్రూప్ 4','NTPC, Group D, ALP and Technician':'NTPC, గ్రూప్ D, ALP మరియు టెక్నీషియన్'})[exam.desc] || exam.desc)}</Text>
                 </View>
                 <View style={{width:38,height:38,borderRadius:19,backgroundColor:darkMode?'#145B50':'#0D987A',alignItems:'center',justifyContent:'center',marginLeft:8,elevation:4}}><Text style={{fontSize:27,fontWeight:'900',color:'#FFFFFF'}}>›</Text></View>
               </TouchableOpacity>
@@ -1549,7 +1925,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               {title:'SSC Mathematics',desc:'Arithmetic, algebra and topic-wise practice',price:'FREE',icon:'🧮',accent:'#8B5CF6',tint:'#F0EAFE'},
               {id:'ssc-reasoning-masterclass',title:'SSC Reasoning Masterclass',desc:'Verbal and non-verbal reasoning',price:'₹49',icon:'🧠',accent:'#2563EB',tint:'#E8F0FF'},
               {id:'ssc-general-awareness',title:'SSC General Awareness',desc:'History, geography, polity and science',price:'₹49',icon:'🌍',accent:'#059669',tint:'#DDF8EE'},
-              {title:'SSC English Foundation',desc:'Grammar and vocabulary',price:'FREE',icon:'📚',accent:'#D97706',tint:'#FFF0D8'}
+              {id:'ssc-english-foundation',title:'SSC English Foundation',desc:'Grammar and vocabulary',price:'₹49',icon:'📚',accent:'#D97706',tint:'#FFF0D8'}
             ].map(course => (
               <View key={course.title} style={{width:'48.2%',backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:18,padding:screenWidth < 360 ? 7 : 11,marginTop:14,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#E0E7F2',elevation:3}}>
                 <View style={{height:76,borderRadius:13,backgroundColor:darkMode?course.accent+'33':course.tint,alignItems:'center',justifyContent:'center',marginBottom:10}}>
@@ -1563,128 +1939,19 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 <Text style={{fontSize:16,fontWeight:'900',marginTop:7,color:course.price==='FREE'?'#10B981':(darkMode?'#F6C453':'#B77908')}}>{course.price}</Text>
                 <TouchableOpacity
                   onPress={() => {
-                    if (course.price !== 'FREE' && (unlockedCourses[course.id])) {
-                      Alert.alert('This paid course bundle is already purchased.');
-                      return;
-                    }
-
-                    if (course.title === 'SSC Mathematics') {
+                    if (course.price === 'FREE') {
                       setPage('Quant Practice');
-                    } else if (course.title === 'SSC English Foundation') {
-                      Alert.alert('English Foundation lessons will be available here soon.');
-                    } else {
-                      if (Platform.OS !== 'web') {
-                    (async () => {
-                      try {
-                        const user = auth.currentUser;
-                        if (!user) throw new Error('Please log in before purchasing.');
-                        const idToken = await user.getIdToken();
-                        const response = await fetch('https://study-with-veer-payment-backend.onrender.com/create-checkout-session', {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + idToken
-                          },
-                          body: JSON.stringify({ courseId: course.id })
-                        });
-                        const data = await response.json();
-                        if (!response.ok || !data.sessionToken) {
-                          throw new Error(data.error || 'Could not start secure checkout.');
-                        }
-                        await Linking.openURL(
-                          'https://study-with-veer-payment-backend.onrender.com/checkout.html#session=' +
-                          encodeURIComponent(data.sessionToken)
-                        );
-                      } catch (error) {
-                        Alert.alert(error.message || 'Could not open checkout. Please try again.');
-                      }
-                    })();
-                      }
-                    else {
-                      (async () => {
-                        try {
-                          if (!window.Razorpay) {
-                            await new Promise((resolve, reject) => {
-                              const script = document.createElement('script');
-                              script.src = 'https:' + '/' + '/checkout.razorpay.com/v1/checkout.js';
-                              script.onload = resolve;
-                              script.onerror = reject;
-                              document.body.appendChild(script);
-                            });
-                          }
-
-                          const user = auth.currentUser;
-                          if (!user) throw new Error('Please log in before purchasing.');
-                          const idToken = await user.getIdToken();
-
-                          const response = await fetch('https://study-with-veer-payment-backend.onrender.com/create-order', {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                              'Authorization': 'Bearer ' + idToken
-                            },
-                            body: JSON.stringify({ courseId: course.id })
-                          });
-
-                          const order = await response.json();
-                          if (!response.ok) throw new Error(order.error || 'Could not create order');
-
-                          const options = {
-                            key: order.keyId,
-                            amount: order.amount,
-                            currency: order.currency,
-                            name: 'STUDY WITH VEER',
-                            description: course.title,
-                            order_id: order.orderId,
-                            theme: { color: '#087F67' },
-                            handler: async function (payment) {
-                              try {
-                                const verification = await fetch('https://study-with-veer-payment-backend.onrender.com/verify-payment', {
-                                  method: 'POST',
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': 'Bearer ' + idToken
-                                  },
-                                  body: JSON.stringify(payment)
-                                });
-                                const result = await verification.json();
-
-                                if (!verification.ok || !result.verified || !result.unlocked) {
-                                  Alert.alert(result.error || 'Payment verification failed. Course access was not unlocked.');
-                                  return;
-                                }
-
-                                const currentUser = auth.currentUser;
-                                if (currentUser) {
-                                  const freshToken = await currentUser.getIdToken();
-                                  const accessResponse = await fetch('https://study-with-veer-payment-backend.onrender.com/my-courses', {
-                                    headers: { Authorization: 'Bearer ' + freshToken }
-                                  });
-                                  const accessData = await accessResponse.json();
-
-                                  if (accessResponse.ok) {
-                                    setUnlockedCourses(accessData.courses || {});
-                                  }
-                                }
-
-                                Alert.alert('Payment verified. Course access has been saved.');
-                              } catch (error) {
-                                Alert.alert('Could not verify payment. Please contact support.');
-                              }
-                            }
-                          };
-
-                          new window.Razorpay(options).open();
-                        } catch (error) {
-                          Alert.alert(error.message || 'Could not open Razorpay checkout.');
-                        }
-                      })();
-                    }
+                    } else if (course.id === 'ssc-reasoning-masterclass') {
+                      setPage('Master Reasoning Syllabus');
+                    } else if (course.id === 'ssc-general-awareness') {
+                      setPage('SSC General Awareness Syllabus');
+                    } else if (course.id === 'ssc-english-foundation') {
+                      setPage('SSC English Folders');
                     }
                   }}
                   style={{backgroundColor:course.price==='FREE'?'#0D9668':(darkMode?'#2563EB':'#2457D6'),paddingVertical:11,paddingHorizontal:4,borderRadius:10,alignItems:'center',marginTop:10,minHeight:40,justifyContent:'center'}}>
                   <Text style={{color:'#FFFFFF',fontWeight:'800'}}>
-                    {course.price === 'FREE' ? t('Start Learning →','నేర్చుకోవడం ప్రారంభించండి →') : unlockedCourses[course.id] ? t('Continue Learning →','నేర్చుకోవడం కొనసాగించండి →') : t('Buy for ₹49 →','₹49కి కొనండి →')}
+                    {course.price === 'FREE' ? t('Start Learning →','నేర్చుకోవడం ప్రారంభించండి →') : t('View Syllabus →','సిలబస్ చూడండి →')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1748,7 +2015,6 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             <Text style={{color:mutedText,marginTop:5}}>Learn for free with these courses.</Text>
             {[
               {title:'SSC Mathematics',desc:'Arithmetic and topic-wise practice',icon:'🧮',action:() => setPage('Quant Practice')},
-              {title:'SSC English Foundation',desc:'Grammar and vocabulary basics',icon:'📚',action:() => setPage('SSC English Folders')}
             ].map(course => (
               <View key={course.title} style={{backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:18,padding:16,marginTop:16,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5'}}>
                 <View style={{flexDirection:'row',alignItems:'center'}}>
@@ -1767,7 +2033,97 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           </View>
         </>}
 
-        {page === 'SSC English Folders' && <>
+        {page === 'SSC English Folders' && !unlockedCourses['ssc-english-foundation'] && <>
+          <View style={{padding:24,alignItems:'center'}}>
+            <Text style={[styles.pageTitle,{color:mainText,textAlign:'center'}]}>SSC English Foundation Locked</Text>
+            <Text style={{color:mutedText,textAlign:'center',marginTop:10}}>Purchase this course for ₹49 to access English topics and study materials.</Text>
+            <TouchableOpacity onPress={async () => {
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      if (Platform.OS === 'web') window.alert('Please log in before purchasing.');
+      else Alert.alert('Please log in before purchasing.');
+      return;
+    }
+
+    if (Platform.OS !== 'web') {
+      const token = await user.getIdToken();
+      const response = await fetch('https://study-with-veer-payment-backend.onrender.com/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ courseId: 'ssc-english-foundation' })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.sessionToken) throw new Error(data.error || 'Could not start checkout.');
+      await Linking.openURL('https://study-with-veer-payment-backend.onrender.com/checkout.html#session=' + encodeURIComponent(data.sessionToken));
+      return;
+    }
+
+    if (!window.Razorpay) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('Razorpay checkout script could not load.'));
+        document.body.appendChild(script);
+      });
+    }
+
+    const token = await user.getIdToken();
+    const response = await fetch('https://study-with-veer-payment-backend.onrender.com/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ courseId: 'ssc-english-foundation' })
+    });
+    const order = await response.json();
+    if (!response.ok) throw new Error(order.error || 'Could not create payment order.');
+
+    new window.Razorpay({
+      key: order.keyId,
+      amount: order.amount,
+      currency: order.currency,
+      name: 'STUDY WITH VEER',
+      description: 'SSC English Foundation',
+      order_id: order.orderId,
+      theme: { color: '#087F67' },
+      handler: async (payment) => {
+        try {
+          const verified = await fetch('https://study-with-veer-payment-backend.onrender.com/verify-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify(payment)
+          });
+          const result = await verified.json();
+          if (!verified.ok || !result.verified || !result.unlocked) {
+            window.alert(result.error || 'Payment verification failed.');
+            return;
+          }
+          const freshToken = await user.getIdToken();
+          const access = await fetch('https://study-with-veer-payment-backend.onrender.com/my-courses', {
+            headers: { 'Authorization': 'Bearer ' + freshToken }
+          });
+          const courses = await access.json();
+          if (access.ok) setUnlockedCourses(courses.courses || {});
+          window.alert('Payment verified. SSC English Foundation access updated.');
+        } catch (e) {
+          window.alert('Could not verify payment. Please try again.');
+        }
+      }
+    }).open();
+  } catch (e) {
+    if (Platform.OS === 'web') window.alert('Checkout error: ' + (e.message || String(e)));
+    else Alert.alert(e.message || 'Could not open checkout.');
+  }
+}} style={{backgroundColor:'#2457D6',padding:15,borderRadius:12,marginTop:20,width:'100%',alignItems:'center'}}>
+              <Text style={{color:'#FFFFFF',fontWeight:'900'}}>Buy for ₹49 →</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setPage('Home')} style={{padding:14,marginTop:8}}>
+              <Text style={{color:mainText,fontWeight:'800'}}>Back to Home</Text>
+            </TouchableOpacity>
+          </View>
+        </>}
+
+        {page === 'SSC English Folders' && !!unlockedCourses['ssc-english-foundation'] && <>
           <View style={{padding:18}}>
             <TouchableOpacity onPress={() => setPage('Free Courses')} style={{paddingVertical:10}}>
               <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'800'}}>← Back to Free Courses</Text>
@@ -1791,80 +2147,429 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         </>}
 
 
-        {page.startsWith('SSC English Topic: ') && <>
-          <View style={{padding:18}}>
-
-            <Text style={[styles.pageTitle,{color:mainText,marginTop:8}]}>{page.replace('SSC English Topic: ','')}</Text>
-            <TouchableOpacity
-              onPress={async () => {
-                const topic = page.replace('SSC English Topic: ','');
-                try {
-                  const user = auth.currentUser;
-                  if (!user) {
-                    Alert.alert('Please log in to view English study material.');
-                    return;
-                  }
-
-                  const headers = { Authorization: 'Bearer ' + await user.getIdToken() };
-                  let response;
-                  let result;
-
-                  if (topic === 'Articles') {
-                    response = await fetch(ARTICLES_API + '/english/articles-full-url', {headers});
-                    result = await response.json();
-
-                    if (response.ok && result.url) {
-                      await Linking.openURL(result.url);
-                      return;
-                    }
-
-                    if (response.status === 403) {
-                      const studentName =
-                        user.displayName?.trim() ||
-                        user.email?.split('@')[0] ||
-                        'Student';
-                      setPurchasePopupName(studentName);
-                      return;
-                    }
-
-                    Alert.alert(result.error || 'Could not open Articles PDF.');
-                    return;
-                  } else {
-                    response = await fetch(
-                      ARTICLES_API + '/english/topic-pdf-url?topic=' + encodeURIComponent(topic),
-                      {headers}
-                    );
-                  }
-
-                  result = await response.json();
-
-                  if (response.status === 403) {
-                    const studentName =
-                      auth.currentUser?.displayName ||
-                      auth.currentUser?.email?.split('@')[0] ||
-                      'Student';
-                    setPurchasePopupName(studentName);
-                    return;
-                  }
-
-                  if (!response.ok || !result.url) {
-                    Alert.alert(result.error || 'PDF not available for this topic yet.');
-                    return;
-                  }
-
-                  await Linking.openURL(result.url);
-                } catch (error) {
-                  Alert.alert('Could not open PDF. Please try again.');
-                }
-              }}
-              style={{marginTop:18,padding:20,borderRadius:16,backgroundColor:darkMode?'#17243B':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5',alignItems:'center'}}>
-              <Text style={{fontSize:36}}>📄</Text>
-              <Text style={{fontSize:17,fontWeight:'900',color:mainText,marginTop:10}}>{page.replace('SSC English Topic: ','')} PDF</Text>
-              <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'800',marginTop:12}}>Open PDF ↗</Text>
+        {page.startsWith('SSC English Topic: ') && !unlockedCourses['ssc-english-foundation'] && <>
+          <View style={{padding:24,alignItems:'center'}}>
+            <Text style={[styles.pageTitle,{color:mainText,textAlign:'center'}]}>Course Locked</Text>
+            <Text style={{color:mutedText,textAlign:'center',marginTop:10}}>Buy SSC English Foundation for ₹49 to access this topic.</Text>
+            <TouchableOpacity onPress={() => setPage('SSC Exam: English')} style={{backgroundColor:'#2457D6',padding:15,borderRadius:12,marginTop:20,width:'100%',alignItems:'center'}}>
+              <Text style={{color:'#FFFFFF',fontWeight:'900'}}>Buy for ₹49 →</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setPage('SSC English Folders')} style={{paddingVertical:16,paddingHorizontal:18,marginTop:4,marginBottom:8,borderRadius:14,backgroundColor:darkMode?'#173B35':'#E3F4EE',borderWidth:1,borderColor:darkMode?'#2D7668':'#A7DCCB',alignItems:'center',justifyContent:'center',minHeight:58}}>
+            <TouchableOpacity onPress={() => setPage('SSC English Folders')} style={{padding:14,marginTop:8}}>
+              <Text style={{color:mainText,fontWeight:'800'}}>Back to English Folders</Text>
+            </TouchableOpacity>
+          </View>
+        </>}
+
+        {page.startsWith('SSC English Topic: ') && !!unlockedCourses['ssc-english-foundation'] && <>
+          <View style={{flex:1,minHeight:520,padding:24,alignItems:'center',justifyContent:'center'}}>
+            <View style={{width:88,height:88,borderRadius:24,backgroundColor:darkMode?'#173B35':'#E3F4EE',alignItems:'center',justifyContent:'center',marginBottom:22,borderWidth:1,borderColor:darkMode?'#2D7668':'#A7DCCB'}}>
+              <Text style={{fontSize:42}}>📚</Text>
+            </View>
+            <Text style={[styles.pageTitle,{color:mainText,textAlign:'center',fontSize:26}]}>Content is Not Updated</Text>
+            <Text style={{color:mutedText,textAlign:'center',fontSize:15,lineHeight:23,marginTop:12}}>
+              This English lesson is not available yet. We are working on updating the study content. Please check again later.
+            </Text>
+            <TouchableOpacity onPress={() => setPage('SSC English Folders')} style={{width:'100%',paddingVertical:16,paddingHorizontal:18,marginTop:28,borderRadius:14,backgroundColor:darkMode?'#173B35':'#E3F4EE',borderWidth:1,borderColor:darkMode?'#2D7668':'#A7DCCB',alignItems:'center',justifyContent:'center',minHeight:58}}>
               <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'900',fontSize:17}}>← Back to English Syllabus</Text>
             </TouchableOpacity>
+          </View>
+        </>}
+
+
+        {page === 'SSC General Awareness Syllabus' && <>
+          <View style={{padding:18}}>
+            <TouchableOpacity onPress={() => setPage('Courses')}
+              style={{padding:14,borderRadius:13,backgroundColor:darkMode?'#173B35':'#E3F4EE',alignItems:'center',marginBottom:18}}>
+              <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'900'}}>← Back to Courses</Text>
+            </TouchableOpacity>
+
+            <Text style={{fontSize:25,fontWeight:'900',color:mainText}}>🌍 SSC General Awareness</Text>
+            <Text style={{fontSize:14,color:mutedText,marginTop:6,marginBottom:18}}>Subject Syllabus • Topic-wise Folders</Text>
+
+            {!unlockedCourses['ssc-general-awareness'] && (
+              <TouchableOpacity
+                onPress={async () => {
+                  try {
+                    const user = auth.currentUser;
+                    if (!user) {
+                      Alert.alert('Please log in', 'Purchase cheyyadaniki mundu login avvandi.');
+                      return;
+                    }
+                    const idToken = await user.getIdToken();
+                    const response = await fetch(
+                      "https://" + "study-with-veer-payment-backend.onrender.com/create-checkout-session",
+                      {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': 'Bearer ' + idToken
+                        },
+                        body: JSON.stringify({courseId:'ssc-general-awareness'})
+                      }
+                    );
+                    const data = await response.json();
+                    if (!response.ok || !data.sessionToken) {
+                      throw new Error(data.error || 'Could not start secure checkout.');
+                    }
+                    await Linking.openURL(
+                      "https://" + "study-with-veer-payment-backend.onrender.com/checkout.html#session=" +
+                      encodeURIComponent(data.sessionToken)
+                    );
+                  } catch (error) {
+                    Alert.alert('Checkout error', error.message || 'Please try again.');
+                  }
+                }}
+                style={{backgroundColor:'#2457D6',padding:16,borderRadius:14,alignItems:'center',marginBottom:20}}>
+                <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'900'}}>Buy for ₹49 — General Awareness</Text>
+                <Text style={{color:'#FFFFFF',fontSize:12,marginTop:5}}>Secure checkout • Unlock premium materials</Text>
+              </TouchableOpacity>
+            )}
+
+            {[
+              {title:'Ancient Indian History',desc:'Indus Valley, Vedic Age and ancient kingdoms',icon:'🏛️',color:'#B45309'},
+              {title:'Medieval & Modern History',desc:'Kingdoms, British rule and freedom movement',icon:'📜',color:'#C2410C'},
+              {title:'Indian Polity',desc:'Constitution, Parliament, President and Judiciary',icon:'⚖️',color:'#7C3AED'},
+              {title:'Indian Geography',desc:'Rivers, mountains, climate, soils and states',icon:'🗺️',color:'#059669'},
+              {title:'Indian Economy',desc:'Budget, banking, inflation and basic economics',icon:'📈',color:'#2563EB'},
+              {title:'General Science',desc:'Physics, Chemistry and Biology basics',icon:'🔬',color:'#0891B2'},
+              {title:'Static General Knowledge',desc:'Books, awards, sports, days and important places',icon:'📚',color:'#DB2777'},
+              {title:'Current Affairs',desc:'Important national and international events',icon:'📰',color:'#DC2626'}
+            ].map((folder,index) => {
+              const unlocked = !!unlockedCourses['ssc-general-awareness'];
+              return (
+                <TouchableOpacity key={folder.title}
+                  onPress={() => setPage('SSC General Awareness Topic: ' + folder.title)}
+                  style={{marginBottom:14,borderRadius:18,backgroundColor:darkMode?'#172033':'#FFFFFF',borderWidth:1,borderColor:folder.color+'66',borderBottomWidth:4,borderBottomColor:folder.color,elevation:4,overflow:'hidden'}}>
+                  <View style={{flexDirection:'row',alignItems:'center',padding:14}}>
+                    <View style={{width:60,height:64,borderRadius:14,backgroundColor:folder.color+'20',alignItems:'center',justifyContent:'center',marginRight:12,borderWidth:1,borderColor:folder.color+'55'}}>
+                      <Text style={{fontSize:26}}>{folder.icon}</Text>
+                      <Text style={{fontSize:9,fontWeight:'900',color:folder.color}}>TOPIC {index+1}</Text>
+                    </View>
+                    <View style={{flex:1}}>
+                      <Text style={{fontSize:15,fontWeight:'900',color:mainText}}>{folder.title}</Text>
+                      <Text style={{fontSize:12,color:mutedText,marginTop:4,lineHeight:17}}>{folder.desc}</Text>
+                      <Text style={{fontSize:11,fontWeight:'900',color:unlocked?'#059669':'#D97706',marginTop:7}}>
+                        {unlocked?'🔓 UNLOCKED':'🔒 PREMIUM MATERIALS • ₹49'}
+                      </Text>
+                    </View>
+                    <Text style={{fontSize:22}}>{unlocked?'›':'🔒'}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </>}
+
+        {page.startsWith('SSC General Awareness Topic: ') && <>
+          <View style={{padding:20}}>
+            <TouchableOpacity onPress={() => setPage('SSC General Awareness Syllabus')}
+              style={{padding:14,borderRadius:13,backgroundColor:darkMode?'#173B35':'#E3F4EE',alignItems:'center',marginBottom:20}}>
+              <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'900'}}>← Back to General Awareness Syllabus</Text>
+            </TouchableOpacity>
+
+            <Text style={{fontSize:23,fontWeight:'900',color:mainText}}>
+              {page.replace('SSC General Awareness Topic: ','')}
+            </Text>
+
+            {unlockedCourses['ssc-general-awareness'] ? <>
+              <Text style={{fontSize:14,color:'#059669',fontWeight:'900',marginTop:10}}>🔓 COURSE ACCESS UNLOCKED</Text>
+              <Text style={{fontSize:14,color:mutedText,marginTop:8,lineHeight:22}}>This topic is included in your purchased course. Detailed lesson notes, PDFs and videos need to be added to this topic separately.</Text>
+              {/* GENERAL_AWARENESS_PDF_LIST_UI */}
+              <View style={{marginTop:18}}>
+                <Text style={{fontSize:18,fontWeight:'900',color:mainText}}>📄 PDF Notes</Text>
+                <Text style={{fontSize:12,color:mutedText,marginTop:5}}>Your topic-wise study materials</Text>
+
+                {generalAwarenessLoading ? (
+                  <Text style={{color:mutedText,marginTop:14}}>Loading PDFs...</Text>
+                ) : generalAwarenessError ? (
+                  <Text style={{color:'#DC2626',marginTop:14}}>{generalAwarenessError}</Text>
+                ) : generalAwarenessFiles.length > 0 ? (
+                  generalAwarenessFiles.map(item => (
+                    <TouchableOpacity
+                      key={item.name}
+                      onPress={async () => {
+                        try {
+                          const user = auth.currentUser;
+                          if (!user) throw new Error('Please log in again.');
+                          const token = await user.getIdToken();
+                          const title = page.replace('SSC General Awareness Topic: ', '');
+                          const folderMap = {
+                            'Ancient Indian History': 'History',
+                            'Medieval & Modern History': 'History',
+                            'Indian Polity': 'Polity',
+                            'Indian Geography': 'Geography',
+                            'General Science': 'Science'
+                          };
+                          const folder = folderMap[title];
+                          if (!folder) throw new Error('This topic has no PDF folder yet.');
+
+                          const response = await fetch(
+                            ARTICLES_API + '/general-awareness/topic-pdf-url?topic=' +
+                              encodeURIComponent(folder) + '&file=' + encodeURIComponent(item.name),
+                            { headers: { Authorization: 'Bearer ' + token } }
+                          );
+                          const data = await response.json();
+                          if (!response.ok || !data.url) {
+                            throw new Error(data.error || 'Could not open this PDF.');
+                          }
+                          await Linking.openURL(data.url);
+                        } catch (error) {
+                          Alert.alert('PDF error', error.message || 'Please try again.');
+                        }
+                      }}
+                      style={{padding:15,marginTop:10,borderRadius:13,backgroundColor:cardBg,borderWidth:1,borderColor:darkMode?'#475569':'#D8E1EF',flexDirection:'row',alignItems:'center'}}
+                    >
+                      <Text style={{fontSize:24,marginRight:12}}>📄</Text>
+                      <Text style={{flex:1,fontSize:14,fontWeight:'800',color:mainText}}>{item.name}</Text>
+                      <Text style={{color:'#2457D6',fontWeight:'900'}}>Open ›</Text>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <Text style={{fontSize:13,color:mutedText,marginTop:12}}>
+                    {['Ancient Indian History','Medieval & Modern History','Indian Polity','Indian Geography','General Science'].includes(page.replace('SSC General Awareness Topic: ', ''))
+                      ? 'No PDF files found in this folder yet.'
+                      : 'PDF materials for this topic will be added later.'}
+                  </Text>
+                )}
+              </View>
+              {[
+                {title:'PDF Notes',desc:'Topic-wise notes and revision material',icon:'📄'},
+                {title:'Video Lessons',desc:'Concept explanations and revision videos',icon:'🎥'},
+                {title:'Practice Questions',desc:'Topic-wise questions and answers',icon:'📝'}
+              ].map(item => (
+                <View key={item.title} style={{padding:15,marginTop:12,borderRadius:14,backgroundColor:cardBg,borderWidth:1,borderColor:darkMode?'#475569':'#D8E1EF',flexDirection:'row',alignItems:'center'}}>
+                  <Text style={{fontSize:26,marginRight:12}}>{item.icon}</Text>
+                  <View style={{flex:1}}>
+                    <Text style={{fontSize:16,fontWeight:'900',color:mainText}}>{item.title}</Text>
+                    <Text style={{fontSize:12,color:mutedText,marginTop:4}}>{item.desc}</Text>
+                  </View>
+                  <Text style={{fontSize:12,fontWeight:'900',color:'#059669'}}>UNLOCKED</Text>
+                </View>
+              ))}
+            </> : <>
+              <Text style={{fontSize:22,fontWeight:'900',color:mainText,marginTop:18}}>🔒 Premium Study Materials</Text>
+              <Text style={{fontSize:14,color:mutedText,marginTop:8,marginBottom:10}}>Ee topic syllabus chudavachu. Premium materials course purchase ayyaka unlock avuthayi.</Text>
+              {[
+                {title:'PDF Notes',desc:'Topic-wise notes and revision material',icon:'📄'},
+                {title:'Video Lessons',desc:'Concept explanations and revision videos',icon:'🎥'},
+                {title:'Practice Questions',desc:'Topic-wise questions and answers',icon:'📝'}
+              ].map(item => (
+                <View key={item.title} style={{padding:15,marginTop:10,borderRadius:14,backgroundColor:cardBg,borderWidth:1,borderColor:darkMode?'#475569':'#D8E1EF',flexDirection:'row',alignItems:'center'}}>
+                  <Text style={{fontSize:26,marginRight:12}}>{item.icon}</Text>
+                  <View style={{flex:1}}>
+                    <Text style={{fontSize:16,fontWeight:'900',color:mainText}}>{item.title}</Text>
+                    <Text style={{fontSize:12,color:mutedText,marginTop:4}}>{item.desc}</Text>
+                  </View>
+                  <Text style={{fontSize:22}}>🔒</Text>
+                </View>
+              ))}
+              <TouchableOpacity onPress={() => setPage('SSC General Awareness Syllabus')}
+                style={{marginTop:20,padding:14,backgroundColor:'#2457D6',borderRadius:12,alignItems:'center'}}>
+                <Text style={{color:'#FFFFFF',fontWeight:'900'}}>Back to Syllabus</Text>
+              </TouchableOpacity>
+            </>}
+          </View>
+        </>}
+
+        {page === 'Master Reasoning Syllabus' && <>
+          <View style={{padding:18}}>
+            <TouchableOpacity onPress={() => setPage('Courses')}
+              style={{padding:14,borderRadius:13,backgroundColor:darkMode?'#173B35':'#E3F4EE',alignItems:'center',marginBottom:18}}>
+              <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'900'}}>← Back to Courses</Text>
+            </TouchableOpacity>
+
+            <Text style={{fontSize:25,fontWeight:'900',color:mainText}}>🧠 SSC Reasoning Masterclass</Text>
+            <Text style={{fontSize:14,color:mutedText,marginTop:6,marginBottom:18}}>Subject Syllabus • Topic-wise Folders</Text>
+
+            {!unlockedCourses['ssc-reasoning-masterclass'] && (
+              <TouchableOpacity
+                onPress={async () => {
+                  try {
+                    const user = auth.currentUser;
+                    if (!user) {
+                      Alert.alert('Please log in', 'Purchase cheyyadaniki mundu login avvandi.');
+                      return;
+                    }
+
+                    const idToken = await user.getIdToken();
+                    const response = await fetch(
+                      "https://" + "study-with-veer-payment-backend.onrender.com/create-checkout-session",
+                      {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': 'Bearer ' + idToken
+                        },
+                        body: JSON.stringify({ courseId: 'ssc-reasoning-masterclass' })
+                      }
+                    );
+
+                    const data = await response.json();
+                    if (!response.ok || !data.sessionToken) {
+                      throw new Error(data.error || 'Could not start secure checkout.');
+                    }
+
+                    await Linking.openURL(
+                      "https://" + "study-with-veer-payment-backend.onrender.com/checkout.html#session=" +
+                      encodeURIComponent(data.sessionToken)
+                    );
+                  } catch (error) {
+                    Alert.alert('Checkout error', error.message || 'Please try again.');
+                  }
+                }}
+                style={{backgroundColor:'#2457D6',padding:16,borderRadius:14,alignItems:'center',marginBottom:20}}
+              >
+                <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'900'}}>Buy for ₹49 — Reasoning Syllabus</Text>
+                <Text style={{color:'#FFFFFF',fontSize:12,marginTop:5}}>Secure checkout • Unlock premium materials</Text>
+              </TouchableOpacity>
+            )}
+
+            {[
+              {title:'Analogy',desc:'Word, Number and Figure Analogy',icon:'🔗',color:'#6344E8'},
+              {title:'Number Series',desc:'Patterns and Missing Numbers',icon:'🔢',color:'#2563EB'},
+              {title:'Coding-Decoding',desc:'Letter and Number Codes',icon:'🔐',color:'#0891B2'},
+              {title:'Blood Relations',desc:'Family Relationships',icon:'👨‍👩‍👧',color:'#DB2777'},
+              {title:'Direction Sense',desc:'Directions and Distance',icon:'🧭',color:'#059669'},
+              {title:'Classification',desc:'Find the Odd One Out',icon:'🧩',color:'#D97706'},
+              {title:'Syllogism',desc:'Logical Statements',icon:'💡',color:'#7C3AED'},
+              {title:'Non-Verbal Reasoning',desc:'Figures, Mirror and Patterns',icon:'🔷',color:'#DC2626'}
+            ].map((folder,index) => {
+              const unlocked = !!unlockedCourses['ssc-reasoning-masterclass'];
+              return (
+                <TouchableOpacity key={folder.title}
+                  onPress={() => {
+                    setPage('Master Reasoning Topic: ' + folder.title);
+                  }}
+                  style={{marginBottom:16,borderRadius:20,backgroundColor:darkMode?'#172033':'#FFFFFF',borderWidth:1,borderColor:folder.color+'66',borderBottomWidth:5,borderBottomColor:folder.color,elevation:6,shadowColor:folder.color,shadowOffset:{width:0,height:4},shadowOpacity:0.18,shadowRadius:6,overflow:'hidden'}}>
+                  <View style={{flexDirection:'row',alignItems:'center',padding:15}}>
+                    <View style={{width:65,height:68,borderRadius:16,backgroundColor:folder.color+'20',alignItems:'center',justifyContent:'center',marginRight:13,borderWidth:1,borderColor:folder.color+'55'}}>
+                      <Text style={{fontSize:29}}>{folder.icon}</Text>
+                      <Text style={{fontSize:10,fontWeight:'900',color:folder.color}}>TOPIC {index+1}</Text>
+                    </View>
+                    <View style={{flex:1}}>
+                      <Text style={{fontSize:16,fontWeight:'900',color:mainText}}>{folder.title}</Text>
+                      <Text style={{fontSize:12,color:mutedText,marginTop:5,lineHeight:17}}>{folder.desc}</Text>
+                      <Text style={{fontSize:12,fontWeight:'900',color:unlocked?'#059669':'#D97706',marginTop:8}}>
+                        {unlocked?'🔓 UNLOCKED':'🔒 LOCKED • ₹49 COURSE'}
+                      </Text>
+                    </View>
+                    <Text style={{fontSize:25}}>{unlocked?'›':'🔒'}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </>}
+
+        {page.startsWith('Master Reasoning Topic: ') && <>
+          <View style={{padding:20}}>
+            <TouchableOpacity onPress={() => setPage('Master Reasoning Syllabus')}
+              style={{padding:14,borderRadius:13,backgroundColor:darkMode?'#173B35':'#E3F4EE',alignItems:'center',marginBottom:20}}>
+              <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'900'}}>← Back to Reasoning Syllabus</Text>
+            </TouchableOpacity>
+            {unlockedCourses['ssc-reasoning-masterclass'] ? <>
+              <Text style={{fontSize:24,fontWeight:'900',color:mainText}}>{page.replace('Master Reasoning Topic: ','')}</Text>
+              {(() => {
+        const topic = page.replace('Master Reasoning Topic: ', '');
+        const lessons = {
+          'Analogy': {
+            meaning: 'Analogy identifies a similar relationship between two pairs.',
+            telugu: 'రెండు పదాల మధ్య ఉన్న సంబంధాన్ని గుర్తించి, అదే సంబంధం ఉన్న మరో పదాన్ని ఎంచుకోవాలి.',
+            example: 'Bird : Nest :: Bee : Hive',
+            question: 'Cat : Kitten :: Dog : ?',
+            answer: 'Puppy'
+          },
+          'Number Series': {
+            meaning: 'Find the pattern and identify the next number.',
+            telugu: 'సంఖ్యల మధ్య ఉన్న నియమాన్ని గుర్తించి తర్వాతి సంఖ్యను కనుక్కోవాలి.',
+            example: '2, 4, 8, 16, 32 (multiply by 2)',
+            question: '3, 6, 12, 24, ?',
+            answer: '48'
+          },
+          'Coding-Decoding': {
+            meaning: 'Letters or words are changed using a fixed rule.',
+            telugu: 'అక్షరాలను ఒక నిర్దిష్ట నియమం ప్రకారం మార్చి కోడ్ ఇస్తారు.',
+            example: 'CAT → DBU (each letter moves one step forward)',
+            question: 'If CAT is coded as DBU, how is BAT coded?',
+            answer: 'CBU'
+          },
+          'Blood Relations': {
+            meaning: 'Use family relationships to identify the correct relation.',
+            telugu: 'కుటుంబ సంబంధాలను అర్థం చేసుకొని సరైన బంధుత్వాన్ని గుర్తించాలి.',
+            example: 'Mother’s brother = Maternal uncle',
+            question: 'What is your father’s sister called?',
+            answer: 'Aunt (పిన్ని / అత్త)'
+          },
+          'Direction Sense': {
+            meaning: 'Track directions using North, South, East and West.',
+            telugu: 'ఉత్తరం, దక్షిణం, తూర్పు, పడమర దిశలను ఉపయోగించి కదలికను గుర్తించాలి.',
+            example: 'Facing North, a right turn points East.',
+            question: 'You face East and turn left. Which direction are you facing?',
+            answer: 'North (ఉత్తరం)'
+          },
+          'Classification': {
+            meaning: 'Choose the item that does not belong to the group.',
+            telugu: 'ఇతర వాటితో పోలిస్తే భిన్నంగా ఉన్న పదం లేదా సంఖ్యను గుర్తించాలి.',
+            example: 'Apple, Mango, Banana, Carrot → Carrot is different.',
+            question: 'Which number is different: 2, 4, 6, 9?',
+            answer: '9 (the others are even)'
+          },
+          'Syllogism': {
+            meaning: 'Use the given statements to decide what must be true.',
+            telugu: 'ఇచ్చిన వాక్యాల ఆధారంగా ఖచ్చితంగా సరైన నిర్ణయాన్ని ఎంచుకోవాలి.',
+            example: 'All roses are flowers. All flowers are plants. Therefore, all roses are plants.',
+            question: 'All cats are animals. All animals are living beings. Are all cats living beings?',
+            answer: 'Yes (అవును)'
+          },
+          'Non-Verbal Reasoning': {
+            meaning: 'Solve questions using shapes, figures and visual patterns.',
+            telugu: 'ఆకారాలు, చిత్రాలు, వాటి క్రమాన్ని గమనించి సమాధానం కనుక్కోవాలి.',
+            example: 'Circle, Triangle, Square, Circle, Triangle, Square...',
+            question: 'What comes next: Circle, Triangle, Square, Circle, Triangle, ?',
+            answer: 'Square (చతురస్రం)'
+          }
+        };
+        const lesson = lessons[topic];
+        return (
+          <View style={{marginTop:16,padding:16,borderRadius:16,backgroundColor:cardBg,borderWidth:1,borderColor:'#D9E2F2'}}>
+            {lesson ? <>
+              <Text style={{fontSize:20,fontWeight:'900',color:mainText}}>Lesson Notes</Text>
+              <Text style={{fontSize:15,fontWeight:'700',color:mainText,marginTop:14}}>English</Text>
+              <Text style={{fontSize:14,color:mutedText,marginTop:5,lineHeight:22}}>{lesson.meaning}</Text>
+              <Text style={{fontSize:15,fontWeight:'700',color:mainText,marginTop:14}}>తెలుగు వివరణ</Text>
+              <Text style={{fontSize:14,color:mutedText,marginTop:5,lineHeight:24}}>{lesson.telugu}</Text>
+              <Text style={{fontSize:16,fontWeight:'800',color:mainText,marginTop:18}}>Example</Text>
+              <Text style={{fontSize:14,color:mutedText,marginTop:6,lineHeight:22}}>{lesson.example}</Text>
+              <View style={{marginTop:18,padding:12,borderRadius:12,backgroundColor:darkMode?'#1E293B':'#EEF4FF'}}>
+                <Text style={{fontSize:16,fontWeight:'900',color:mainText}}>Practice Question</Text>
+                <Text style={{fontSize:14,color:mainText,marginTop:8,lineHeight:22}}>{lesson.question}</Text>
+                <Text style={{fontSize:14,fontWeight:'800',color:darkMode?'#86EFAC':'#167447',marginTop:12}}>Answer: {lesson.answer}</Text>
+              </View>
+            </> : <Text style={{fontSize:14,color:mutedText}}>Lesson content is being prepared for this topic.</Text>}
+          </View>
+        );
+      })()}
+            </> : <>
+              <Text style={{fontSize:23,fontWeight:'900',color:mainText}}>🔒 Premium Study Materials</Text>
+              <Text style={{color:mutedText,marginTop:8,marginBottom:16}}>Ee topic materials course purchase ayyaka unlock avuthayi.</Text>
+              {[
+                {title:'PDF Notes',desc:'Topic-wise notes and revision material',icon:'📄'},
+                {title:'Video Lessons',desc:'Concept explanations and practice videos',icon:'🎥'},
+                {title:'Practice Questions',desc:'Topic-wise questions with answers',icon:'📝'}
+              ].map((item) => (
+                <View key={item.title} style={{padding:15,marginTop:10,borderRadius:14,backgroundColor:cardBg,borderWidth:1,borderColor:darkMode?'#475569':'#D8E1EF',flexDirection:'row',alignItems:'center'}}>
+                  <Text style={{fontSize:27,marginRight:12}}>{item.icon}</Text>
+                  <View style={{flex:1}}>
+                    <Text style={{fontSize:16,fontWeight:'900',color:mainText}}>{item.title}</Text>
+                    <Text style={{fontSize:12,color:mutedText,marginTop:4}}>{item.desc}</Text>
+                  </View>
+                  <Text style={{fontSize:22}}>🔒</Text>
+                </View>
+              ))}
+              <TouchableOpacity onPress={() => setPage('Courses')} style={{marginTop:20,padding:14,backgroundColor:'#2457D6',borderRadius:12,alignItems:'center'}}>
+                <Text style={{color:'#FFFFFF',fontWeight:'900'}}>View Courses</Text>
+              </TouchableOpacity>
+            </>}
           </View>
         </>}
 
@@ -2032,9 +2737,37 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           </View>
         </>}
 
+        {showCancelTestConfirm && <View style={{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:9999,elevation:20,backgroundColor:'rgba(15,23,42,0.72)',alignItems:'center',justifyContent:'center',padding:24}}>
+          <View style={{width:'100%',maxWidth:360,backgroundColor:darkMode?'#1E293B':'#FFFFFF',padding:22,borderRadius:18,borderWidth:1,borderColor:darkMode?'#475569':'#DCCBFF'}}>
+            <Text style={{fontSize:21,fontWeight:'900',color:darkMode?'#FFFFFF':'#173B83',marginBottom:10}}>Cancel Test?</Text>
+            <Text style={{fontSize:15,color:darkMode?'#CBD5E1':'#475569',marginBottom:20}}>Are you sure you want to cancel the test?</Text>
+            <View style={{flexDirection:'row',gap:10}}>
+              <View style={{flex:1}}>
+                {button('No, Continue Test', () => setShowCancelTestConfirm(false))}
+              </View>
+              <View style={{flex:1}}>
+                {button('Cancel Test', () => {
+                  setShowCancelTestConfirm(false);
+                  setIsTestPaused(false);
+                  setAnswers({});
+                  setQuestion(0);
+                  setScore(null);
+                  setTimeLeft(900);
+                  setPage('Mock Test Folders');
+                  setCancelTestMessage('Your test has been cancelled successfully. You can start a new mock test anytime!');
+                }, true)}
+              </View>
+            </View>
+          </View>
+        </View>}
+
         {page === 'Mock Tests' && <>
           <Text style={styles.pageTitle}>{currentSubject} Test</Text>
           {score === null && <Text style={styles.subjectTitle}>Time Left: {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, "0")}</Text>}
+          {score === null && <View style={styles.navRow}>
+            {button(isTestPaused ? 'Resume Test' : 'Pause Test', () => setIsTestPaused(p => !p), true)}
+            {button('Cancel Test', () => setShowCancelTestConfirm(true))}
+          </View>}
           {score === null ? <>
             <View style={styles.progressLine}><View style={[styles.progressFill,{width:((question+1)/questions.length*100)+'%'}]} /></View>
             <Text style={[styles.muted,{color:mutedText}]}>Question {question+1} of {questions.length}</Text>
@@ -2069,7 +2802,16 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               {button('← Previous', () => setQuestion(Math.max(0,question-1)))}
               {question < questions.length-1
                 ? button('Next →', () => setQuestion(Math.min(questions.length-1,question+1)), true)
-                : button('Submit Test', submitTest, true)}
+                : Object.keys(answers).length === questions.length
+                  ? button('Submit Test', () => Alert.alert(
+                    'Submit Test?',
+                    'Test submit cheyyala? Submit chesaka answers marchaleru.',
+                    [
+                      {text:'Continue Test', style:'cancel'},
+                      {text:'Submit', onPress:submitTest}
+                    ]
+                  ), true)
+                  : <Text style={{color:'#D97706',fontWeight:'800',marginTop:12,textAlign:'center'}}>Answer all questions to submit ({Object.keys(answers).length}/{questions.length})</Text>}
             </View>
           </> : <View>
             <View style={styles.questionCard}>

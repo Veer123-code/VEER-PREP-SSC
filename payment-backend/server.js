@@ -96,7 +96,8 @@ if (!checkoutSessionSecret || checkoutSessionSecret.length < 64) {
 
 const allowedCheckoutCourses = new Set([
   'ssc-reasoning-masterclass',
-  'ssc-general-awareness'
+  'ssc-general-awareness',
+  'ssc-english-foundation'
 ]);
 
 function createCheckoutSessionToken(uid, courseId) {
@@ -227,7 +228,7 @@ app.post('/create-order', async (req, res) => {
     if (auth.sessionCourseId && req.body.courseId !== auth.sessionCourseId) {
       return res.status(403).json({ error: 'Checkout session course mismatch.' });
     }
-    if (!['ssc-reasoning-masterclass', 'ssc-general-awareness'].includes(req.body.courseId)) {
+    if (!['ssc-reasoning-masterclass', 'ssc-general-awareness', 'ssc-english-foundation'].includes(req.body.courseId)) {
       return res.status(400).json({ error: 'Invalid course selection' });
     }
 
@@ -393,7 +394,7 @@ app.get('/english/articles-full-url', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Please log in to access the full PDF.' });
     const unlocks = readUnlocks();
     const courses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
-    const eligible = courses['ssc-reasoning-masterclass'] || courses['ssc-general-awareness'] || courses['english-articles-pdf'];
+    const eligible = courses['ssc-english-foundation'] || courses['ssc-reasoning-masterclass'] || courses['ssc-general-awareness'] || courses['english-articles-pdf'];
     if (!eligible) return res.status(403).json({ error: 'Full PDF requires an eligible course purchase or Articles PDF purchase.' });
     const result = await supabase.storage.from('English -pdfs').createSignedUrl('Articles/Articles notes.pdf', 60);
     if (result.error) throw result.error;
@@ -432,7 +433,8 @@ app.get('/english/topic-pdf-url', async (req, res) => {
 
     const unlocks = readUnlocks();
     const courses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
-    const eligible = courses['ssc-reasoning-masterclass'] ||
+    const eligible = courses['ssc-english-foundation'] ||
+      courses['ssc-reasoning-masterclass'] ||
       courses['ssc-general-awareness'] ||
       courses['english-articles-pdf'];
 
@@ -452,6 +454,95 @@ app.get('/english/topic-pdf-url', async (req, res) => {
   } catch (error) {
     console.error('English topic PDF access failed:', error.message);
     return res.status(500).json({ error: 'Could not open this English PDF.' });
+  }
+});
+
+
+app.get('/general-awareness/topic-files', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Please log in to access General Awareness PDFs.' });
+    }
+
+    const unlocks = readUnlocks();
+    const courses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
+    if (!courses['ssc-general-awareness']) {
+      return res.status(403).json({
+        error: 'Purchase the General Awareness course to access these PDFs.'
+      });
+    }
+
+    const allowedFolders = ['History', 'Polity', 'Geography', 'Science'];
+    const folder = req.query.topic;
+
+    if (typeof folder !== 'string' || !allowedFolders.includes(folder)) {
+      return res.status(400).json({ error: 'Invalid topic folder.' });
+    }
+
+    const result = await supabase.storage
+      .from('general-awareness-pdfs')
+      .list(folder, { limit: 100, sortBy: { column: 'name', order: 'asc' } });
+
+    if (result.error) throw result.error;
+
+    const files = (result.data || [])
+      .filter(item => item.name && item.name.toLowerCase().endsWith('.pdf'))
+      .map(item => ({ name: item.name }));
+
+    return res.json({ topic: folder, files });
+  } catch (error) {
+    console.error('General Awareness PDF list failed:', error.message);
+    return res.status(500).json({ error: 'Could not load General Awareness PDFs.' });
+  }
+});
+
+app.get('/general-awareness/topic-pdf-url', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Please log in to access General Awareness PDFs.' });
+    }
+
+    const unlocks = readUnlocks();
+    const courses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
+    if (!courses['ssc-general-awareness']) {
+      return res.status(403).json({
+        error: 'Purchase the General Awareness course to access these PDFs.'
+      });
+    }
+
+    const topicFiles = {
+      History: 'History',
+      Polity: 'Polity',
+      Geography: 'Geography',
+      Science: 'Science'
+    };
+
+    const folder = topicFiles[req.query.topic];
+    const filename = typeof req.query.file === 'string' ? req.query.file : '';
+
+    if (!folder || !filename || filename.includes('/') ||
+        filename.includes('\\') || filename === '.' || filename === '..' ||
+        !/^[a-zA-Z0-9 _().-]+\.pdf$/i.test(filename)) {
+      return res.status(400).json({ error: 'Invalid topic or PDF filename.' });
+    }
+
+    const result = await supabase.storage
+      .from('general-awareness-pdfs')
+      .createSignedUrl(folder + '/' + filename, 60);
+
+    if (result.error) {
+      if (result.error.message && /not found|does not exist/i.test(result.error.message)) {
+        return res.status(404).json({ error: 'PDF not found in this topic folder.' });
+      }
+      throw result.error;
+    }
+
+    return res.json({ url: result.data.signedUrl, expiresIn: 60 });
+  } catch (error) {
+    console.error('General Awareness PDF access failed:', error.message);
+    return res.status(500).json({ error: 'Could not open this General Awareness PDF.' });
   }
 });
 
