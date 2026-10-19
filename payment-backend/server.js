@@ -473,7 +473,7 @@ app.get('/general-awareness/topic-files', async (req, res) => {
       });
     }
 
-    const allowedFolders = ['History', 'Polity', 'Geography', 'Science'];
+    const allowedFolders = ['history', 'polity', 'geography', 'science'];
     const folder = req.query.topic;
 
     if (typeof folder !== 'string' || !allowedFolders.includes(folder)) {
@@ -513,10 +513,10 @@ app.get('/general-awareness/topic-pdf-url', async (req, res) => {
     }
 
     const topicFiles = {
-      History: 'History',
-      Polity: 'Polity',
-      Geography: 'Geography',
-      Science: 'Science'
+      history: 'history',
+      polity: 'polity',
+      geography: 'geography',
+      science: 'science'
     };
 
     const folder = topicFiles[req.query.topic];
