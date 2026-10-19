@@ -481,7 +481,7 @@ app.get('/general-awareness/topic-files', async (req, res) => {
     }
 
     const result = await supabase.storage
-      .from('general-awareness-pdfs')
+      .from('general_awarness')
       .list(folder, { limit: 100, sortBy: { column: 'name', order: 'asc' } });
 
     if (result.error) throw result.error;
@@ -529,7 +529,7 @@ app.get('/general-awareness/topic-pdf-url', async (req, res) => {
     }
 
     const result = await supabase.storage
-      .from('general-awareness-pdfs')
+      .from('general_awarness')
       .createSignedUrl(folder + '/' + filename, 60);
 
     if (result.error) {
