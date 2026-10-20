@@ -66,6 +66,7 @@ export default function App() {
   const t = (english, telugu) => language === 'te' ? telugu : english;
   const [unlockedCourses, setUnlockedCourses] = useState({});
   const [generalAwarenessFiles, setGeneralAwarenessFiles] = useState([]);
+  const [generalAwarenessFolders, setGeneralAwarenessFolders] = useState([]);
   const [generalAwarenessLoading, setGeneralAwarenessLoading] = useState(false);
   const [generalAwarenessError, setGeneralAwarenessError] = useState('');
 
@@ -381,28 +382,16 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   useEffect(() => {
     let cancelled = false;
 
-    const loadGeneralAwarenessFiles = async () => {
-      if (!page.startsWith('SSC General Awareness Topic: ')) return;
+    const loadGeneralAwareness = async () => {
+      const isSyllabus = page === 'SSC General Awareness Syllabus';
+      const isTopic = page.startsWith('SSC General Awareness Topic: ');
 
-      const title = page.replace('SSC General Awareness Topic: ', '');
-      const folderMap = {
-        'Ancient Indian History': 'history',
-        'Medieval & Modern History': 'history',
-        'Indian Polity': 'polity',
-        'Indian Geography': 'geography',
-        'General Science': 'science'
-      };
-      const folder = folderMap[title];
+      if (!isSyllabus && !isTopic) return;
 
-      setGeneralAwarenessFiles([]);
       setGeneralAwarenessError('');
+      setGeneralAwarenessFiles([]);
 
       if (!unlockedCourses['ssc-general-awareness']) {
-        setGeneralAwarenessLoading(false);
-        return;
-      }
-
-      if (!folder) {
         setGeneralAwarenessLoading(false);
         return;
       }
@@ -411,28 +400,39 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
       try {
         const user = auth.currentUser;
-        if (!user) throw new Error('Please log in again to access PDFs.');
+        if (!user) throw new Error('Please log in again to access General Awareness materials.');
 
         const token = await user.getIdToken();
-        const response = await fetch(
-          ARTICLES_API + '/general-awareness/topic-files?topic=' + encodeURIComponent(folder),
-          { headers: { Authorization: 'Bearer ' + token } }
-        );
-        const data = await response.json();
 
-        if (!response.ok) throw new Error(data.error || 'Could not load PDFs.');
-
-        if (!cancelled) setGeneralAwarenessFiles(data.files || []);
+        if (isSyllabus) {
+          const response = await fetch(
+            ARTICLES_API + '/general-awareness/folders',
+            { headers: { Authorization: 'Bearer ' + token } }
+          );
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Could not load folders.');
+          if (!cancelled) setGeneralAwarenessFolders(data.folders || []);
+        } else {
+          const folder = page.replace('SSC General Awareness Topic: ', '');
+          const response = await fetch(
+            ARTICLES_API + '/general-awareness/topic-files?topic=' + encodeURIComponent(folder),
+            { headers: { Authorization: 'Bearer ' + token } }
+          );
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Could not load PDFs.');
+          if (!cancelled) setGeneralAwarenessFiles(data.files || []);
+        }
       } catch (error) {
-        if (!cancelled) setGeneralAwarenessError(error.message || 'Could not load PDFs.');
+        if (!cancelled) setGeneralAwarenessError(error.message || 'Could not load General Awareness materials.');
       } finally {
         if (!cancelled) setGeneralAwarenessLoading(false);
       }
     };
 
-    loadGeneralAwarenessFiles();
+    loadGeneralAwareness();
     return () => { cancelled = true; };
   }, [page, unlockedCourses]);
+
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -2044,91 +2044,40 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             <Text style={[styles.pageTitle,{color:mainText,textAlign:'center'}]}>SSC English Foundation Locked</Text>
             <Text style={{color:mutedText,textAlign:'center',marginTop:10}}>Purchase this course for ₹49 to access English topics and study materials.</Text>
             <TouchableOpacity onPress={async () => {
+  let checkoutWindow = null;
   try {
+    if (Platform.OS === 'web') checkoutWindow = window.open('about:blank', '_blank');
     const user = auth.currentUser;
-    if (!user) {
-      if (Platform.OS === 'web') window.alert('Please log in before purchasing.');
-      else Alert.alert('Please log in before purchasing.');
-      return;
-    }
-
-    if (Platform.OS !== 'web') {
-      const token = await user.getIdToken();
-      const response = await fetch('https://study-with-veer-payment-backend.onrender.com/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-        body: JSON.stringify({ courseId: 'ssc-english-foundation' })
-      });
-      const data = await response.json();
-      if (!response.ok || !data.sessionToken) throw new Error(data.error || 'Could not start checkout.');
-      await Linking.openURL('https://study-with-veer-payment-backend.onrender.com/checkout.html#session=' + encodeURIComponent(data.sessionToken));
-      return;
-    }
-
-    if (!window.Razorpay) {
-      await new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-        script.onload = resolve;
-        script.onerror = () => reject(new Error('Razorpay checkout script could not load.'));
-        document.body.appendChild(script);
-      });
-    }
+    if (!user) throw new Error('Please log in before purchasing.');
 
     const token = await user.getIdToken();
-    const response = await fetch('https://study-with-veer-payment-backend.onrender.com/create-order', {
+    const response = await fetch('https://' + 'study-with-veer-payment-backend.onrender.com/create-checkout-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ courseId: 'ssc-english-foundation' })
     });
-    const order = await response.json();
-    if (!response.ok) throw new Error(order.error || 'Could not create payment order.');
+    const data = await response.json();
+    if (!response.ok || !data.sessionToken) throw new Error(data.error || 'Could not start checkout.');
 
-    new window.Razorpay({
-      key: order.keyId,
-      amount: order.amount,
-      currency: order.currency,
-      name: 'STUDY WITH VEER',
-      description: 'SSC English Foundation',
-      order_id: order.orderId,
-      theme: { color: '#087F67' },
-      handler: async (payment) => {
-        try {
-          const verified = await fetch('https://study-with-veer-payment-backend.onrender.com/verify-payment', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-            body: JSON.stringify(payment)
-          });
-          const result = await verified.json();
-          if (!verified.ok || !result.verified || !result.unlocked) {
-            window.alert(result.error || 'Payment verification failed.');
-            return;
-          }
-          const freshToken = await user.getIdToken();
-          const access = await fetch('https://study-with-veer-payment-backend.onrender.com/my-courses', {
-            headers: { 'Authorization': 'Bearer ' + freshToken }
-          });
-          const courses = await access.json();
-          if (access.ok) setUnlockedCourses(courses.courses || {});
-          window.alert('Payment verified. SSC English Foundation access updated.');
-        } catch (e) {
-          window.alert('Could not verify payment. Please try again.');
-        }
-      }
-    }).open();
+    const checkoutUrl = 'https://' + 'study-with-veer-payment-backend.onrender.com/checkout.html#session=' + encodeURIComponent(data.sessionToken);
+    if (Platform.OS === 'web') {
+      if (checkoutWindow && !checkoutWindow.closed) checkoutWindow.location.href = checkoutUrl;
+      else window.location.href = checkoutUrl;
+    } else {
+      await Linking.openURL(checkoutUrl);
+    }
   } catch (e) {
+    if (checkoutWindow && !checkoutWindow.closed) checkoutWindow.close();
     if (Platform.OS === 'web') window.alert('Checkout error: ' + (e.message || String(e)));
     else Alert.alert(e.message || 'Could not open checkout.');
   }
 }} style={{backgroundColor:'#2457D6',padding:15,borderRadius:12,marginTop:20,width:'100%',alignItems:'center'}}>
               <Text style={{color:'#FFFFFF',fontWeight:'900'}}>Buy for ₹49 →</Text>
             </TouchableOpacity>
-            
-          
-<TouchableOpacity onPress={() => setPage('Home')} style={{width:'100%',alignSelf:'stretch',paddingVertical:17,paddingHorizontal:12,marginTop:24,marginBottom:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center'}}>
+            <TouchableOpacity onPress={() => setPage('Home')} style={{width:'100%',alignSelf:'stretch',paddingVertical:17,paddingHorizontal:12,marginTop:24,marginBottom:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center'}}>
               <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>← Back to Home</Text>
             </TouchableOpacity>
-</View>
+          </View>
         </>}
 
         {page === 'SSC English Folders' && !!unlockedCourses['ssc-english-foundation'] && <>
@@ -2173,22 +2122,60 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         </>}
 
         {page.startsWith('SSC English Topic: ') && !!unlockedCourses['ssc-english-foundation'] && <>
-          <View style={{flex:1,minHeight:520,padding:24,alignItems:'center',justifyContent:'center'}}>
-            <View style={{width:88,height:88,borderRadius:24,backgroundColor:darkMode?'#173B35':'#E3F4EE',alignItems:'center',justifyContent:'center',marginBottom:22,borderWidth:1,borderColor:darkMode?'#2D7668':'#A7DCCB'}}>
-              <Text style={{fontSize:42}}>📚</Text>
-            </View>
-            <Text style={[styles.pageTitle,{color:mainText,textAlign:'center',fontSize:26}]}>Content is Not Updated</Text>
-            <Text style={{color:mutedText,textAlign:'center',fontSize:15,lineHeight:23,marginTop:12}}>
-              This English lesson is not available yet. We are working on updating the study content. Please check again later.
+          <View style={{padding:22}}>
+            <Text style={[styles.pageTitle,{color:mainText}]}>
+              {page.replace('SSC English Topic: ', '')}
             </Text>
-            
-          
-<TouchableOpacity onPress={() => setPage('SSC English Folders')} style={{width:'100%',alignSelf:'stretch',paddingVertical:17,paddingHorizontal:12,marginTop:24,marginBottom:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center'}}>
-              <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>← Back to English Syllabus</Text>
-            </TouchableOpacity>
-</View>
-        </>}
+            <Text style={{color:mutedText,marginTop:8,lineHeight:22}}>
+              Open your topic-wise English study PDF from Supabase.
+            </Text>
 
+            <TouchableOpacity
+              onPress={async () => {
+                let pdfWindow = null;
+                if (typeof window !== 'undefined' && window.open) {
+                  pdfWindow = window.open('about:blank', '_blank');
+                }
+                try {
+                  const user = auth.currentUser;
+                  if (!user) throw new Error('Please log in again.');
+                  const token = await user.getIdToken();
+                  const topic = page.replace('SSC English Topic: ', '');
+                  const endpoint = topic === 'Articles'
+                    ? ARTICLES_API + '/english/articles-full-url'
+                    : ARTICLES_API + '/english/topic-pdf-url?topic=' + encodeURIComponent(topic);
+
+                  const response = await fetch(endpoint, {
+                    headers: { Authorization: 'Bearer ' + token }
+                  });
+                  const data = await response.json();
+                  if (!response.ok || !data.url) {
+                    throw new Error(data.error || 'Could not open this English PDF.');
+                  }
+
+                  if (pdfWindow && !pdfWindow.closed) {
+                    pdfWindow.location.href = data.url;
+                  } else if (typeof window !== 'undefined') {
+                    window.location.href = data.url;
+                  } else {
+                    await Linking.openURL(data.url);
+                  }
+                } catch (error) {
+                  if (pdfWindow && !pdfWindow.closed) pdfWindow.close();
+                  Alert.alert('English PDF error', error.message || 'Please try again.');
+                }
+              }}
+              style={{backgroundColor:'#2457D6',padding:17,borderRadius:14,alignItems:'center',marginTop:24}}>
+              <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'900'}}>📄 Open English PDF</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setPage('SSC English Folders')}
+              style={{padding:16,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',marginTop:16}}>
+              <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>← Back to English Folders</Text>
+            </TouchableOpacity>
+          </View>
+        </>}
 
         {page === 'SSC General Awareness Syllabus' && <>
           <View style={{padding:18}}>
@@ -2200,15 +2187,14 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             {!unlockedCourses['ssc-general-awareness'] && (
               <TouchableOpacity
                 onPress={async () => {
+                  let checkoutWindow = null;
                   try {
+                    if (Platform.OS === 'web') checkoutWindow = window.open('about:blank', '_blank');
                     const user = auth.currentUser;
-                    if (!user) {
-                      Alert.alert('Please log in', 'Purchase cheyyadaniki mundu login avvandi.');
-                      return;
-                    }
+                    if (!user) throw new Error('Please log in before purchasing.');
                     const idToken = await user.getIdToken();
                     const response = await fetch(
-                      "https://" + "study-with-veer-payment-backend.onrender.com/create-checkout-session",
+                      'https://' + 'study-with-veer-payment-backend.onrender.com/create-checkout-session',
                       {
                         method: 'POST',
                         headers: {
@@ -2222,12 +2208,17 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                     if (!response.ok || !data.sessionToken) {
                       throw new Error(data.error || 'Could not start secure checkout.');
                     }
-                    await Linking.openURL(
-                      "https://" + "study-with-veer-payment-backend.onrender.com/checkout.html#session=" +
-                      encodeURIComponent(data.sessionToken)
-                    );
+                    const checkoutUrl = 'https://' + 'study-with-veer-payment-backend.onrender.com/checkout.html#session=' + encodeURIComponent(data.sessionToken);
+                    if (Platform.OS === 'web') {
+                      if (checkoutWindow && !checkoutWindow.closed) checkoutWindow.location.href = checkoutUrl;
+                      else window.location.href = checkoutUrl;
+                    } else {
+                      await Linking.openURL(checkoutUrl);
+                    }
                   } catch (error) {
-                    Alert.alert('Checkout error', error.message || 'Please try again.');
+                    if (checkoutWindow && !checkoutWindow.closed) checkoutWindow.close();
+                    if (Platform.OS === 'web') window.alert('Checkout error: ' + (error.message || 'Please try again.'));
+                    else Alert.alert('Checkout error', error.message || 'Please try again.');
                   }
                 }}
                 style={{backgroundColor:'#2457D6',padding:16,borderRadius:14,alignItems:'center',marginBottom:20}}>
@@ -2236,39 +2227,41 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               </TouchableOpacity>
             )}
 
-            {[
-              {title:'Ancient Indian History',desc:'Indus Valley, Vedic Age and ancient kingdoms',icon:'🏛️',color:'#B45309'},
-              {title:'Medieval & Modern History',desc:'Kingdoms, British rule and freedom movement',icon:'📜',color:'#C2410C'},
-              {title:'Indian Polity',desc:'Constitution, Parliament, President and Judiciary',icon:'⚖️',color:'#7C3AED'},
-              {title:'Indian Geography',desc:'Rivers, mountains, climate, soils and states',icon:'🗺️',color:'#059669'},
-              {title:'Indian Economy',desc:'Budget, banking, inflation and basic economics',icon:'📈',color:'#2563EB'},
-              {title:'General Science',desc:'Physics, Chemistry and Biology basics',icon:'🔬',color:'#0891B2'},
-              {title:'Static General Knowledge',desc:'Books, awards, sports, days and important places',icon:'📚',color:'#DB2777'},
-              {title:'Current Affairs',desc:'Important national and international events',icon:'📰',color:'#DC2626'}
-            ].map((folder,index) => {
-              const unlocked = !!unlockedCourses['ssc-general-awareness'];
+            {!unlockedCourses['ssc-general-awareness'] ? (
+              <Text style={{color:mutedText,marginBottom:14}}>
+                Purchase the course to unlock folders and study materials.
+              </Text>
+            ) : generalAwarenessLoading ? (
+              <Text style={{color:mutedText,marginBottom:14}}>Loading folders from Supabase...</Text>
+            ) : generalAwarenessError ? (
+              <Text style={{color:'#DC2626',marginBottom:14}}>{generalAwarenessError}</Text>
+            ) : generalAwarenessFolders.length === 0 ? (
+              <Text style={{color:mutedText,marginBottom:14}}>
+                No folders found in the General Awareness bucket yet.
+              </Text>
+            ) : generalAwarenessFolders.map((folder, index) => {
+              const colors = ['#B45309','#7C3AED','#059669','#2563EB','#0891B2','#DB2777'];
+              const color = colors[index % colors.length];
               return (
-                <TouchableOpacity key={folder.title}
-                  onPress={() => setPage('SSC General Awareness Topic: ' + folder.title)}
-                  style={{marginBottom:14,borderRadius:18,backgroundColor:darkMode?'#172033':'#FFFFFF',borderWidth:1,borderColor:folder.color+'66',borderBottomWidth:4,borderBottomColor:folder.color,elevation:4,overflow:'hidden'}}>
+                <TouchableOpacity key={folder.name}
+                  onPress={() => setPage('SSC General Awareness Topic: ' + folder.name)}
+                  style={{marginBottom:14,borderRadius:18,backgroundColor:darkMode?'#172033':'#FFFFFF',borderWidth:1,borderColor:color+'66',borderBottomWidth:4,borderBottomColor:color,elevation:4,overflow:'hidden'}}>
                   <View style={{flexDirection:'row',alignItems:'center',padding:14}}>
-                    <View style={{width:60,height:64,borderRadius:14,backgroundColor:folder.color+'20',alignItems:'center',justifyContent:'center',marginRight:12,borderWidth:1,borderColor:folder.color+'55'}}>
-                      <Text style={{fontSize:26}}>{folder.icon}</Text>
-                      <Text style={{fontSize:9,fontWeight:'900',color:folder.color}}>TOPIC {index+1}</Text>
+                    <View style={{width:60,height:60,borderRadius:14,backgroundColor:color+'20',alignItems:'center',justifyContent:'center',marginRight:12,borderWidth:1,borderColor:color+'55'}}>
+                      <Text style={{fontSize:27}}>📁</Text>
+                      <Text style={{fontSize:9,fontWeight:'900',color:color}}>FOLDER {index + 1}</Text>
                     </View>
                     <View style={{flex:1}}>
-                      <Text style={{fontSize:15,fontWeight:'900',color:mainText}}>{folder.title}</Text>
-                      <Text style={{fontSize:12,color:mutedText,marginTop:4,lineHeight:17}}>{folder.desc}</Text>
-                      <Text style={{fontSize:11,fontWeight:'900',color:unlocked?'#059669':'#D97706',marginTop:7}}>
-                        {unlocked?'🔓 UNLOCKED':'🔒 PREMIUM MATERIALS • ₹49'}
-                      </Text>
+                      <Text style={{fontSize:15,fontWeight:'900',color:mainText}}>{folder.name}</Text>
+                      <Text style={{fontSize:12,color:mutedText,marginTop:4}}>Open folder to view PDF notes</Text>
+                      <Text style={{fontSize:11,fontWeight:'900',color:'#059669',marginTop:7}}>🔓 UNLOCKED</Text>
                     </View>
-                    <Text style={{fontSize:22}}>{unlocked?'›':'🔒'}</Text>
+                    <Text style={{fontSize:22,color:color}}>›</Text>
                   </View>
                 </TouchableOpacity>
               );
             })}
-          
+
             <TouchableOpacity
               onPress={() => setPage('Courses')}
               style={{width:'100%',alignSelf:'stretch',marginTop:24,marginBottom:12,paddingVertical:17,paddingHorizontal:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center'}}
@@ -2303,21 +2296,15 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                     <TouchableOpacity
                       key={item.name}
                       onPress={async () => {
+                        let pdfWindow = null;
+                        if (typeof window !== 'undefined' && window.open) {
+                          pdfWindow = window.open('about:blank', '_blank');
+                        }
                         try {
                           const user = auth.currentUser;
                           if (!user) throw new Error('Please log in again.');
                           const token = await user.getIdToken();
-                          const title = page.replace('SSC General Awareness Topic: ', '');
-                          const folderMap = {
-                            'Ancient Indian History': 'history',
-                            'Medieval & Modern History': 'history',
-                            'Indian Polity': 'polity',
-                            'Indian Geography': 'geography',
-                            'General Science': 'science'
-                          };
-                          const folder = folderMap[title];
-                          if (!folder) throw new Error('This topic has no PDF folder yet.');
-
+                          const folder = page.replace('SSC General Awareness Topic: ', '');
                           const response = await fetch(
                             ARTICLES_API + '/general-awareness/topic-pdf-url?topic=' +
                               encodeURIComponent(folder) + '&file=' + encodeURIComponent(item.name),
@@ -2327,8 +2314,10 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                           if (!response.ok || !data.url) {
                             throw new Error(data.error || 'Could not open this PDF.');
                           }
-                          if (typeof window !== 'undefined' && window.open) {
-                            window.open(data.url, '_blank', 'noopener,noreferrer');
+                          if (pdfWindow && !pdfWindow.closed) {
+                            pdfWindow.location.href = data.url;
+                          } else if (typeof window !== 'undefined') {
+                            window.location.href = data.url;
                           } else {
                             await Linking.openURL(data.url);
                           }
@@ -2345,9 +2334,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                   ))
                 ) : (
                   <Text style={{fontSize:13,color:mutedText,marginTop:12}}>
-                    {['Ancient Indian History','Medieval & Modern History','Indian Polity','Indian Geography','General Science'].includes(page.replace('SSC General Awareness Topic: ', ''))
-                      ? 'No PDF files found in this folder yet.'
-                      : 'PDF materials for this topic will be added later.'}
+                    'No PDF files found in this folder yet.'
                   </Text>
                 )}
               </View>

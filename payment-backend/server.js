@@ -458,6 +458,36 @@ app.get('/english/topic-pdf-url', async (req, res) => {
 });
 
 
+app.get('/general-awareness/folders', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Please log in to access General Awareness folders.' });
+    }
+
+    const unlocks = readUnlocks();
+    const courses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
+    if (!courses['ssc-general-awareness']) {
+      return res.status(403).json({ error: 'Purchase the General Awareness course to access these folders.' });
+    }
+
+    const result = await supabase.storage
+      .from('general_awarness')
+      .list('', { limit: 100, sortBy: { column: 'name', order: 'asc' } });
+
+    if (result.error) throw result.error;
+
+    const folders = (result.data || [])
+      .filter(item => item.name && item.id === null && !item.metadata)
+      .map(item => ({ name: item.name }));
+
+    return res.json({ folders });
+  } catch (error) {
+    console.error('General Awareness folder list failed:', error.message);
+    return res.status(500).json({ error: 'Could not load General Awareness folders.' });
+  }
+});
+
 app.get('/general-awareness/topic-files', async (req, res) => {
   try {
     const user = await getAuthenticatedUser(req);
@@ -468,22 +498,27 @@ app.get('/general-awareness/topic-files', async (req, res) => {
     const unlocks = readUnlocks();
     const courses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
     if (!courses['ssc-general-awareness']) {
-      return res.status(403).json({
-        error: 'Purchase the General Awareness course to access these PDFs.'
-      });
+      return res.status(403).json({ error: 'Purchase the General Awareness course to access these PDFs.' });
     }
 
-    const allowedFolders = ['history', 'polity', 'geography', 'science'];
     const folder = req.query.topic;
-
-    if (typeof folder !== 'string' || !allowedFolders.includes(folder)) {
+    if (typeof folder !== 'string' || !/^[a-zA-Z0-9 _().-]+$/.test(folder)) {
       return res.status(400).json({ error: 'Invalid topic folder.' });
     }
 
-    const result = await supabase.storage
-      .from('general_awarness')
-      .list(folder, { limit: 100, sortBy: { column: 'name', order: 'asc' } });
+    const root = await supabase.storage.from('general_awarness')
+      .list('', { limit: 100 });
+    if (root.error) throw root.error;
 
+    const exists = (root.data || []).some(item =>
+      item.name === folder && item.id === null && !item.metadata
+    );
+    if (!exists) {
+      return res.status(400).json({ error: 'Invalid topic folder.' });
+    }
+
+    const result = await supabase.storage.from('general_awarness')
+      .list(folder, { limit: 100, sortBy: { column: 'name', order: 'asc' } });
     if (result.error) throw result.error;
 
     const files = (result.data || [])
@@ -512,20 +547,36 @@ app.get('/general-awareness/topic-pdf-url', async (req, res) => {
       });
     }
 
-    const topicFiles = {
-      history: 'history',
-      polity: 'polity',
-      geography: 'geography',
-      science: 'science'
-    };
-
-    const folder = topicFiles[req.query.topic];
+    const folder = typeof req.query.topic === 'string' ? req.query.topic : '';
     const filename = typeof req.query.file === 'string' ? req.query.file : '';
 
-    if (!folder || !filename || filename.includes('/') ||
+    if (!folder || !/^[a-zA-Z0-9 _().-]+$/.test(folder) ||
+        !filename || filename.includes('/') ||
         filename.includes('\\') || filename === '.' || filename === '..' ||
         !/^[a-zA-Z0-9 _().-]+\.pdf$/i.test(filename)) {
       return res.status(400).json({ error: 'Invalid topic or PDF filename.' });
+    }
+
+    const root = await supabase.storage.from('general_awarness')
+      .list('', { limit: 100 });
+    if (root.error) throw root.error;
+
+    const folderExists = (root.data || []).some(item =>
+      item.name === folder && item.id === null && !item.metadata
+    );
+    if (!folderExists) {
+      return res.status(400).json({ error: 'Invalid topic folder.' });
+    }
+
+    const folderFiles = await supabase.storage.from('general_awarness')
+      .list(folder, { limit: 100 });
+    if (folderFiles.error) throw folderFiles.error;
+
+    const fileExists = (folderFiles.data || []).some(item =>
+      item.name === filename && item.name.toLowerCase().endsWith('.pdf')
+    );
+    if (!fileExists) {
+      return res.status(404).json({ error: 'PDF not found in this topic folder.' });
     }
 
     const result = await supabase.storage
