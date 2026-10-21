@@ -525,6 +525,13 @@ app.get('/general-awareness/topic-files', async (req, res) => {
       .filter(item => item.name && item.name.toLowerCase().endsWith('.pdf'))
       .map(item => ({ name: item.name }));
 
+    console.log('GA PDF diagnostic:', {
+      bucket: 'gs',
+      folder,
+      pdfCount: files.length,
+      pdfNames: files.map(item => item.name)
+    });
+
     return res.json({ topic: folder, files });
   } catch (error) {
     console.error('General Awareness PDF list failed:', error.message);
