@@ -472,13 +472,13 @@ app.get('/general-awareness/folders', async (req, res) => {
     }
 
     const result = await supabase.storage
-      .from('general_awarness')
+      .from('gs')
       .list('', { limit: 100, sortBy: { column: 'name', order: 'asc' } });
 
     if (result.error) throw result.error;
 
     const folders = (result.data || [])
-      .filter(item => item.name && item.id === null && !item.metadata)
+      .filter(item => item.name && item.id == null && !item.metadata)
       .map(item => ({ name: item.name }));
 
     return res.json({ folders });
@@ -506,7 +506,7 @@ app.get('/general-awareness/topic-files', async (req, res) => {
       return res.status(400).json({ error: 'Invalid topic folder.' });
     }
 
-    const root = await supabase.storage.from('general_awarness')
+    const root = await supabase.storage.from('gs')
       .list('', { limit: 100 });
     if (root.error) throw root.error;
 
@@ -517,7 +517,7 @@ app.get('/general-awareness/topic-files', async (req, res) => {
       return res.status(400).json({ error: 'Invalid topic folder.' });
     }
 
-    const result = await supabase.storage.from('general_awarness')
+    const result = await supabase.storage.from('gs')
       .list(folder, { limit: 100, sortBy: { column: 'name', order: 'asc' } });
     if (result.error) throw result.error;
 
@@ -557,7 +557,7 @@ app.get('/general-awareness/topic-pdf-url', async (req, res) => {
       return res.status(400).json({ error: 'Invalid topic or PDF filename.' });
     }
 
-    const root = await supabase.storage.from('general_awarness')
+    const root = await supabase.storage.from('gs')
       .list('', { limit: 100 });
     if (root.error) throw root.error;
 
@@ -568,7 +568,7 @@ app.get('/general-awareness/topic-pdf-url', async (req, res) => {
       return res.status(400).json({ error: 'Invalid topic folder.' });
     }
 
-    const folderFiles = await supabase.storage.from('general_awarness')
+    const folderFiles = await supabase.storage.from('gs')
       .list(folder, { limit: 100 });
     if (folderFiles.error) throw folderFiles.error;
 
@@ -580,7 +580,7 @@ app.get('/general-awareness/topic-pdf-url', async (req, res) => {
     }
 
     const result = await supabase.storage
-      .from('general_awarness')
+      .from('gs')
       .createSignedUrl(folder + '/' + filename, 60);
 
     if (result.error) {
