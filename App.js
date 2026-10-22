@@ -3245,9 +3245,16 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                     <View style={{width:9,height:9,borderRadius:5,backgroundColor:'#FF5364'}} />
                   )}
                 </View>
-                <Text style={{color:mutedText,marginTop:9,lineHeight:21}}>
-                  {item.body || ''}
-                </Text>
+                {item.type === 'purchase' && item.studentName ? (
+                  <Text style={{color:mutedText,marginTop:9,lineHeight:21}}>
+                    <Text style={{fontWeight:'900',color:mainText}}>{item.studentName}</Text>
+                    {' purchased '}{item.courseId === 'ssc-reasoning-masterclass' ? 'SSC Reasoning Masterclass' : item.courseId === 'ssc-general-awareness' ? 'SSC General Awareness' : item.courseId === 'ssc-english-foundation' ? 'SSC English Foundation' : item.courseId || 'a course'}{' successfully.'}
+                  </Text>
+                ) : (
+                  <Text style={{color:mutedText,marginTop:9,lineHeight:21}}>
+                    {item.body || ''}
+                  </Text>
+                )}
                 {!item.readAt && (
                   <Text style={{fontSize:11,fontWeight:'800',color:'#4777D9',marginTop:10}}>
                     TAP TO MARK AS READ

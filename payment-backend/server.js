@@ -504,6 +504,14 @@ app.post('/verify-payment', async (req, res) => {
         'ssc-english-foundation': 'SSC English Foundation',
       };
       const courseName = courseNames[record.courseId] || record.courseId;
+      let studentName = user.name || user.displayName || '';
+      try {
+        const studentAuth = await firebaseAdminAuth.getUser(user.uid);
+        studentName = studentAuth.displayName || studentName || studentAuth.email || '';
+      } catch (nameError) {
+        console.error('Could not fetch student name:', nameError.message);
+      }
+      if (!studentName) studentName = 'Student';
       const studentRef = firebaseAdminDb.collection('users').doc(user.uid);
       const paymentNotificationId = 'purchase_' + razorpay_payment_id;
 
@@ -537,7 +545,8 @@ app.post('/verify-payment', async (req, res) => {
         if (!adminNotification.exists) {
           await adminNotificationRef.create({
             title: 'New course purchase',
-            body: courseName + ' was purchased successfully by a student.',
+            body: studentName + ' purchased ' + courseName + ' successfully.',
+            studentName,
             createdAt: FieldValue.serverTimestamp(),
             readAt: null,
             type: 'purchase',
