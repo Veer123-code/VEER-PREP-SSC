@@ -575,6 +575,113 @@ app.post('/verify-payment', async (req, res) => {
 });
 
 
+app.get('/invoice/:paymentId', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Please log in again.' });
+    }
+
+    const paymentId = String(req.params.paymentId || '');
+    if (!/^pay_[A-Za-z0-9]+$/.test(paymentId)) {
+      return res.status(400).json({ error: 'Invalid payment ID.' });
+    }
+
+    const unlocks = readUnlocks();
+    const userCourses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
+    const entry = Object.entries(userCourses).find(([, value]) =>
+      value && value.paymentId === paymentId
+    );
+
+    if (!entry) {
+      return res.status(404).json({ error: 'Verified purchase not found for this account.' });
+    }
+
+    const [courseId, purchase] = entry;
+    const courseNames = {
+      'ssc-reasoning-masterclass': 'SSC Reasoning Masterclass',
+      'ssc-general-awareness': 'SSC General Awareness',
+      'ssc-english-foundation': 'SSC English Foundation',
+    };
+    const courseName = courseNames[courseId];
+    if (!courseName || !purchase.orderId) {
+      return res.status(404).json({ error: 'Invoice details are unavailable.' });
+    }
+
+    const orderRecord = readOrders()[purchase.orderId];
+    if (!orderRecord || orderRecord.uid !== user.uid ||
+        orderRecord.courseId !== courseId || orderRecord.paymentId && orderRecord.paymentId !== paymentId) {
+      return res.status(403).json({ error: 'Purchase record could not be verified.' });
+    }
+
+    const payment = await razorpay.payments.fetch(paymentId);
+    if (!payment || payment.status !== 'captured' ||
+        payment.order_id !== purchase.orderId ||
+        payment.amount !== orderRecord.amount ||
+        payment.currency !== (orderRecord.currency || 'INR')) {
+      return res.status(403).json({ error: 'A captured payment could not be confirmed.' });
+    }
+
+    const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
+    const pdf = await PDFDocument.create();
+    const page = pdf.addPage([595.28, 841.89]);
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+    const draw = (text, x, y, size = 12, isBold = false) => {
+      page.drawText(String(text), {
+        x, y, size, font: isBold ? bold : font,
+        color: rgb(0.10, 0.20, 0.42),
+      });
+    };
+
+    const authUser = await firebaseAdminAuth.getUser(user.uid).catch(() => null);
+    const studentName = authUser?.displayName || 'Student';
+    const date = new Date(payment.created_at * 1000);
+    const dateText = Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 10) : 'N/A';
+    const amount = (payment.amount / 100).toFixed(2);
+    const invoiceNumber = 'VEER-' + paymentId;
+
+    draw('STUDY WITH VEER', 50, 770, 24, true);
+    draw('PAYMENT INVOICE', 50, 725, 18, true);
+    page.drawLine({
+      start: { x: 50, y: 705 }, end: { x: 545, y: 705 },
+      thickness: 1, color: rgb(0.75, 0.80, 0.88),
+    });
+
+    draw('Invoice Number:', 50, 665, 12, true);
+    draw(invoiceNumber, 190, 665);
+    draw('Payment Status:', 50, 635, 12, true);
+    draw('PAID', 190, 635, 12, true);
+    draw('Invoice Date:', 50, 605, 12, true);
+    draw(dateText, 190, 605);
+    draw('Student Name:', 50, 565, 12, true);
+    draw(studentName.slice(0, 70), 190, 565);
+    draw('Course:', 50, 525, 12, true);
+    draw(courseName, 190, 525);
+    draw('Payment ID:', 50, 485, 12, true);
+    draw(paymentId, 190, 485);
+    draw('Order ID:', 50, 455, 12, true);
+    draw(purchase.orderId, 190, 455);
+    page.drawLine({
+      start: { x: 50, y: 410 }, end: { x: 545, y: 410 },
+      thickness: 1, color: rgb(0.75, 0.80, 0.88),
+    });
+    draw('Total Paid (INR):', 50, 375, 15, true);
+    draw('Rs. ' + amount, 190, 375, 15, true);
+    draw('This invoice confirms a captured payment for the course above.', 50, 320, 10);
+    draw('STUDY WITH VEER', 50, 90, 11, true);
+
+    const bytes = await pdf.save();
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="' + invoiceNumber + '.pdf"');
+    res.setHeader('Cache-Control', 'no-store');
+    return res.send(Buffer.from(bytes));
+  } catch (error) {
+    console.error('Invoice generation failed:', error.message);
+    return res.status(500).json({ error: 'Could not generate invoice PDF.' });
+  }
+});
+
 app.get('/my-courses', async (req, res) => {
   try {
     const user = await getAuthenticatedUser(req);

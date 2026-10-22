@@ -22,6 +22,8 @@ import { Feather } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 
 const BLUE = '#173B83';
 const BG = '#F3F6FC';
@@ -746,6 +748,71 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         'Could not update',
         'Notification read status could not be saved.'
       );
+    }
+  };
+
+
+  const downloadInvoice = async item => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert('Login required', 'Please log in again to download your invoice.');
+        return;
+      }
+
+      if (!item?.paymentId) {
+        Alert.alert('Invoice unavailable', 'Payment ID was not found.');
+        return;
+      }
+
+      const token = await user.getIdToken();
+      const url = ARTICLES_API + '/invoice/' + encodeURIComponent(item.paymentId);
+      const fileName = 'VEER-' + item.paymentId + '.pdf';
+
+      if (Platform.OS === 'web') {
+        const response = await fetch(url, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || 'Invoice download failed.');
+        }
+
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+      } else {
+        const fileUri = FileSystem.cacheDirectory + fileName;
+        const result = await FileSystem.downloadAsync(url, fileUri, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+
+        if (result.status !== 200) {
+          const raw = await FileSystem.readAsStringAsync(result.uri);
+          let message = 'Invoice download failed.';
+          try { message = JSON.parse(raw).error || message; } catch (_) {}
+          throw new Error(message);
+        }
+
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(result.uri, {
+            mimeType: 'application/pdf',
+            dialogTitle: 'Download or save your invoice'
+          });
+        } else {
+          Alert.alert('Invoice saved', 'Invoice PDF saved to the app cache.');
+        }
+      }
+    } catch (error) {
+      console.log('Invoice download failed:', error.message);
+      Alert.alert('Invoice unavailable', error.message || 'Could not download invoice PDF.');
     }
   };
 
@@ -3259,6 +3326,16 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                   <Text style={{fontSize:11,fontWeight:'800',color:'#4777D9',marginTop:10}}>
                     TAP TO MARK AS READ
                   </Text>
+                )}
+                {item.type === 'purchase' && item.paymentId && !item.studentUid && (
+                  <TouchableOpacity
+                    onPress={() => downloadInvoice(item)}
+                    activeOpacity={0.8}
+                    style={{flexDirection:'row',alignItems:'center',justifyContent:'center',paddingVertical:12,paddingHorizontal:14,borderRadius:10,backgroundColor:BLUE,marginTop:12}}
+                  >
+                    <Feather name="download" size={17} color="#FFFFFF" />
+                    <Text style={{fontWeight:'800',color:'#FFFFFF',marginLeft:8}}>Download Invoice PDF</Text>
+                  </TouchableOpacity>
                 )}
               </TouchableOpacity>
             ))}
