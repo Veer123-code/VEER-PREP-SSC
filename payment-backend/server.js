@@ -496,6 +496,61 @@ app.post('/verify-payment', async (req, res) => {
     unlocks[user.uid] = { ...existing, courses };
     saveUnlocks(unlocks);
 
+    // Notifications are best-effort: they must not undo a verified payment.
+    try {
+      const courseNames = {
+        'ssc-reasoning-masterclass': 'SSC Reasoning Masterclass',
+        'ssc-general-awareness': 'SSC General Awareness',
+        'ssc-english-foundation': 'SSC English Foundation',
+      };
+      const courseName = courseNames[record.courseId] || record.courseId;
+      const studentRef = firebaseAdminDb.collection('users').doc(user.uid);
+      const paymentNotificationId = 'purchase_' + razorpay_payment_id;
+
+      const studentNotificationRef = studentRef.collection('notifications').doc(paymentNotificationId);
+      const studentNotification = await studentNotificationRef.get();
+
+      if (!studentNotification.exists) {
+        await studentNotificationRef.create({
+          title: 'Purchase successful',
+          body: 'Your purchase of ' + courseName + ' is confirmed. Your course is unlocked.',
+          createdAt: FieldValue.serverTimestamp(),
+          readAt: null,
+          type: 'purchase',
+          courseId: record.courseId,
+          paymentId: razorpay_payment_id,
+        });
+      }
+
+      const adminUids = (process.env.ADMIN_UIDS || '')
+        .split(',')
+        .map(uid => uid.trim())
+        .filter(Boolean);
+
+      for (const adminUid of adminUids) {
+        if (adminUid === user.uid) continue;
+
+        const adminNotificationRef = firebaseAdminDb.collection('users').doc(adminUid)
+          .collection('notifications').doc(paymentNotificationId + '_' + user.uid);
+        const adminNotification = await adminNotificationRef.get();
+
+        if (!adminNotification.exists) {
+          await adminNotificationRef.create({
+            title: 'New course purchase',
+            body: courseName + ' was purchased successfully by a student.',
+            createdAt: FieldValue.serverTimestamp(),
+            readAt: null,
+            type: 'purchase',
+            courseId: record.courseId,
+            paymentId: razorpay_payment_id,
+            studentUid: user.uid,
+          });
+        }
+      }
+    } catch (notificationError) {
+      console.error('Purchase notification failed:', notificationError.message);
+    }
+
     return res.json({
       verified: true,
       unlocked: true,
