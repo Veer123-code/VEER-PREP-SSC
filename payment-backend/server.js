@@ -121,6 +121,20 @@ app.post('/notifications/register-token', async (req, res) => {
 });
 
 
+app.get('/notifications/admin-status', async (req, res) => {
+  const user = await getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Please log in first.' });
+  }
+
+  const adminUids = (process.env.ADMIN_UIDS || '')
+    .split(',')
+    .map(uid => uid.trim())
+    .filter(Boolean);
+
+  return res.json({ isAdmin: adminUids.includes(user.uid) });
+});
+
 app.post('/notifications/send', async (req, res) => {
   const user = await getAuthenticatedUser(req);
   if (!user) {

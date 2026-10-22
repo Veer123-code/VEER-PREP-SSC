@@ -392,6 +392,81 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   const [notificationsError, setNotificationsError] = useState('');
   const unreadNotifications = notifications.filter(item => !item.readAt).length;
 
+  // VEER_ADMIN_NOTIFICATION_FORM
+  const [isNotificationAdmin, setIsNotificationAdmin] = useState(false);
+  const [adminStatusChecked, setAdminStatusChecked] = useState(false);
+  const [announcementTitle, setAnnouncementTitle] = useState('');
+  const [announcementBody, setAnnouncementBody] = useState('');
+  const [announcementBusy, setAnnouncementBusy] = useState(false);
+  const [announcementMessage, setAnnouncementMessage] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    async function checkNotificationAdmin() {
+      setIsNotificationAdmin(false);
+      setAdminStatusChecked(false);
+      const user = auth.currentUser;
+      if (!loggedIn || !user) return;
+      try {
+        const token = await user.getIdToken();
+        const response = await fetch(ARTICLES_API + '/notifications/admin-status', {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!cancelled) setIsNotificationAdmin(response.ok && data.isAdmin === true);
+      } catch (error) {
+        console.log('Admin status check failed:', error.message);
+        if (!cancelled) setIsNotificationAdmin(false);
+      } finally {
+        if (!cancelled) setAdminStatusChecked(true);
+      }
+    }
+    checkNotificationAdmin();
+    return () => { cancelled = true; };
+  }, [loggedIn]);
+
+  const sendAdminAnnouncement = async () => {
+    const user = auth.currentUser;
+    const title = announcementTitle.trim();
+    const body = announcementBody.trim();
+
+    if (!user || !isNotificationAdmin) {
+      setAnnouncementMessage('Admin permission required.');
+      return;
+    }
+    if (!title || title.length > 80 || !body || body.length > 300) {
+      setAnnouncementMessage('Title is required (max 80 characters) and message is required (max 300 characters).');
+      return;
+    }
+
+    setAnnouncementBusy(true);
+    setAnnouncementMessage('');
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(ARTICLES_API + '/notifications/send', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ title, body })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Notification could not be sent.');
+      setAnnouncementTitle('');
+      setAnnouncementBody('');
+      setAnnouncementMessage(
+        'Sent! Notified users: ' + (data.notifiedUsers ?? 0) +
+        '. Push accepted by Expo: ' + (data.pushAccepted ?? 0) + '.'
+      );
+    } catch (error) {
+      setAnnouncementMessage(error.message || 'Notification could not be sent.');
+    } finally {
+      setAnnouncementBusy(false);
+    }
+  };
+
+
   // GENERAL_AWARENESS_PDF_LIST_EFFECT
   useEffect(() => {
     let cancelled = false;
@@ -3096,6 +3171,40 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             </TouchableOpacity>
 
             <Text style={[styles.pageTitle,{marginTop:16}]}>Notifications</Text>
+
+            {adminStatusChecked && isNotificationAdmin && (
+              <View style={{padding:16,marginTop:16,borderRadius:15,backgroundColor:cardBg,borderWidth:1,borderColor:darkMode?'#334155':'#DCE5F5'}}>
+                <Text style={{fontSize:17,fontWeight:'800',color:mainText}}>Admin announcement</Text>
+                <TextInput
+                  value={announcementTitle}
+                  onChangeText={setAnnouncementTitle}
+                  placeholder="Notification title (max 80)"
+                  placeholderTextColor={mutedText}
+                  maxLength={80}
+                  style={{marginTop:12,padding:12,borderRadius:10,borderWidth:1,borderColor:darkMode?'#475569':'#CBD5E1',color:mainText}}
+                />
+                <TextInput
+                  value={announcementBody}
+                  onChangeText={setAnnouncementBody}
+                  placeholder="Message for students (max 300)"
+                  placeholderTextColor={mutedText}
+                  maxLength={300}
+                  multiline
+                  style={{marginTop:10,minHeight:90,padding:12,borderRadius:10,borderWidth:1,borderColor:darkMode?'#475569':'#CBD5E1',color:mainText,textAlignVertical:'top'}}
+                />
+                {!!announcementMessage && (
+                  <Text style={{marginTop:10,color:announcementMessage.startsWith('Sent!')?'#16803C':'#D14343'}}>{announcementMessage}</Text>
+                )}
+                <TouchableOpacity
+                  disabled={announcementBusy}
+                  onPress={sendAdminAnnouncement}
+                  style={{marginTop:12,padding:14,borderRadius:10,alignItems:'center',backgroundColor:announcementBusy?'#64748B':'#173B83'}}
+                >
+                  <Text style={{fontWeight:'800',color:'#FFFFFF'}}>{announcementBusy?'Sending...':'Send Notification to Students'}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             <Text style={[styles.muted,{color:mutedText,marginTop:5}]}>
               {unreadNotifications} unread notification{unreadNotifications === 1 ? '' : 's'}
             </Text>
