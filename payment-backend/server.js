@@ -160,37 +160,45 @@ app.post('/notifications/send', async (req, res) => {
   }
 
   try {
-    const usersSnapshot = await firebaseAdminDb.collection('users').get();
     const messages = [];
     let notifiedUsers = 0;
+    let authUsersChecked = 0;
+    let nextPageToken;
 
-    for (const userDoc of usersSnapshot.docs) {
-      const notificationRef = userDoc.ref.collection('notifications').doc();
+    do {
+      const page = await firebaseAdminAuth.listUsers(1000, nextPageToken);
+      nextPageToken = page.pageToken;
 
-      await notificationRef.set({
-        title,
-        body,
-        createdAt: FieldValue.serverTimestamp(),
-        readAt: null,
-        type: 'admin'
-      });
+      for (const authUser of page.users) {
+        authUsersChecked++;
+        const userRef = firebaseAdminDb.collection('users').doc(authUser.uid);
+        const notificationRef = userRef.collection('notifications').doc();
 
-      notifiedUsers++;
+        await notificationRef.set({
+          title,
+          body,
+          createdAt: FieldValue.serverTimestamp(),
+          readAt: null,
+          type: 'admin'
+        });
 
-      const tokensSnapshot = await userDoc.ref.collection('pushTokens').get();
-      for (const tokenDoc of tokensSnapshot.docs) {
-        const token = tokenDoc.data().token;
-        if (typeof token === 'string' && /^Expo(nent)?PushToken\[[^\]]+\]$/.test(token)) {
-          messages.push({
-            to: token,
-            sound: 'default',
-            title,
-            body,
-            data: { type: 'admin-notification' }
-          });
+        notifiedUsers++;
+
+        const tokensSnapshot = await userRef.collection('pushTokens').get();
+        for (const tokenDoc of tokensSnapshot.docs) {
+          const token = tokenDoc.data().token;
+          if (typeof token === 'string' && /^Expo(nent)?PushToken\[[^\]]+\]$/.test(token)) {
+            messages.push({
+              to: token,
+              sound: 'default',
+              title,
+              body,
+              data: { type: 'admin-notification' }
+            });
+          }
         }
       }
-    }
+    } while (nextPageToken);
 
     let pushAccepted = 0;
     let pushErrors = 0;
@@ -220,6 +228,7 @@ app.post('/notifications/send', async (req, res) => {
 
     return res.json({
       sent: true,
+      authUsersChecked,
       notifiedUsers,
       registeredTokens: messages.length,
       pushAccepted,
