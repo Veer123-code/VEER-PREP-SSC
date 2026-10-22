@@ -34,7 +34,14 @@
     },
     "owner": "veer-team",
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#173B83"
+        }
+      ]
     ],
     "scheme": "studywithveer"
   }

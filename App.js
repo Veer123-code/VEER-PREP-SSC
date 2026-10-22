@@ -12,8 +12,16 @@ import {
   , signOut,
   updateProfile
 } from 'firebase/auth';
-import { auth } from './firebase';
+/* VEER_NOTIFICATIONS_IMPORT */
+import { auth, db } from './firebase';
+import {
+  collection, query, orderBy, limit, onSnapshot,
+  doc, updateDoc, serverTimestamp
+} from 'firebase/firestore';
 import { Feather } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 
 const BLUE = '#173B83';
 const BG = '#F3F6FC';
@@ -353,6 +361,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showAccountSuccess, setShowAccountSuccess] = useState(false);
+  const [accountSuccessName, setAccountSuccessName] = useState('');
   const successScale = useRef(new Animated.Value(0.65)).current;
   const successFade = useRef(new Animated.Value(0)).current;
 
@@ -378,6 +387,11 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   }, [showAccountSuccess, successScale, successFade]);
 
   const [page, setPage] = useState('Courses');
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState('');
+  const unreadNotifications = notifications.filter(item => !item.readAt).length;
+
   // GENERAL_AWARENESS_PDF_LIST_EFFECT
   useEffect(() => {
     let cancelled = false;
@@ -547,6 +561,121 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   }, []);
 
   useEffect(() => {
+    const user = auth.currentUser;
+    if (!loggedIn || !user) {
+      setNotifications([]);
+      setNotificationsLoading(false);
+      setNotificationsError('');
+      return;
+    }
+
+    setNotificationsLoading(true);
+    const q = query(
+      collection(db, 'users', user.uid, 'notifications'),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
+
+    const unsubscribe = onSnapshot(q, snapshot => {
+      setNotifications(snapshot.docs.map(item => ({
+        id: item.id,
+        ...item.data()
+      })));
+      setNotificationsLoading(false);
+      setNotificationsError('');
+    }, error => {
+      console.log('Notifications listener failed:', error.message);
+      setNotificationsLoading(false);
+      setNotificationsError(
+        'Could not load notifications. Please check Firestore access.'
+      );
+    });
+
+    return unsubscribe;
+  }, [loggedIn]);
+
+
+  // VEER_PUSH_TOKEN_REGISTRATION
+  useEffect(() => {
+    let cancelled = false;
+
+    async function registerPushToken() {
+      if (!loggedIn || Platform.OS !== 'android' || !Device.isDevice) return;
+
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const existing = await Notifications.getPermissionsAsync();
+        let status = existing.status;
+
+        if (status !== 'granted') {
+          const requested = await Notifications.requestPermissionsAsync();
+          status = requested.status;
+        }
+
+        if (status !== 'granted' || cancelled) return;
+
+        const projectId =
+          Constants.expoConfig?.extra?.eas?.projectId ||
+          Constants.easConfig?.projectId;
+
+        if (!projectId) {
+          console.log('Push registration skipped: EAS project ID missing.');
+          return;
+        }
+
+        const result = await Notifications.getExpoPushTokenAsync({ projectId });
+        if (cancelled || !result.data) return;
+
+        const token = await user.getIdToken();
+        const response = await fetch(
+          ARTICLES_API + '/notifications/register-token',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ token: result.data })
+          }
+        );
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || 'Push token registration failed.');
+        }
+
+        console.log('Push token registered successfully.');
+      } catch (error) {
+        console.log('Push token registration error:', error.message);
+      }
+    }
+
+    registerPushToken();
+    return () => { cancelled = true; };
+  }, [loggedIn]);
+
+  const markNotificationRead = async item => {
+    const user = auth.currentUser;
+    if (!user || !item?.id || item.readAt) return;
+
+    try {
+      await updateDoc(
+        doc(db, 'users', user.uid, 'notifications', item.id),
+        { readAt: serverTimestamp() }
+      );
+    } catch (error) {
+      console.log('Mark notification read failed:', error.message);
+      Alert.alert(
+        'Could not update',
+        'Notification read status could not be saved.'
+      );
+    }
+  };
+
+
+  useEffect(() => {
     let cancelled = false;
 
     const loadUnlockedCourses = async () => {
@@ -593,8 +722,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
       try {
         const idToken = await user.getIdToken();
-        const response = await fetch(
-'https://study-with-veer-payment-backend.onrender.com/my-courses',
+        const response = await fetch('https://study-with-veer-payment-backend.onrender.com/my-courses',
           { headers: { Authorization: 'Bearer ' + idToken } }
         );
         const data = await response.json();
@@ -618,22 +746,43 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
     return () => paymentReturnSubscription?.remove();
   }, [loggedIn]);
 
+  const [resultsUserUid, setResultsUserUid] = useState(null);
+
   useEffect(() => {
-    const loadResults = async () => {
+    let cancelled = false;
+    const unsubscribe = onAuthStateChanged(auth, async user => {
+      setResults([]);
+      setResultsUserUid(null);
+
+      if (!user) return;
+
       try {
-        const saved = await AsyncStorage.getItem('veer_prep_results');
-        if (saved) setResults(JSON.parse(saved));
+        const key = 'veer_prep_results_' + user.uid;
+        const saved = await AsyncStorage.getItem(key);
+
+        if (!cancelled && auth.currentUser?.uid === user.uid) {
+          setResults(saved ? JSON.parse(saved) : []);
+          setResultsUserUid(user.uid);
+        }
       } catch (error) {
         console.log('Could not load saved results:', error);
       }
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
     };
-    loadResults();
   }, []);
 
   useEffect(() => {
-    AsyncStorage.setItem('veer_prep_results', JSON.stringify(results))
-      .catch(error => console.log('Could not save results:', error));
-  }, [results]);
+    if (!resultsUserUid || auth.currentUser?.uid !== resultsUserUid) return;
+
+    AsyncStorage.setItem(
+      'veer_prep_results_' + resultsUserUid,
+      JSON.stringify(results)
+    ).catch(error => console.log('Could not save results:', error));
+  }, [results, resultsUserUid]);
 
   const questionBank = {
     'Mathematics': [
@@ -782,6 +931,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         await signOut(auth);
         setPassword('');
         setAuthError('');
+        setAccountSuccessName(fullName.trim());
         setShowAccountSuccess(true);
       } else {
         await signInWithEmailAndPassword(auth, cleanEmail, password);
@@ -937,7 +1087,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 color:'#173B83',
                 textAlign:'center'
               }}>
-                Congratulations!
+                Congratulations, {accountSuccessName || fullName.trim()}!
               </Text>
               <Text style={{
                 fontSize:18,
@@ -956,7 +1106,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 marginTop:9,
                 marginBottom:21
               }}>
-                Welcome to STUDY WITH VEER. Your learning journey starts now!
+                Welcome to STUDY WITH VEER, {accountSuccessName || fullName.trim()}. Your learning journey starts now!
               </Text>
 
               <View style={{
@@ -1252,16 +1402,19 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => {
-              const user = auth.currentUser;
-              const name = user?.displayName?.trim() || user?.email?.split('@')[0] || 'Student';
-              Alert.alert('Thank you for using STUDY WITH VEER, ' + name + '!');
-            }}
+            onPress={() => { setMenuOpen(false); setPage('Notifications'); }}
             activeOpacity={0.75}
+            accessibilityLabel="Open notifications"
             style={{width:42,height:42,alignItems:'center',justifyContent:'center',borderRadius:14,backgroundColor:'#E9DEFF',borderWidth:0,borderColor:'transparent'}}
           >
             <Text style={{fontSize:20,color:'#FFD77A'}}>🔔</Text>
-            <View style={{position:'absolute',top:5,right:5,width:8,height:8,borderRadius:4,backgroundColor:'#FF5364',borderWidth:0,borderColor:'transparent'}} />
+            {unreadNotifications > 0 && (
+              <View style={{position:'absolute',top:1,right:0,minWidth:17,height:17,paddingHorizontal:4,borderRadius:9,backgroundColor:'#FF5364',alignItems:'center',justifyContent:'center'}}>
+                <Text style={{fontSize:10,color:'#FFFFFF',fontWeight:'900'}}>
+                  {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -1908,8 +2061,8 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 {title:'SSC CPO',icon:'👮',accent:'#DB2777',tint:'#FCE7F3'}
               ].map(exam => (
                 <TouchableOpacity key={exam.title} onPress={() => setPage('SSC Exam: ' + exam.title)} style={{width:'48.2%',backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:18,padding:screenWidth < 360 ? 7 : 11,marginTop:14,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#E0E7F2',elevation:3}}>
-                  <View style={{height:76,borderRadius:13,backgroundColor:darkMode?exam.accent+'33':exam.tint,alignItems:'center',justifyContent:'center',marginBottom:10}}>
-                    <Text style={{fontSize:34}}>{exam.icon}</Text>
+                  <View style={{height:76,borderRadius:13,backgroundColor:darkMode?exam.accent+'33':exam.tint,alignItems:'center',justifyContent:'center',marginBottom:10,overflow:'hidden'}}>
+                    <Image source={require('./assets/images/ssc-all-exams.jpeg')} style={{width:'100%',height:'100%'}} resizeMode="cover" />
                   </View>
                   <Text style={{fontSize:15,fontWeight:'900',color:darkMode?'#F3F6FC':'#17233B',textAlign:'center'}}>{exam.title}</Text>
                   <Text style={{fontSize:12,color:darkMode?'#B4C1D6':'#68758B',textAlign:'center',marginTop:7}}>Open Folder →</Text>
@@ -1924,8 +2077,20 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               {id:'ssc-english-foundation',title:'SSC English Foundation',desc:'Grammar and vocabulary',price:'₹49',icon:'📚',accent:'#D97706',tint:'#FFF0D8'}
             ].map(course => (
               <View key={course.title} style={{width:'48.2%',backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:18,padding:screenWidth < 360 ? 7 : 11,marginTop:14,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#E0E7F2',elevation:3}}>
-                <View style={{height:76,borderRadius:13,backgroundColor:darkMode?course.accent+'33':course.tint,alignItems:'center',justifyContent:'center',marginBottom:10}}>
-    <Text style={{fontSize:34}}>{course.icon}</Text>
+                <View style={{height:125,borderRadius:13,backgroundColor:darkMode?course.accent+'33':course.tint,alignItems:'center',justifyContent:'center',marginBottom:10,overflow:'hidden'}}>
+    <Image
+      source={
+        course.title === 'SSC Mathematics'
+          ? require('./assets/images/ssc-mathematics.png')
+          : course.id === 'ssc-reasoning-masterclass'
+          ? require('./assets/images/ssc-reasoning.png')
+          : course.id === 'ssc-general-awareness'
+          ? require('./assets/images/ssc-general-awareness.png')
+          : require('./assets/images/ssc-english.png')
+      }
+      style={{width:'100%',height:'100%'}}
+      resizeMode="cover"
+/>
     <View style={{position:'absolute',top:5,right:5,backgroundColor:course.price==='FREE'?'#0D9668':'#D9A323',paddingHorizontal:6,paddingVertical:4,borderRadius:6}}>
       <Text style={{fontSize:9,fontWeight:'900',color:'#35245C'}}>{course.price==='FREE'?'FREE':'PREMIUM'}</Text>
     </View>
@@ -1961,11 +2126,9 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               {title:'Group 4',icon:'🏆',accent:'#D97706',tint:'#FFF0D8'}
             ].map(exam => (
               <View key={exam.title} style={{width:'48.2%',backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:18,padding:screenWidth < 360 ? 7 : 11,marginTop:14,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#E0E7F2',elevation:3}}>
-                <View style={{height:76,borderRadius:13,backgroundColor:darkMode?exam.accent+'33':exam.tint,alignItems:'center',justifyContent:'center',marginBottom:10}}>
-                  <Text style={{fontSize:34}}>{exam.icon}</Text>
-                  <View style={{position:'absolute',top:5,right:5,backgroundColor:'#D9A323',paddingHorizontal:6,paddingVertical:4,borderRadius:6}}>
-                    <Text style={{fontSize:9,fontWeight:'900',color:'#35245C'}}>PREMIUM</Text>
-                  </View>
+                <View style={{height:76,borderRadius:13,backgroundColor:darkMode?exam.accent+'33':exam.tint,alignItems:'center',justifyContent:'center',marginBottom:10,overflow:'hidden'}}>
+                  <Image source={require('./assets/images/tgpsc-all-exams.jpeg')} style={{width:'100%',height:'100%'}} resizeMode="cover" />
+
                 </View>
                 <Text style={{fontSize:15,fontWeight:'900',color:darkMode?'#F3F6FC':'#17233B',minHeight:38}}>{exam.title}</Text>
                 <Text style={{fontSize:11,lineHeight:16,minHeight:48,color:darkMode?'#B4C1D6':'#68758B',marginTop:5}}>{t('Telangana history, polity, economy and general studies','తెలంగాణ చరిత్ర, రాజ్యాంగం, ఆర్థిక వ్యవస్థ మరియు జనరల్ స్టడీస్')}</Text>
@@ -1985,11 +2148,9 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               {title:'RRB Technician',icon:'⚙️',accent:'#D97706',tint:'#FFF0D8'}
             ].map(exam => (
               <View key={exam.title} style={{width:'48.2%',backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:18,padding:screenWidth < 360 ? 7 : 11,marginTop:14,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#E0E7F2',elevation:3}}>
-                <View style={{height:76,borderRadius:13,backgroundColor:darkMode?exam.accent+'33':exam.tint,alignItems:'center',justifyContent:'center',marginBottom:10}}>
-                  <Text style={{fontSize:34}}>{exam.icon}</Text>
-                  <View style={{position:'absolute',top:5,right:5,backgroundColor:'#D9A323',paddingHorizontal:6,paddingVertical:4,borderRadius:6}}>
-                    <Text style={{fontSize:9,fontWeight:'900',color:'#35245C'}}>PREMIUM</Text>
-                  </View>
+                <View style={{height:76,borderRadius:13,backgroundColor:darkMode?exam.accent+'33':exam.tint,alignItems:'center',justifyContent:'center',marginBottom:10,overflow:'hidden'}}>
+                  <Image source={require('./assets/images/rrb-all-exams.jpeg')} style={{width:'100%',height:'100%'}} resizeMode="cover" />
+
                 </View>
                 <Text style={{fontSize:15,fontWeight:'900',color:darkMode?'#F3F6FC':'#17233B',minHeight:38}}>{exam.title}</Text>
                 <Text style={{fontSize:11,lineHeight:16,minHeight:48,color:darkMode?'#B4C1D6':'#68758B',marginTop:5}}>{t('Mathematics, reasoning, general science and awareness','గణితం, రీజనింగ్, జనరల్ సైన్స్ మరియు జనరల్ అవేర్‌నెస్')}</Text>
@@ -2252,7 +2413,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                       <Text style={{fontSize:9,fontWeight:'900',color:color}}>FOLDER {index + 1}</Text>
                     </View>
                     <View style={{flex:1}}>
-                      <Text style={{fontSize:15,fontWeight:'900',color:mainText}}>{folder.name}</Text>
+                      <Text style={{fontSize:15,fontWeight:'900',color:mainText}}>{folder.name.toLowerCase() === 'gk' ? 'Static General Knowledge' : folder.name}</Text>
                       <Text style={{fontSize:12,color:mutedText,marginTop:4}}>Open folder to view PDF notes</Text>
                       <Text style={{fontSize:11,fontWeight:'900',color:'#059669',marginTop:7}}>🔓 UNLOCKED</Text>
                     </View>
@@ -2338,20 +2499,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                   </Text>
                 )}
               </View>
-              {[
-                {title:'PDF Notes',desc:'Topic-wise notes and revision material',icon:'📄'},
-                {title:'Video Lessons',desc:'Concept explanations and revision videos',icon:'🎥'},
-                {title:'Practice Questions',desc:'Topic-wise questions and answers',icon:'📝'}
-              ].map(item => (
-                <View key={item.title} style={{padding:15,marginTop:12,borderRadius:14,backgroundColor:cardBg,borderWidth:1,borderColor:darkMode?'#475569':'#D8E1EF',flexDirection:'row',alignItems:'center'}}>
-                  <Text style={{fontSize:26,marginRight:12}}>{item.icon}</Text>
-                  <View style={{flex:1}}>
-                    <Text style={{fontSize:16,fontWeight:'900',color:mainText}}>{item.title}</Text>
-                    <Text style={{fontSize:12,color:mutedText,marginTop:4}}>{item.desc}</Text>
-                  </View>
-                  <Text style={{fontSize:12,fontWeight:'900',color:'#059669'}}>UNLOCKED</Text>
-                </View>
-              ))}
+
               <TouchableOpacity
                 onPress={() => setPage('SSC General Awareness Syllabus')}
                 style={{width:'100%',alignSelf:'stretch',marginTop:22,marginBottom:12,paddingVertical:17,paddingHorizontal:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center'}}
@@ -2931,12 +3079,75 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               </View>)}
 
           <View style={styles.premiumBottomSpace}>
-            {button('Start New Mock Test', startTest, true)}
+            {button('Start New Mock Test', () => startTest('Mathematics'), true)}
           </View>
         </>}
 
       </ScrollView>
 
+
+        {page === 'Notifications' && <>
+          <View style={{padding:18}}>
+            <TouchableOpacity
+              onPress={() => setPage('Courses')}
+              style={{alignSelf:'flex-start',paddingVertical:9,paddingHorizontal:13,borderRadius:10,backgroundColor:darkMode?'#26364D':'#E9DEFF'}}
+            >
+              <Text style={{fontWeight:'800',color:mainText}}>← Back to Home</Text>
+            </TouchableOpacity>
+
+            <Text style={[styles.pageTitle,{marginTop:16}]}>Notifications</Text>
+            <Text style={[styles.muted,{color:mutedText,marginTop:5}]}>
+              {unreadNotifications} unread notification{unreadNotifications === 1 ? '' : 's'}
+            </Text>
+
+            {notificationsLoading && (
+              <Text style={{color:mutedText,marginTop:18}}>Loading notifications...</Text>
+            )}
+
+            {!!notificationsError && (
+              <Text style={{color:'#D14343',marginTop:16}}>{notificationsError}</Text>
+            )}
+
+            {!notificationsLoading && !notificationsError && notifications.length === 0 && (
+              <View style={{padding:24,marginTop:18,borderRadius:16,backgroundColor:cardBg,alignItems:'center'}}>
+                <Text style={{fontSize:38}}>🔔</Text>
+                <Text style={{fontSize:17,fontWeight:'800',color:mainText,marginTop:10}}>No notifications yet</Text>
+                <Text style={{color:mutedText,textAlign:'center',marginTop:6}}>
+                  New announcements will appear here.
+                </Text>
+              </View>
+            )}
+
+            {notifications.map(item => (
+              <TouchableOpacity
+                key={item.id}
+                onPress={() => markNotificationRead(item)}
+                activeOpacity={0.8}
+                style={{padding:16,marginTop:12,borderRadius:15,backgroundColor:cardBg,borderWidth:1,borderColor:darkMode?'#334155':'#DCE5F5'}}
+              >
+                <View style={{flexDirection:'row',alignItems:'center'}}>
+                  <Text style={{fontSize:23,marginRight:10}}>📢</Text>
+                  <View style={{flex:1}}>
+                    <Text style={{fontSize:16,fontWeight:'800',color:mainText}}>
+                      {item.title || 'Study update'}
+                    </Text>
+                  </View>
+                  {!item.readAt && (
+                    <View style={{width:9,height:9,borderRadius:5,backgroundColor:'#FF5364'}} />
+                  )}
+                </View>
+                <Text style={{color:mutedText,marginTop:9,lineHeight:21}}>
+                  {item.body || ''}
+                </Text>
+                {!item.readAt && (
+                  <Text style={{fontSize:11,fontWeight:'800',color:'#4777D9',marginTop:10}}>
+                    TAP TO MARK AS READ
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>}
 
         {page === 'Feed' && <>
           <View style={{padding:18}}>

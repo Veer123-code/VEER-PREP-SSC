@@ -17,6 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const { initializeApp, cert, getApps } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 function loadServiceAccount() {
   const encoded = process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64;
   const raw = encoded
@@ -86,6 +87,135 @@ async function getAuthenticatedUser(req) {
   }
 }
 
+
+
+const firebaseAdminDb = getFirestore();
+
+app.post('/notifications/register-token', async (req, res) => {
+  const user = await getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Please log in first.' });
+  }
+
+  const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+  if (!/^Expo(nent)?PushToken\[[^\]]+\]$/.test(token)) {
+    return res.status(400).json({ error: 'Invalid Expo push token.' });
+  }
+
+  try {
+    const tokenId = crypto.createHash('sha256').update(token).digest('hex');
+    await firebaseAdminDb
+      .collection('users').doc(user.uid)
+      .collection('pushTokens').doc(tokenId)
+      .set({
+        token,
+        platform: 'android',
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+
+    return res.json({ registered: true });
+  } catch (error) {
+    console.error('Push token registration failed:', error.message);
+    return res.status(500).json({ error: 'Could not register push token.' });
+  }
+});
+
+
+app.post('/notifications/send', async (req, res) => {
+  const user = await getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Please log in first.' });
+  }
+
+  const adminUids = (process.env.ADMIN_UIDS || '')
+    .split(',')
+    .map(uid => uid.trim())
+    .filter(Boolean);
+
+  if (!adminUids.length || !adminUids.includes(user.uid)) {
+    return res.status(403).json({ error: 'Admin permission required.' });
+  }
+
+  const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+  const body = typeof req.body?.body === 'string' ? req.body.body.trim() : '';
+
+  if (!title || title.length > 80 || !body || body.length > 300) {
+    return res.status(400).json({
+      error: 'Title is required (max 80 characters) and message is required (max 300 characters).'
+    });
+  }
+
+  try {
+    const usersSnapshot = await firebaseAdminDb.collection('users').get();
+    const messages = [];
+    let notifiedUsers = 0;
+
+    for (const userDoc of usersSnapshot.docs) {
+      const notificationRef = userDoc.ref.collection('notifications').doc();
+
+      await notificationRef.set({
+        title,
+        body,
+        createdAt: FieldValue.serverTimestamp(),
+        readAt: null,
+        type: 'admin'
+      });
+
+      notifiedUsers++;
+
+      const tokensSnapshot = await userDoc.ref.collection('pushTokens').get();
+      for (const tokenDoc of tokensSnapshot.docs) {
+        const token = tokenDoc.data().token;
+        if (typeof token === 'string' && /^Expo(nent)?PushToken\[[^\]]+\]$/.test(token)) {
+          messages.push({
+            to: token,
+            sound: 'default',
+            title,
+            body,
+            data: { type: 'admin-notification' }
+          });
+        }
+      }
+    }
+
+    let pushAccepted = 0;
+    let pushErrors = 0;
+
+    for (let i = 0; i < messages.length; i += 100) {
+      const chunk = messages.slice(i, i + 100);
+      const response = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(chunk)
+      });
+
+      if (!response.ok) {
+        pushErrors += chunk.length;
+        continue;
+      }
+
+      const result = await response.json();
+      for (const ticket of (result.data || [])) {
+        if (ticket.status === 'ok') pushAccepted++;
+        else pushErrors++;
+      }
+    }
+
+    return res.json({
+      sent: true,
+      notifiedUsers,
+      registeredTokens: messages.length,
+      pushAccepted,
+      pushErrors
+    });
+  } catch (error) {
+    console.error('Admin notification send failed:', error.message);
+    return res.status(500).json({ error: 'Could not send notification.' });
+  }
+});
 
 const checkoutSessionSecret = process.env.CHECKOUT_SESSION_SECRET;
 
