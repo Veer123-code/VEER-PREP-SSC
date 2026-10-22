@@ -639,7 +639,7 @@ app.get('/invoice/:paymentId', async (req, res) => {
     const date = new Date(payment.created_at * 1000);
     const dateText = Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 10) : 'N/A';
     const amount = (payment.amount / 100).toFixed(2);
-    const invoiceNumber = 'VEER-' + paymentId;
+    const invoiceNumber = 'STUDY-WITH-VEER-' + paymentId;
 
     draw('STUDY WITH VEER', 50, 770, 24, true);
     draw('PAYMENT INVOICE', 50, 725, 18, true);
