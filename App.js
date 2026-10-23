@@ -2276,7 +2276,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                   }}
                   style={{backgroundColor:course.price==='FREE'?'#0D9668':(darkMode?'#2563EB':'#2457D6'),paddingVertical:11,paddingHorizontal:4,borderRadius:10,alignItems:'center',marginTop:10,minHeight:40,justifyContent:'center'}}>
                   <Text style={{color:'#FFFFFF',fontWeight:'800'}}>
-                    {course.price === 'FREE' ? t('Start Learning →','నేర్చుకోవడం ప్రారంభించండి →') : t('View Syllabus →','సిలబస్ చూడండి →')}
+                    {course.price === 'FREE' ? t('Start Learning →','నేర్చుకోవడం ప్రారంభించండి →') : unlockedCourses[course.id] ? t('Continue Learning →','నేర్చుకోవడం కొనసాగించండి →') : t('Buy Course – ₹49 →','కోర్సు కొనండి – ₹49 →')}
                   </Text>
                 </TouchableOpacity>
               </View>
