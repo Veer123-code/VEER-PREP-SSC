@@ -1167,6 +1167,48 @@ app.post('/chat/messages/:chatId', async (req, res) => {
       updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
 
+    // VEER_CHAT_PUSH_NOTIFICATION
+    try {
+      const recipientUids = isAdmin
+        ? [chat.studentUid].filter(Boolean)
+        : getChatAdminUids().filter(uid => uid !== user.uid);
+
+      const pushMessages = [];
+
+      for (const recipientUid of recipientUids) {
+        const tokenSnap = await firebaseAdminDb
+          .collection('users').doc(recipientUid)
+          .collection('pushTokens').get();
+
+        for (const tokenDoc of tokenSnap.docs) {
+          const pushToken = tokenDoc.data().token;
+          if (typeof pushToken === 'string' &&
+              /^Expo(nent)?PushToken\[[^\]]+\]$/.test(pushToken)) {
+            pushMessages.push({
+              to: pushToken,
+              sound: 'default',
+              title: isAdmin ? 'STUDY WITH VEER — Admin Reply' : 'STUDY WITH VEER — New Chat Message',
+              body: text.slice(0, 160),
+              data: { type: 'chat-message', chatId }
+            });
+          }
+        }
+      }
+
+      for (let i = 0; i < pushMessages.length; i += 100) {
+        await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(pushMessages.slice(i, i + 100))
+        });
+      }
+    } catch (pushError) {
+      console.error('Chat push notification failed:', pushError.message);
+    }
+
     return res.json({ sent: true });
   } catch (error) {
     console.error('Chat message send failed:', error.message);
