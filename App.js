@@ -394,6 +394,16 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   const [notificationsError, setNotificationsError] = useState('');
   const unreadNotifications = notifications.filter(item => !item.readAt).length;
 
+  // VEER_SUPPORT_CHAT_STATE
+  const [chatConversations, setChatConversations] = useState([]);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [activeChatId, setActiveChatId] = useState('');
+  const [chatDraft, setChatDraft] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatSending, setChatSending] = useState(false);
+  const [chatError, setChatError] = useState('');
+  const [chatNotice, setChatNotice] = useState('');
+
   // VEER_ADMIN_NOTIFICATION_FORM
   const [isNotificationAdmin, setIsNotificationAdmin] = useState(false);
   const [adminStatusChecked, setAdminStatusChecked] = useState(false);
@@ -468,6 +478,99 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
     }
   };
 
+
+  // VEER_SUPPORT_CHAT_FUNCTIONS
+  const chatApiRequest = async (path, options = {}) => {
+    const user = auth.currentUser;
+    if (!user) throw new Error('Please log in to use Student Support Chat.');
+    const token = await user.getIdToken();
+    const response = await fetch(ARTICLES_API + path, {
+      ...options,
+      headers: {
+        Authorization: 'Bearer ' + token,
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(options.headers || {})
+      }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Chat request failed.');
+    return data;
+  };
+
+  const loadChatConversations = async () => {
+    setChatLoading(true);
+    setChatError('');
+    try {
+      const data = await chatApiRequest('/chat/conversations');
+      setChatConversations(data.conversations || []);
+      if (!isNotificationAdmin && auth.currentUser?.uid) {
+        setActiveChatId(auth.currentUser.uid);
+      }
+    } catch (error) {
+      setChatError(error.message || 'Could not load chats.');
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const loadChatMessages = async (chatId) => {
+    if (!chatId) return;
+    setChatLoading(true);
+    setChatError('');
+    try {
+      const data = await chatApiRequest('/chat/messages/' + encodeURIComponent(chatId));
+      setChatMessages(data.messages || []);
+    } catch (error) {
+      setChatMessages([]);
+      setChatError(error.message || 'Could not load messages.');
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const sendChatMessage = async () => {
+    const text = chatDraft.trim();
+    const user = auth.currentUser;
+    const chatId = isNotificationAdmin ? activeChatId : user?.uid;
+    if (!user) {
+      setChatError('Please log in again.');
+      return;
+    }
+    if (!chatId) {
+      setChatError('Select a student conversation first.');
+      return;
+    }
+    if (!text || text.length > 2000) {
+      setChatError('Message must be 1–2000 characters.');
+      return;
+    }
+    setChatSending(true);
+    setChatError('');
+    try {
+      await chatApiRequest('/chat/messages/' + encodeURIComponent(chatId), {
+        method: 'POST',
+        body: JSON.stringify({ text })
+      });
+      setChatDraft('');
+      await loadChatMessages(chatId);
+      if (isNotificationAdmin) await loadChatConversations();
+    } catch (error) {
+      setChatError(error.message || 'Message could not be sent.');
+    } finally {
+      setChatSending(false);
+    }
+  };
+
+  // VEER_SUPPORT_CHAT_AUTO_LOAD
+  useEffect(() => {
+    if (page !== 'Chat' || !loggedIn || !auth.currentUser) return;
+    loadChatConversations();
+    if (!isNotificationAdmin && auth.currentUser?.uid) {
+      loadChatMessages(auth.currentUser.uid);
+    } else if (isNotificationAdmin && activeChatId) {
+      loadChatMessages(activeChatId);
+    }
+  }, [page, loggedIn, isNotificationAdmin, activeChatId]);
 
   // GENERAL_AWARENESS_PDF_LIST_EFFECT
   useEffect(() => {
@@ -3393,21 +3496,142 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         </>}
 
         {page === 'Chat' && <>
-          <View style={{padding:18}}>
-            <Text style={styles.pageTitle}>Chat</Text>
-            <Text style={[styles.muted,{color:mutedText}]}>
-              Connect with the admin for study-related help.
+          <View style={{padding:16,flex:1}}>
+            <Text style={styles.pageTitle}>
+              {isNotificationAdmin ? 'Admin Inbox' : 'Student Support Chat'}
             </Text>
-            <View style={{padding:24,marginTop:18,borderRadius:18,backgroundColor:darkMode?'#1E293B':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#334155':'#DCE5F5',alignItems:'center'}}>
-              <Text style={{fontSize:48}}>💬</Text>
-              <Text style={{fontSize:19,fontWeight:'900',color:mainText,marginTop:12}}>Student Support Chat</Text>
-              <Text style={{color:mutedText,textAlign:'center',marginTop:8}}>
-                Chat feature coming soon. Student-admin messaging will be enabled after backend setup.
-              </Text>
-            </View>
+            <Text style={{color:mutedText,marginTop:5}}>
+              {isNotificationAdmin
+                ? 'Student conversations and support replies.'
+                : 'Ask the admin for study-related help.'}
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => {
+                loadChatConversations();
+                if (isNotificationAdmin && activeChatId) loadChatMessages(activeChatId);
+                else if (!isNotificationAdmin && auth.currentUser?.uid) loadChatMessages(auth.currentUser.uid);
+              }}
+              style={{marginTop:14,alignSelf:'flex-start',backgroundColor:BLUE,paddingVertical:10,paddingHorizontal:16,borderRadius:10}}
+            >
+              <Text style={{color:'#FFFFFF',fontWeight:'800'}}>↻ Refresh Chat</Text>
+            </TouchableOpacity>
+
+            {isNotificationAdmin && (
+              <View style={{marginTop:14}}>
+                <Text style={{fontWeight:'900',fontSize:16,color:mainText,marginBottom:8}}>
+                  Student Conversations ({chatConversations.length})
+                </Text>
+                {chatConversations.map(item => (
+                  <TouchableOpacity
+                    key={item.id}
+                    onPress={() => {
+                      setActiveChatId(item.id);
+                      setChatError('');
+                      loadChatMessages(item.id);
+                    }}
+                    style={{
+                      padding:12,marginBottom:8,borderRadius:12,
+                      backgroundColor:activeChatId===item.id
+                        ? (darkMode?'#312E81':'#E9DEFF') : cardBg,
+                      borderWidth:1,borderColor:darkMode?'#334155':'#DCE5F5'
+                    }}
+                  >
+                    <Text style={{fontWeight:'900',color:mainText}}>
+                      {item.studentName || 'Student'}
+                    </Text>
+                    <Text style={{fontSize:12,color:mutedText,marginTop:3}}>
+                      {item.studentEmail || item.studentUid}
+                    </Text>
+                    <Text numberOfLines={1} style={{fontSize:13,color:mutedText,marginTop:5}}>
+                      {item.lastMessage || 'Start conversation'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {chatLoading && (
+              <Text style={{color:mutedText,marginTop:12}}>Loading chat...</Text>
+            )}
+
+            {!!chatError && (
+              <Text style={{color:'#DC2626',marginTop:10}}>{chatError}</Text>
+            )}
+
+            {!!chatNotice && (
+              <Text style={{color:'#15803D',marginTop:8}}>{chatNotice}</Text>
+            )}
+
+            {(!isNotificationAdmin || !!activeChatId) && (
+              <>
+                <Text style={{fontWeight:'900',fontSize:16,color:mainText,marginTop:16,marginBottom:8}}>
+                  Messages
+                </Text>
+                <View style={{
+                  padding:12,borderRadius:14,minHeight:120,maxHeight:320,
+                  backgroundColor:darkMode?'#111827':'#F8FAFF',
+                  borderWidth:1,borderColor:darkMode?'#334155':'#DCE5F5'
+                }}>
+                  {chatMessages.length === 0 && !chatLoading ? (
+                    <Text style={{color:mutedText,textAlign:'center',marginTop:24}}>
+                      No messages yet. Send a message to start.
+                    </Text>
+                  ) : chatMessages.map(msg => {
+                    const mine = msg.senderUid === auth.currentUser?.uid;
+                    return (
+                      <View key={msg.id} style={{
+                        alignSelf:mine?'flex-end':'flex-start',
+                        maxWidth:'88%',padding:10,marginBottom:8,borderRadius:12,
+                        backgroundColor:mine?(darkMode?'#3730A3':'#DDE8FF'):cardBg,
+                        borderWidth:1,borderColor:darkMode?'#334155':'#E2E8F0'
+                      }}>
+                        <Text style={{fontSize:11,fontWeight:'800',color:mutedText,marginBottom:4}}>
+                          {msg.senderName || 'User'}
+                        </Text>
+                        <Text style={{color:mainText,lineHeight:20}}>{msg.text}</Text>
+                        {!!msg.createdAt && (
+                          <Text style={{fontSize:10,color:mutedText,marginTop:4}}>
+                            {new Date(msg.createdAt).toLocaleString()}
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+
+                <TextInput
+                  value={chatDraft}
+                  onChangeText={setChatDraft}
+                  placeholder="Type your message..."
+                  placeholderTextColor={mutedText}
+                  multiline
+                  maxLength={2000}
+                  style={{
+                    marginTop:12,minHeight:48,maxHeight:110,
+                    borderWidth:1,borderColor:darkMode?'#475569':'#CBD5E1',
+                    borderRadius:12,padding:12,color:mainText,
+                    backgroundColor:cardBg
+                  }}
+                />
+
+                <TouchableOpacity
+                  disabled={chatSending || !chatDraft.trim() || (isNotificationAdmin && !activeChatId)}
+                  onPress={sendChatMessage}
+                  style={{
+                    marginTop:10,paddingVertical:14,borderRadius:12,
+                    alignItems:'center',
+                    backgroundColor:(chatSending || !chatDraft.trim() || (isNotificationAdmin && !activeChatId))?'#94A3B8':BLUE
+                  }}
+                >
+                  <Text style={{color:'#FFFFFF',fontWeight:'900'}}>
+                    {chatSending?'Sending...':'Send Message'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </>}
-
         {page === 'Downloads' && <>
           <View style={{padding:18}}>
             <Text style={styles.pageTitle}>Downloads</Text>

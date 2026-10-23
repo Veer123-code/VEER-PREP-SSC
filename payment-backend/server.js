@@ -1028,6 +1028,152 @@ app.get('/general-awareness/topic-pdf-url', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 
+
+
+// STUDY_WITH_VEER_CHAT_ROUTES
+function getChatAdminUids() {
+  return (process.env.ADMIN_UIDS || '').split(',').map(x => x.trim()).filter(Boolean);
+}
+
+app.get('/chat/admin-status', async (req, res) => {
+  const user = await getAuthenticatedUser(req);
+  if (!user) return res.status(401).json({ error: 'Please log in first.' });
+  return res.json({ isAdmin: getChatAdminUids().includes(user.uid) });
+});
+
+app.get('/chat/conversations', async (req, res) => {
+  const user = await getAuthenticatedUser(req);
+  if (!user) return res.status(401).json({ error: 'Please log in first.' });
+
+  const isAdmin = getChatAdminUids().includes(user.uid);
+  try {
+    const chats = firebaseAdminDb.collection('supportChats');
+    let docs;
+    if (isAdmin) {
+      const snap = await chats.orderBy('updatedAt', 'desc').limit(100).get();
+      docs = snap.docs;
+    } else {
+      const snap = await chats.where('studentUid', '==', user.uid).limit(1).get();
+      docs = snap.docs;
+    }
+
+    return res.json({
+      conversations: docs.map(d => {
+        const v = d.data();
+        return {
+          id: d.id,
+          studentUid: v.studentUid,
+          studentName: v.studentName || 'Student',
+          studentEmail: v.studentEmail || '',
+          lastMessage: v.lastMessage || '',
+          updatedAt: v.updatedAt?.toDate?.()?.toISOString?.() || null
+        };
+      })
+    });
+  } catch (error) {
+    console.error('Chat conversation list failed:', error.message);
+    return res.status(500).json({ error: 'Could not load conversations.' });
+  }
+});
+
+app.get('/chat/messages/:chatId', async (req, res) => {
+  const user = await getAuthenticatedUser(req);
+  if (!user) return res.status(401).json({ error: 'Please log in first.' });
+
+  const chatId = String(req.params.chatId || '');
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(chatId)) {
+    return res.status(400).json({ error: 'Invalid conversation ID.' });
+  }
+
+  try {
+    const chatRef = firebaseAdminDb.collection('supportChats').doc(chatId);
+    const chatSnap = await chatRef.get();
+    if (!chatSnap.exists) return res.status(404).json({ error: 'Conversation not found.' });
+
+    const chat = chatSnap.data();
+    const isAdmin = getChatAdminUids().includes(user.uid);
+    if (!isAdmin && chat.studentUid !== user.uid) {
+      return res.status(403).json({ error: 'You cannot access this conversation.' });
+    }
+
+    const snap = await chatRef.collection('messages').orderBy('createdAt', 'asc').limit(200).get();
+    return res.json({
+      messages: snap.docs.map(d => {
+        const v = d.data();
+        return {
+          id: d.id,
+          senderUid: v.senderUid,
+          senderName: v.senderName || 'User',
+          text: v.text || '',
+          createdAt: v.createdAt?.toDate?.()?.toISOString?.() || null
+        };
+      })
+    });
+  } catch (error) {
+    console.error('Chat message load failed:', error.message);
+    return res.status(500).json({ error: 'Could not load messages.' });
+  }
+});
+
+app.post('/chat/messages/:chatId', async (req, res) => {
+  const user = await getAuthenticatedUser(req);
+  if (!user) return res.status(401).json({ error: 'Please log in first.' });
+
+  const chatId = String(req.params.chatId || '');
+  const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(chatId)) {
+    return res.status(400).json({ error: 'Invalid conversation ID.' });
+  }
+  if (!text || text.length > 2000) {
+    return res.status(400).json({ error: 'Message must be 1–2000 characters.' });
+  }
+
+  try {
+    const isAdmin = getChatAdminUids().includes(user.uid);
+    const chats = firebaseAdminDb.collection('supportChats');
+    const chatRef = chats.doc(chatId);
+    let chatSnap = await chatRef.get();
+
+    if (!chatSnap.exists) {
+      if (isAdmin || chatId !== user.uid) {
+        return res.status(404).json({ error: 'Conversation not found.' });
+      }
+      await chatRef.create({
+        studentUid: user.uid,
+        studentName: user.name || user.email || 'Student',
+        studentEmail: user.email || '',
+        lastMessage: '',
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp()
+      });
+      chatSnap = await chatRef.get();
+    }
+
+    const chat = chatSnap.data();
+    if (!isAdmin && chat.studentUid !== user.uid) {
+      return res.status(403).json({ error: 'You cannot send to this conversation.' });
+    }
+
+    const message = {
+      senderUid: user.uid,
+      senderName: isAdmin ? 'Admin' : (user.name || user.email || 'Student'),
+      text,
+      createdAt: FieldValue.serverTimestamp()
+    };
+
+    await chatRef.collection('messages').add(message);
+    await chatRef.set({
+      lastMessage: text.slice(0, 160),
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    return res.json({ sent: true });
+  } catch (error) {
+    console.error('Chat message send failed:', error.message);
+    return res.status(500).json({ error: 'Could not send message.' });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Payment backend running on port ${PORT}`);
 });
