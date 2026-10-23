@@ -42,6 +42,31 @@ const unlockFile = path.join(__dirname, 'unlocked-courses.json');
 function readUnlocks() { try { return JSON.parse(fs.readFileSync(unlockFile, 'utf8')); } catch { return {}; } }
 function saveUnlocks(data) { fs.writeFileSync(unlockFile, JSON.stringify(data, null, 2)); }
 
+// Course validity: six calendar months from the purchase date.
+function addSixMonths(value) {
+  const d = new Date(value);
+  if (!Number.isFinite(d.getTime())) return null;
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + 6);
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, lastDay));
+  return d;
+}
+function courseExpiry(purchase) {
+  if (!purchase) return null;
+  if (purchase.expiresAt) {
+    const saved = new Date(purchase.expiresAt);
+    if (Number.isFinite(saved.getTime())) return saved;
+  }
+  const start = purchase.unlockedAt || purchase.purchaseDate;
+  return start ? addSixMonths(start) : null;
+}
+function isCourseActive(purchase) {
+  const expiry = courseExpiry(purchase);
+  return !!expiry && Date.now() < expiry.getTime();
+}
+
 const app = express();
 
 app.use(cors());
@@ -487,10 +512,15 @@ app.post('/verify-payment', async (req, res) => {
     const existing = unlocks[user.uid] || {};
     const courses = existing.courses || {};
 
+    const purchaseDate = new Date().toISOString();
+    const expiryDate = addSixMonths(purchaseDate);
     courses[record.courseId] = {
       orderId: razorpay_order_id,
       paymentId: razorpay_payment_id,
-      unlockedAt: new Date().toISOString(),
+      unlockedAt: purchaseDate,
+      purchaseDate,
+      expiresAt: expiryDate.toISOString(),
+      validityMonths: 6,
     };
 
     unlocks[user.uid] = { ...existing, courses };
@@ -636,8 +666,10 @@ app.get('/invoice/:paymentId', async (req, res) => {
 
     const authUser = await firebaseAdminAuth.getUser(user.uid).catch(() => null);
     const studentName = authUser?.displayName || 'Student';
-    const date = new Date(payment.created_at * 1000);
+    const date = new Date(purchase.purchaseDate || purchase.unlockedAt || payment.created_at * 1000);
     const dateText = Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 10) : 'N/A';
+    const expiry = courseExpiry(purchase);
+    const expiryText = expiry ? expiry.toISOString().slice(0, 10) : 'N/A';
     const amount = (payment.amount / 100).toFixed(2);
     const invoiceNumber = 'STUDY-WITH-VEER-' + paymentId;
 
@@ -658,16 +690,22 @@ app.get('/invoice/:paymentId', async (req, res) => {
     draw(studentName.slice(0, 70), 190, 565);
     draw('Course:', 50, 525, 12, true);
     draw(courseName, 190, 525);
-    draw('Payment ID:', 50, 485, 12, true);
-    draw(paymentId, 190, 485);
+    draw('Purchase Date:', 50, 495, 12, true);
+    draw(dateText, 190, 495);
+    draw('Validity:', 50, 465, 12, true);
+    draw('6 Months', 190, 465);
+    draw('Expiry Date:', 50, 435, 12, true);
+    draw(expiryText, 190, 435);
+    draw('Payment ID:', 50, 405, 12, true);
+    draw(paymentId, 190, 405);
     draw('Order ID:', 50, 455, 12, true);
     draw(purchase.orderId, 190, 455);
     page.drawLine({
-      start: { x: 50, y: 410 }, end: { x: 545, y: 410 },
+      start: { x: 50, y: 375 }, end: { x: 545, y: 375 },
       thickness: 1, color: rgb(0.75, 0.80, 0.88),
     });
-    draw('Total Paid (INR):', 50, 375, 15, true);
-    draw('Rs. ' + amount, 190, 375, 15, true);
+    draw('Total Paid (INR):', 50, 340, 15, true);
+    draw('Rs. ' + amount, 190, 340, 15, true);
     draw('This invoice confirms a captured payment for the course above.', 50, 320, 10);
     draw('STUDY WITH VEER', 50, 90, 11, true);
 
@@ -690,9 +728,11 @@ app.get('/my-courses', async (req, res) => {
     }
 
     const unlocks = readUnlocks();
-    return res.json({
-      courses: (unlocks[user.uid] && unlocks[user.uid].courses) || {},
-    });
+    const savedCourses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
+    const activeCourses = Object.fromEntries(
+      Object.entries(savedCourses).filter(([, purchase]) => isCourseActive(purchase))
+    );
+    return res.json({ courses: activeCourses });
   } catch (error) {
     console.error('Course access lookup failed:', error.message);
     return res.status(500).json({ error: 'Could not load course access.' });
@@ -718,7 +758,10 @@ app.get('/english/articles-full-url', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Please log in to access the full PDF.' });
     const unlocks = readUnlocks();
     const courses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
-    const eligible = courses['ssc-english-foundation'] || courses['ssc-reasoning-masterclass'] || courses['ssc-general-awareness'] || courses['english-articles-pdf'];
+    const eligible = isCourseActive(courses['ssc-english-foundation']) ||
+      isCourseActive(courses['ssc-reasoning-masterclass']) ||
+      isCourseActive(courses['ssc-general-awareness']) ||
+      isCourseActive(courses['english-articles-pdf']);
     if (!eligible) return res.status(403).json({ error: 'Full PDF requires an eligible course purchase or Articles PDF purchase.' });
     const result = await supabase.storage.from('English -pdfs').createSignedUrl('Articles/Articles notes.pdf', 60);
     if (result.error) throw result.error;
@@ -757,10 +800,10 @@ app.get('/english/topic-pdf-url', async (req, res) => {
 
     const unlocks = readUnlocks();
     const courses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
-    const eligible = courses['ssc-english-foundation'] ||
-      courses['ssc-reasoning-masterclass'] ||
-      courses['ssc-general-awareness'] ||
-      courses['english-articles-pdf'];
+    const eligible = isCourseActive(courses['ssc-english-foundation']) ||
+      isCourseActive(courses['ssc-reasoning-masterclass']) ||
+      isCourseActive(courses['ssc-general-awareness']) ||
+      isCourseActive(courses['english-articles-pdf']);
 
     if (!eligible) {
       return res.status(403).json({
@@ -791,7 +834,7 @@ app.get('/general-awareness/folders', async (req, res) => {
 
     const unlocks = readUnlocks();
     const courses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
-    if (!courses['ssc-general-awareness']) {
+    if (!isCourseActive(courses['ssc-general-awareness'])) {
       return res.status(403).json({ error: 'Purchase the General Awareness course to access these folders.' });
     }
 
@@ -821,7 +864,7 @@ app.get('/general-awareness/topic-files', async (req, res) => {
 
     const unlocks = readUnlocks();
     const courses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
-    if (!courses['ssc-general-awareness']) {
+    if (!isCourseActive(courses['ssc-general-awareness'])) {
       return res.status(403).json({ error: 'Purchase the General Awareness course to access these PDFs.' });
     }
 
@@ -872,7 +915,7 @@ app.get('/general-awareness/topic-pdf-url', async (req, res) => {
 
     const unlocks = readUnlocks();
     const courses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
-    if (!courses['ssc-general-awareness']) {
+    if (!isCourseActive(courses['ssc-general-awareness'])) {
       return res.status(403).json({
         error: 'Purchase the General Awareness course to access these PDFs.'
       });
