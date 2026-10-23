@@ -654,10 +654,22 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
     );
 
     const unsubscribe = onSnapshot(q, snapshot => {
-      setNotifications(snapshot.docs.map(item => ({
-        id: item.id,
-        ...item.data()
-      })));
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+      setNotifications(snapshot.docs
+        .map(item => ({ id: item.id, ...item.data() }))
+        .filter(item => {
+          const value = item.createdAt;
+          const createdMs = value && typeof value.toDate === 'function'
+            ? value.toDate().getTime()
+            : value && typeof value.seconds === 'number'
+              ? value.seconds * 1000
+              : typeof value === 'number'
+                ? value
+                : typeof value === 'string'
+                  ? Date.parse(value)
+                  : NaN;
+          return Number.isFinite(createdMs) && createdMs >= cutoff;
+        }));
       setNotificationsLoading(false);
       setNotificationsError('');
     }, error => {
@@ -2240,6 +2252,16 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   <Text style={{fontSize:14,fontWeight:'900',lineHeight:19,minHeight:38,color:darkMode?'#F3F6FC':'#17233B'}}>{course.title}</Text>
                 <Text style={{fontSize:11,lineHeight:16,minHeight:48,color:darkMode?'#B4C1D6':'#68758B',marginTop:5}}>{t(course.desc, ({'Arithmetic, algebra and topic-wise practice':'అంకగణితం, బీజగణితం మరియు అంశాల వారీగా సాధన','Verbal and non-verbal reasoning':'వెర్బల్ మరియు నాన్-వెర్బల్ రీజనింగ్','History, geography, polity and science':'చరిత్ర, భూగోళశాస్త్రం, రాజ్యాంగం మరియు సైన్స్','Grammar and vocabulary':'వ్యాకరణం మరియు పదజాలం'})[course.desc] || course.desc)}</Text>
                 <Text style={{fontSize:16,fontWeight:'900',marginTop:7,color:course.price==='FREE'?'#10B981':(darkMode?'#F6C453':'#B77908')}}>{course.price}</Text>
+                {course.id && unlockedCourses[course.id] && (
+                  <View style={{marginTop:8,padding:7,borderRadius:8,backgroundColor:darkMode?'#20334A':'#EFFAF5'}}>
+                    <Text style={{fontSize:10,fontWeight:'700',color:darkMode?'#A7F3D0':'#087F67'}}>
+                      Purchased: {unlockedCourses[course.id].purchaseDate ? new Date(unlockedCourses[course.id].purchaseDate).toLocaleDateString() : 'Available'}
+                    </Text>
+                    <Text style={{fontSize:10,fontWeight:'800',marginTop:4,color:darkMode?'#FCD34D':'#9A6700'}}>
+                      Expires: {unlockedCourses[course.id].expiresAt ? new Date(unlockedCourses[course.id].expiresAt).toLocaleDateString() : '6 months from purchase'}
+                    </Text>
+                  </View>
+                )}
                 <TouchableOpacity
                   onPress={() => {
                     if (course.price === 'FREE') {
