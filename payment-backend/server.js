@@ -42,6 +42,23 @@ const unlockFile = path.join(__dirname, 'unlocked-courses.json');
 function readUnlocks() { try { return JSON.parse(fs.readFileSync(unlockFile, 'utf8')); } catch { return {}; } }
 function saveUnlocks(data) { fs.writeFileSync(unlockFile, JSON.stringify(data, null, 2)); }
 
+async function saveCoursePurchaseToSupabase(userId, courseId, purchase) {
+  const { error } = await supabase
+    .from('course_purchases')
+    .upsert({
+      user_id: userId,
+      course_id: courseId,
+      order_id: purchase.orderId,
+      payment_id: purchase.paymentId,
+      purchase_date: purchase.purchaseDate || purchase.unlockedAt,
+      expires_at: purchase.expiresAt,
+      validity_months: purchase.validityMonths || 6
+    }, { onConflict: 'user_id,course_id' });
+
+  if (error) throw error;
+}
+
+
 // Course validity: six calendar months from the purchase date.
 function addSixMonths(value) {
   const d = new Date(value);
@@ -514,7 +531,7 @@ app.post('/verify-payment', async (req, res) => {
 
     const purchaseDate = new Date().toISOString();
     const expiryDate = addSixMonths(purchaseDate);
-    courses[record.courseId] = {
+    const purchase = {
       orderId: razorpay_order_id,
       paymentId: razorpay_payment_id,
       unlockedAt: purchaseDate,
@@ -523,8 +540,16 @@ app.post('/verify-payment', async (req, res) => {
       validityMonths: 6,
     };
 
+    courses[record.courseId] = purchase;
     unlocks[user.uid] = { ...existing, courses };
     saveUnlocks(unlocks);
+
+    try {
+      await saveCoursePurchaseToSupabase(user.uid, record.courseId, purchase);
+      console.log('Course purchase saved to Supabase:', record.courseId);
+    } catch (dbError) {
+      console.error('Supabase purchase save failed; local fallback saved:', dbError.message);
+    }
 
     // Notifications are best-effort: they must not undo a verified payment.
     try {
@@ -727,12 +752,42 @@ app.get('/my-courses', async (req, res) => {
       return res.status(401).json({ error: 'Please log in again.' });
     }
 
-    const unlocks = readUnlocks();
-    const savedCourses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
-    const activeCourses = Object.fromEntries(
-      Object.entries(savedCourses).filter(([, purchase]) => isCourseActive(purchase))
-    );
-    return res.json({ courses: activeCourses });
+    try {
+      const { data, error } = await supabase
+        .from('course_purchases')
+        .select('course_id, order_id, payment_id, purchase_date, expires_at, validity_months')
+        .eq('user_id', user.uid);
+
+      if (error) throw error;
+
+      const activeCourses = {};
+      for (const row of (data || [])) {
+        const purchase = {
+          orderId: row.order_id,
+          paymentId: row.payment_id,
+          purchaseDate: row.purchase_date,
+          unlockedAt: row.purchase_date,
+          expiresAt: row.expires_at,
+          validityMonths: row.validity_months || 6,
+        };
+
+        if (isCourseActive(purchase)) {
+          activeCourses[row.course_id] = purchase;
+        }
+      }
+
+      return res.json({ courses: activeCourses });
+    } catch (dbError) {
+      console.error('Supabase course lookup failed; using local fallback:', dbError.message);
+
+      const unlocks = readUnlocks();
+      const savedCourses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
+      const activeCourses = Object.fromEntries(
+        Object.entries(savedCourses).filter(([, purchase]) => isCourseActive(purchase))
+      );
+
+      return res.json({ courses: activeCourses, source: 'fallback' });
+    }
   } catch (error) {
     console.error('Course access lookup failed:', error.message);
     return res.status(500).json({ error: 'Could not load course access.' });
