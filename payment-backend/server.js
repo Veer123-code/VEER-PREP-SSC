@@ -834,7 +834,12 @@ app.get('/english/articles-preview-url', async (req, res) => {
 
 app.get('/english/articles-full-url', async (req, res) => {
   try {
+    console.log('Articles PDF request:', {
+      authorizationHeaderPresent: (req.get('authorization') || '').startsWith('Bearer '),
+      userVerified: false
+    });
     const user = await getAuthenticatedUser(req);
+    console.log('Articles PDF auth result:', { userVerified: !!user });
     if (!user) return res.status(401).json({ error: 'Please log in to access the full PDF.' });
     const eligible =
       (await hasActiveCoursePurchase(user.uid, 'ssc-english-foundation')) ||
