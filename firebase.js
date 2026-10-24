@@ -3,6 +3,7 @@ import { initializeApp, getApp, getApps } from 'firebase/app';
 import {
   initializeAuth,
   getAuth,
+  browserLocalPersistence,
   getReactNativePersistence
 } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -21,12 +22,20 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 let auth;
 
-try {
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage)
-  });
-} catch (error) {
-  auth = getAuth(app);
+if (typeof window !== 'undefined') {
+  try {
+    auth = initializeAuth(app, { persistence: browserLocalPersistence });
+  } catch (error) {
+    auth = getAuth(app);
+  }
+} else {
+  try {
+    auth = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage)
+    });
+  } catch (error) {
+    auth = getAuth(app);
+  }
 }
 
 export { auth };

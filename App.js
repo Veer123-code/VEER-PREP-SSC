@@ -33,12 +33,30 @@ export default function App() {
   const { width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const loadingSpin = useRef(new Animated.Value(0)).current;
+  const purchasedMarquee = useRef(new Animated.Value(0)).current;
+const [purchasedMarqueeTextWidth, setPurchasedMarqueeTextWidth] = useState(0);
+
+  useEffect(() => {
+  if (!purchasedMarqueeTextWidth) return;
+  purchasedMarquee.setValue(0);
+  const animation = Animated.loop(
+    Animated.timing(purchasedMarquee, {
+      toValue: 1,
+      duration: 12000,
+      easing: Easing.inOut(Easing.ease),
+      useNativeDriver: true,
+    })
+  );
+  animation.start();
+  return () => animation.stop();
+}, [purchasedMarquee, purchasedMarqueeTextWidth]);
+
   const heroSpin = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const animation = Animated.loop(Animated.timing(heroSpin, {
       toValue: 1,
       duration: 3000,
-      easing: Easing.linear,
+      easing: Easing.inOut(Easing.ease),
       useNativeDriver: false,
     }));
     animation.start();
@@ -74,6 +92,140 @@ export default function App() {
   };
 
   const t = (english, telugu) => language === 'te' ? telugu : english;
+
+  const [offlinePdfs, setOfflinePdfs] = useState([]);
+  const [pdfDownloadBusy, setPdfDownloadBusy] = useState(false);
+
+  const loadOfflinePdfs = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        setOfflinePdfs([]);
+        return;
+      }
+      const saved = await AsyncStorage.getItem('veer_offline_pdfs_' + user.uid);
+      setOfflinePdfs(saved ? JSON.parse(saved) : []);
+    } catch (error) {
+      console.log('Could not load offline PDFs:', error.message);
+    }
+  };
+
+
+
+  const downloadStudyPdfForOffline = async (endpoint, fileName) => {
+    setPdfDownloadBusy(true);
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('Please log in again.');
+      const token = await user.getIdToken();
+
+      const isDirectUrl = !endpoint.includes('study-with-veer-payment-backend.onrender.com');
+      let pdfUrl = endpoint;
+
+      if (!isDirectUrl) {
+        console.log('Offline PDF request:', {
+          endpoint,
+          userAvailable: !!user,
+          tokenAvailable: !!token,
+          tokenLength: token ? token.length : 0
+        });
+        const response = await fetch(endpoint, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        const data = await response.json();
+        if (!response.ok || !data.url) {
+          throw new Error((data.error || 'Could not access this PDF.') + ' (HTTP ' + response.status + ')');
+        }
+        pdfUrl = data.url;
+      }
+
+      if (Platform.OS === 'web' && isDirectUrl) {
+        const link = document.createElement('a');
+        link.href = pdfUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        Alert.alert('Download opened', 'Google Drive download open ayyindi. PDF save cheyyadaniki browser menu lo Download option select cheyyi.');
+        return;
+      }
+
+      if (Platform.OS === 'web') {
+        const pdfResponse = await fetch(pdfUrl);
+        if (!pdfResponse.ok) throw new Error('PDF download failed.');
+        const blob = await pdfResponse.blob();
+        const storageKey = user.uid + '::' + fileName;
+        await new Promise((resolve, reject) => {
+          const request = indexedDB.open('study-with-veer-pdfs', 1);
+          request.onupgradeneeded = () => {
+            if (!request.result.objectStoreNames.contains('pdfs')) {
+              request.result.createObjectStore('pdfs');
+            }
+          };
+          request.onerror = () => reject(request.error || new Error('Browser storage could not open.'));
+          request.onsuccess = () => {
+            const db = request.result;
+            const tx = db.transaction('pdfs', 'readwrite');
+            tx.objectStore('pdfs').put(blob, storageKey);
+            tx.oncomplete = () => { db.close(); resolve(); };
+            tx.onerror = () => { db.close(); reject(tx.error || new Error('PDF could not be saved in browser storage.')); };
+            tx.onabort = () => { db.close(); reject(tx.error || new Error('PDF save was cancelled.')); };
+          };
+        });
+
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+
+        const existing = await AsyncStorage.getItem('veer_offline_pdfs_' + user.uid);
+        const list = existing ? JSON.parse(existing) : [];
+        const updated = [
+          { name: fileName, uri: 'indexeddb:' + storageKey, savedAt: new Date().toISOString() },
+          ...list.filter(item => item.name !== fileName)
+        ];
+        await AsyncStorage.setItem('veer_offline_pdfs_' + user.uid, JSON.stringify(updated));
+        setOfflinePdfs(updated);
+        Alert.alert('Download started', 'Check your browser downloads.');
+        return;
+      }
+
+      if (!FileSystem.documentDirectory) {
+        throw new Error('Permanent app storage is unavailable on this device.');
+      }
+
+      const folder = FileSystem.documentDirectory + 'study-pdfs/';
+      await FileSystem.makeDirectoryAsync(folder, { intermediates: true });
+      const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fileUri = folder + safeName;
+      const result = await FileSystem.downloadAsync(pdfUrl, fileUri);
+
+      if (result.status !== 200) {
+        throw new Error('PDF download failed. Please try again.');
+      }
+
+      const existing = await AsyncStorage.getItem('veer_offline_pdfs_' + user.uid);
+      const list = existing ? JSON.parse(existing) : [];
+      const updated = [
+        { name: fileName, uri: result.uri, savedAt: new Date().toISOString() },
+        ...list.filter(item => item.uri !== result.uri && item.name !== fileName)
+      ];
+      await AsyncStorage.setItem('veer_offline_pdfs_' + user.uid, JSON.stringify(updated));
+      setOfflinePdfs(updated);
+      Alert.alert('PDF saved', 'PDF is saved on this phone for offline access.');
+    } catch (error) {
+      Alert.alert('PDF download error', error.message || 'Please try again.');
+    } finally {
+      setPdfDownloadBusy(false);
+    }
+  };
+
   const [unlockedCourses, setUnlockedCourses] = useState({});
   const [generalAwarenessFiles, setGeneralAwarenessFiles] = useState([]);
   const [generalAwarenessFolders, setGeneralAwarenessFolders] = useState([]);
@@ -326,8 +478,8 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
     const animation = Animated.loop(
       Animated.timing(redBlobAnim, {
         toValue: 1,
-        duration: 5000,
-        easing: Easing.linear,
+        duration: 6000,
+        easing: Easing.inOut(Easing.ease),
         useNativeDriver: true,
       })
     );
@@ -389,6 +541,10 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   }, [showAccountSuccess, successScale, successFade]);
 
   const [page, setPage] = useState('Courses');
+
+  useEffect(() => {
+    if (page === 'Downloads' && loggedIn) loadOfflinePdfs();
+  }, [page, loggedIn]);
   const [notifications, setNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState('');
@@ -399,6 +555,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [activeChatId, setActiveChatId] = useState('');
   const [chatDraft, setChatDraft] = useState('');
+  const chatInputRef = useRef(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatSending, setChatSending] = useState(false);
   const [chatError, setChatError] = useState('');
@@ -522,7 +679,11 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
       setChatMessages(data.messages || []);
     } catch (error) {
       setChatMessages([]);
-      setChatError(error.message || 'Could not load messages.');
+      if ((error.message || '').includes('Conversation not found')) {
+        setChatError('');
+      } else {
+        setChatError(error.message || 'Could not load messages.');
+      }
     } finally {
       setChatLoading(false);
     }
@@ -570,6 +731,24 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
     } else if (isNotificationAdmin && activeChatId) {
       loadChatMessages(activeChatId);
     }
+  }, [page, loggedIn, isNotificationAdmin, activeChatId]);
+
+  // VEER_CHAT_AUTO_REFRESH
+  useEffect(() => {
+    if (page !== 'Chat' || !loggedIn || !auth.currentUser) return;
+
+    const timer = setInterval(() => {
+      if (!auth.currentUser) return;
+      loadChatConversations();
+
+      const chatId = isNotificationAdmin
+        ? activeChatId
+        : auth.currentUser.uid;
+
+      if (chatId) loadChatMessages(chatId);
+    }, 8000);
+
+    return () => clearInterval(timer);
   }, [page, loggedIn, isNotificationAdmin, activeChatId]);
 
   // GENERAL_AWARENESS_PDF_LIST_EFFECT
@@ -734,7 +913,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, user => {
       setLoggedIn(!!user);
-      if (user) setPage("Courses");
+      if (user) setPage("Home");
       setAuthLoading(false);
     });
     return unsubscribe;
@@ -945,7 +1124,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
       try {
         const idToken = await user.getIdToken();
-        const response = await fetch('https://study-with-veer-payment-backend.onrender.com/my-courses', {
+        const response = await fetch(['https:', '', 'study-with-veer-payment-backend.onrender.com', 'my-courses'].join('/'), {
           headers: { Authorization: 'Bearer ' + idToken }
         });
 
@@ -979,9 +1158,9 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
       try {
         const idToken = await user.getIdToken();
-        const response = await fetch('https://study-with-veer-payment-backend.onrender.com/my-courses',
-          { headers: { Authorization: 'Bearer ' + idToken } }
-        );
+        const response = await fetch(['https:', '', 'study-with-veer-payment-backend.onrender.com', 'my-courses'].join('/'), {
+          headers: { Authorization: 'Bearer ' + idToken }
+        });
         const data = await response.json();
 
         if (response.ok) {
@@ -1874,7 +2053,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         </View>
       )}
 
-      
+
 {searchOpen && (
   <View style={{
     position:'absolute',top:0,bottom:0,left:0,right:0,
@@ -2007,7 +2186,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   </View>
 )}
 
-<ScrollView style={[styles.content, {backgroundColor:pageBg}]} contentContainerStyle={{paddingBottom:24}}>
+<ScrollView keyboardShouldPersistTaps="handled" style={[styles.content, {backgroundColor:pageBg}]} contentContainerStyle={{paddingBottom:24}}>
         {page === 'Home' && <>
   <View style={{marginHorizontal:16,marginTop:16,marginBottom:4,borderRadius:18,overflow:'hidden',backgroundColor:cardBg,borderWidth:1,borderColor:darkMode?'#334155':'#DCE5F5'}}>
     <Image
@@ -2150,7 +2329,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               </TouchableOpacity>
             ))}
             </View>
-          
+
             <TouchableOpacity onPress={() => setPage('Home')} style={{paddingVertical:16,paddingHorizontal:18,marginTop:4,marginBottom:8,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center',minHeight:58}}>
               <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:17}}>{'🏠  ← Back to Home'}</Text>
             </TouchableOpacity>
@@ -2158,19 +2337,40 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         </>}
 
           {page === "Current Affairs 2026" && <>
-            <View style={{padding:18}}>
-              <Text style={styles.pageTitle}>2026 Current Affairs</Text>
-      
-              <Text style={{color:mutedText,marginTop:8}}>Current Affairs PDF</Text>
-              <TouchableOpacity onPress={() => Linking.openURL("https://drive.google.com/file/d/1cUXADG1-JrIlXgjPFIZvsPMwk3E9gMWk/view?usp=drivesdk")} style={{backgroundColor:BLUE,padding:18,borderRadius:14,marginTop:16}}>
-                <Text style={{color:"#FFFFFF",fontSize:16,fontWeight:"800",textAlign:"center"}}>📄 Open 2026 Current Affairs PDF</Text>
-              </TouchableOpacity>
-            </View>
-          
-      <TouchableOpacity onPress={() => setPage('Home')} style={{paddingVertical:16,paddingHorizontal:18,marginTop:4,marginBottom:8,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center',minHeight:58}}>
-        <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:17}}>{'🏠  ← Back to Home'}</Text>
-      </TouchableOpacity></>}
-          
+  <View style={{padding:18}}>
+    <Text style={styles.pageTitle}>2026 Current Affairs</Text>
+    <Text style={{color:mutedText,marginTop:8}}>Free Current Affairs PDF</Text>
+
+    <View style={{flexDirection:'row',gap:10,marginTop:16}}>
+      <TouchableOpacity
+        onPress={() => Linking.openURL('https://drive.google.com/file/d/1cUXADG1-JrIlXgjPFIZvsPMwk3E9gMWk/view')}
+        style={{flex:1,backgroundColor:BLUE,paddingVertical:16,paddingHorizontal:6,borderRadius:14,alignItems:'center',justifyContent:'center',minHeight:64}}>
+        <Text style={{color:'#FFFFFF',fontSize:14,fontWeight:'800',textAlign:'center'}}>📖 View PDF</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        disabled={pdfDownloadBusy}
+        onPress={() => downloadStudyPdfForOffline(
+          'https://drive.google.com/uc?export=download&id=1cUXADG1-JrIlXgjPFIZvsPMwk3E9gMWk',
+          'Current-Affairs-2026.pdf'
+        )}
+        style={{flex:1,backgroundColor:'#0D9668',paddingVertical:16,paddingHorizontal:6,borderRadius:14,alignItems:'center',justifyContent:'center',minHeight:64,opacity:pdfDownloadBusy?0.6:1}}>
+        <Text style={{color:'#FFFFFF',fontSize:14,fontWeight:'800',textAlign:'center'}}>
+          {pdfDownloadBusy ? '⏳ Downloading…' : '📥 Download Offline'}
+        </Text>
+      </TouchableOpacity>
+    </View>
+
+    <Text style={{color:mutedText,fontSize:12,marginTop:10}}>
+      Free PDF. Download it once to save it for offline study.
+    </Text>
+  </View>
+
+  <TouchableOpacity onPress={() => setPage('Home')} style={{paddingVertical:16,paddingHorizontal:18,marginTop:4,marginBottom:8,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center',minHeight:58}}>
+    <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:17}}>{'🏠  ← Back to Home'}</Text>
+  </TouchableOpacity>
+</>}
+
 {page === 'Free Ebooks' && <>
   <View style={{paddingHorizontal:16,paddingTop:18,paddingBottom:10}}>
     <View style={{backgroundColor:darkMode?'#102C59':'#073B8C',borderRadius:22,padding:20,marginBottom:22,overflow:'hidden',borderWidth:1,borderColor:darkMode?'#315B91':'#1556B0'}}>
@@ -2179,7 +2379,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
       <Text style={{fontSize:14,color:'#E0ECFF',marginTop:8,lineHeight:21}}>Your study library</Text>
       <Text style={{fontSize:14,color:'#E0ECFF',lineHeight:21}}>Explore free SSC notes, books and PDFs.</Text>
       <View style={{flexDirection:'row',alignItems:'center',marginTop:16}}>
-        <Text style={{fontSize:13,fontWeight:'800',color:'#FFFFFF',backgroundColor:'#1764B9',paddingVertical:8,paddingHorizontal:12,borderRadius:20}}>📚  4 SUBJECT FOLDERS</Text>
+        <Text style={{fontSize:13,fontWeight:'800',color:'#FFFFFF',backgroundColor:'#1764B9',paddingVertical:8,paddingHorizontal:12,borderRadius:20}}>📚  5 SUBJECT FOLDERS</Text>
       </View>
     </View>
 
@@ -2187,10 +2387,11 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
       {title:'SSC PureMaths',desc:'Formulae • Concepts • Practice',icon:'📐',color:'#0878E8',pale:darkMode?'#172B49':'#EDF6FF'},
       {title:'SSC Quantitative Aptitude',desc:'Arithmetic • Algebra • Geometry',icon:'🧮',color:'#009F83',pale:darkMode?'#123A37':'#E9FBF6'},
       {title:'SSC Reasoning',desc:'Verbal • Non-Verbal • Logical',icon:'🧠',color:'#6344E8',pale:darkMode?'#282247':'#F2EEFF'},
-      {title:'SSC General Science And Technology',desc:'Physics • Chemistry • Biology',icon:'🔬',color:'#E83F61',pale:darkMode?'#3B202D':'#FFF0F3'}
+      {title:'SSC General Science And Technology',desc:'Physics • Chemistry • Biology',icon:'🔬',color:'#E83F61',pale:darkMode?'#3B202D':'#FFF0F3'},
+      {title:'SSC English',desc:'Grammar • Vocabulary • Book PDFs',icon:'📘',color:'#D97706',pale:darkMode?'#3B2D1B':'#FFF7E8'}
     ].map(folder => (
       <TouchableOpacity key={folder.title}
-        onPress={() => Linking.openURL(String.fromCharCode(104,116,116,112,115,58,47,47,100,114,105,118,101,46,103,111,111,103,108,101,46,99,111,109,47,102,105,108,101,47,100,47,49,56,85,51,105,65,55,107,71,72,95,65,75,78,109,76,51,109,83,97,51,114,80,51,86,78,98,53,114,105,121,85,76,47,118,105,101,119,63,117,115,112,61,100,114,105,118,101,115,100,107))}
+        onPress={() => folder.title === 'SSC PureMaths' ? setPage('Free Ebooks PureMaths') : folder.title === 'SSC Quantitative Aptitude' ? setPage('Free Ebooks Quantitative') : folder.title === 'SSC English' ? setPage('Free Ebooks SSC English') : folder.title === 'SSC General Science And Technology' ? setPage('Free Ebooks SSC Science') : folder.title === 'SSC Reasoning' ? setPage('Free Ebooks Reasoning') : Linking.openURL(String.fromCharCode(104,116,116,112,115,58,47,47,100,114,105,118,101,46,103,111,111,103,108,101,46,99,111,109,47,102,105,108,101,47,100,47,49,56,85,51,105,65,55,107,71,72,95,65,75,78,109,76,51,109,83,97,51,114,80,51,86,78,98,53,114,105,121,85,76,47,118,105,101,119,63,117,115,112,61,100,114,105,118,101,115,100,107))}
         style={{flexDirection:'row',alignItems:'center',backgroundColor:folder.pale,borderRadius:21,padding:13,marginBottom:14,borderWidth:1,borderColor:folder.color+'55',borderLeftWidth:5,borderLeftColor:folder.color,elevation:4,shadowColor:folder.color,shadowOffset:{width:0,height:3},shadowOpacity:darkMode?0.15:0.08,shadowRadius:7,minHeight:108}}>
         <View style={{width:66,height:70,borderRadius:17,backgroundColor:folder.color+'20',alignItems:'center',justifyContent:'center',marginRight:13}}>
           <Text style={{fontSize:34}}>{folder.icon}</Text>
@@ -2219,10 +2420,139 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   </TouchableOpacity>
 </>}
 
+
+{page === 'Free Ebooks SSC Science' && <>
+  <View style={{padding:18}}>
+    <Text style={styles.pageTitle}>SSC General Science PDFs</Text>
+    <Text style={{color:mutedText,marginTop:8}}>Physics • Chemistry • Biology • Technology</Text>
+    {[
+      {title:'Science PDF 1',id:'1gtaz_UtMtka6NBi68FvIop39Eqbc2b33'},
+      {title:'Science PDF 2',id:'1GElClItIW9FI43kf2H7MRUBovDzMxWNs'},
+      {title:'Science PDF 3',id:'1h3tLowJN7F-oQTWXqjcWIjxCVRTyo39t'},
+      {title:'Science PDF 4',id:'1Y55bK3FjvO6MC8qbqZLon7jndBZrxGso'},
+      {title:'Science PDF 5',id:'1VXg2EfRYcFtIxmSrDKPK_jU9jwRoiMke'},
+      {title:'Science PDF 6',id:'1XBnvM99O_BLNLiMGNcYZDZoqdIW9VtnD'}
+    ].map(pdf => (
+      <TouchableOpacity key={pdf.id}
+        onPress={() => Linking.openURL('https://drive.google.com/file/d/' + pdf.id + '/view')}
+        style={{backgroundColor:darkMode?'#172B49':'#FFF0F3',padding:16,borderRadius:14,marginTop:12,borderWidth:1,borderColor:'#E83F61'}}>
+        <Text style={{color:mainText,fontSize:15,fontWeight:'800'}}>🔬 {pdf.title}</Text>
+        <Text style={{color:mutedText,fontSize:12,marginTop:5}}>Tap to open PDF ↗</Text>
+      </TouchableOpacity>
+    ))}
+    <TouchableOpacity onPress={() => setPage('Free Ebooks')}
+      style={{backgroundColor:'#2457D6',padding:16,borderRadius:14,marginTop:20,alignItems:'center'}}>
+      <Text style={{color:'#FFFFFF',fontWeight:'900'}}>← Back to Free Ebooks</Text>
+    </TouchableOpacity>
+  </View>
+</>}
+
+
+
+
+{page === 'Free Ebooks PureMaths' && <>
+  <View style={{padding:18}}>
+    <Text style={styles.pageTitle}>SSC PureMaths</Text>
+    <Text style={{color:mutedText,marginTop:8}}>Formulae • Concepts • Practice</Text>
+
+    <TouchableOpacity
+      onPress={() => Linking.openURL('https://drive.google.com/file/d/18U3iA7kGH_AKNmL3mSa3rP3VNb5riyUL/view')}
+      style={{backgroundColor:darkMode?'#172B49':'#EDF6FF',padding:16,borderRadius:14,marginTop:16,borderWidth:1,borderColor:'#0878E8'}}>
+      <Text style={{color:mainText,fontSize:16,fontWeight:'800'}}>📐 PureMaths PDF 1</Text>
+      <Text style={{color:mutedText,fontSize:12,marginTop:5}}>Tap to open PDF ↗</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity onPress={() => setPage('Free Ebooks')} style={{backgroundColor:'#2457D6',padding:16,borderRadius:14,marginTop:18,alignItems:'center'}}>
+      <Text style={{color:'#FFFFFF',fontWeight:'900'}}>← Back to Free Ebooks</Text>
+    </TouchableOpacity>
+  </View>
+</>}
+
+{page === 'Free Ebooks Quantitative' && <>
+  <View style={{padding:18}}>
+    <Text style={styles.pageTitle}>SSC Quantitative Aptitude</Text>
+    <Text style={{color:mutedText,marginTop:8}}>Arithmetic • Algebra • Geometry</Text>
+    <TouchableOpacity
+      onPress={() => Linking.openURL('https://drive.google.com/file/d/1uk2wX_9I4WMwas6OBS9zN3ZZqGHZXWnH/view')}
+      style={{backgroundColor:darkMode?'#123A37':'#E9FBF6',padding:16,borderRadius:14,marginTop:16,borderWidth:1,borderColor:'#009F83'}}>
+      <Text style={{color:mainText,fontSize:16,fontWeight:'800'}}>🧮 Quantitative Aptitude PDF 1</Text>
+      <Text style={{color:mutedText,fontSize:12,marginTop:5}}>Tap to open PDF ↗</Text>
+    </TouchableOpacity>
+    <TouchableOpacity onPress={() => setPage('Free Ebooks')} style={{backgroundColor:'#2457D6',padding:16,borderRadius:14,marginTop:18,alignItems:'center'}}>
+      <Text style={{color:'#FFFFFF',fontWeight:'900'}}>← Back to Free Ebooks</Text>
+    </TouchableOpacity>
+  </View>
+</>}
+
+{page === 'Free Ebooks Reasoning' && <>
+  <View style={{padding:18}}>
+    <Text style={styles.pageTitle}>SSC Reasoning</Text>
+    <Text style={{color:mutedText,marginTop:8}}>Verbal • Non-Verbal • Logical Reasoning</Text>
+    <TouchableOpacity
+      onPress={() => Linking.openURL('https://drive.google.com/file/d/1WJ_F1oxMoE-VgvKWNJ8E0Y8bOHxblKSf/view')}
+      style={{backgroundColor:darkMode?'#282247':'#F2EEFF',padding:16,borderRadius:14,marginTop:16,borderWidth:1,borderColor:'#6344E8'}}>
+      <Text style={{color:mainText,fontSize:16,fontWeight:'800'}}>🧠 Reasoning PDF 1</Text>
+      <Text style={{color:mutedText,fontSize:12,marginTop:5}}>Tap to open PDF ↗</Text>
+    </TouchableOpacity>
+    <TouchableOpacity onPress={() => setPage('Free Ebooks')} style={{backgroundColor:'#2457D6',padding:16,borderRadius:14,marginTop:18,alignItems:'center'}}>
+      <Text style={{color:'#FFFFFF',fontWeight:'900'}}>← Back to Free Ebooks</Text>
+    </TouchableOpacity>
+  </View>
+</>}
+
+{page === 'Free Ebooks SSC English' && <>
+  <View style={{padding:18}}>
+    <Text style={styles.pageTitle}>SSC English Books</Text>
+    <Text style={{color:mutedText,marginTop:8}}>Free English grammar and vocabulary PDFs</Text>
+    <View style={{backgroundColor:cardBg,padding:16,borderRadius:14,marginTop:16,borderWidth:1,borderColor:mutedText}}>
+      <Text style={{color:mainText,fontSize:16,fontWeight:'800'}}>📘 English Book PDF</Text>
+
+      <TouchableOpacity
+        key="English PDF 1"
+        onPress={() => Linking.openURL('https://drive.google.com/file/d/1JiGjn8e6cvSGKM_C2Rtl6cTG39e7UqWs/view')}
+        style={{backgroundColor:darkMode?'#172B49':'#FFF7E8',padding:16,borderRadius:14,marginTop:12,borderWidth:1,borderColor:'#D97706'}}
+      >
+        <Text style={{color:mainText,fontSize:15,fontWeight:'800'}}>📘 English PDF 1</Text>
+        <Text style={{color:mutedText,fontSize:12,marginTop:5}}>Tap to open PDF ↗</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        key="English PDF 2"
+        onPress={() => Linking.openURL('https://drive.google.com/file/d/1tjoMS_N6VlbCdGlWWKTBesWCuEP2DWJ1/view')}
+        style={{backgroundColor:darkMode?'#172B49':'#FFF7E8',padding:16,borderRadius:14,marginTop:12,borderWidth:1,borderColor:'#D97706'}}
+      >
+        <Text style={{color:mainText,fontSize:15,fontWeight:'800'}}>📘 English PDF 2</Text>
+        <Text style={{color:mutedText,fontSize:12,marginTop:5}}>Tap to open PDF ↗</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        key="English PDF 3"
+        onPress={() => Linking.openURL('https://drive.google.com/file/d/1j7LYzHGfLyIk-V-Xxx_B0xX7edRRGLqK/view')}
+        style={{backgroundColor:darkMode?'#172B49':'#FFF7E8',padding:16,borderRadius:14,marginTop:12,borderWidth:1,borderColor:'#D97706'}}
+      >
+        <Text style={{color:mainText,fontSize:15,fontWeight:'800'}}>📘 English PDF 3</Text>
+        <Text style={{color:mutedText,fontSize:12,marginTop:5}}>Tap to open PDF ↗</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        key="English PDF 4"
+        onPress={() => Linking.openURL('https://drive.google.com/file/d/1N4arjPHtHiQkK-K5oK_c8IhnTPtlgY8c/view')}
+        style={{backgroundColor:darkMode?'#172B49':'#FFF7E8',padding:16,borderRadius:14,marginTop:12,borderWidth:1,borderColor:'#D97706'}}
+      >
+        <Text style={{color:mainText,fontSize:15,fontWeight:'800'}}>📘 English PDF 4</Text>
+        <Text style={{color:mutedText,fontSize:12,marginTop:5}}>Tap to open PDF ↗</Text>
+      </TouchableOpacity>
+    </View>
+    <TouchableOpacity onPress={() => setPage('Free Ebooks')} style={{backgroundColor:'#2457D6',padding:16,borderRadius:14,marginTop:18,alignItems:'center'}}>
+      <Text style={{color:'#FFFFFF',fontWeight:'900'}}>← Back to Free Ebooks</Text>
+    </TouchableOpacity>
+  </View>
+</>}
+
 {page === 'Previous Year Papers' && <>
             <View style={{padding:18}}>
               <Text style={styles.pageTitle}>Previous Year Papers</Text>
-      
+
               <Text style={[styles.muted,{color:mutedText}]}>Choose your exam board.</Text>
               {['SSC Papers','RRB Papers','TGPSC Papers'].map(board => (
                 <TouchableOpacity key={board} onPress={() => setPage(board)} style={{backgroundColor:BLUE,padding:16,borderRadius:12,marginTop:14}}>
@@ -2230,7 +2560,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 </TouchableOpacity>
               ))}
             </View>
-          
+
       <TouchableOpacity onPress={() => setPage('Home')} style={{paddingVertical:16,paddingHorizontal:18,marginTop:4,marginBottom:8,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center',minHeight:58}}>
         <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:17}}>{'🏠  ← Back to Home'}</Text>
       </TouchableOpacity></>}
@@ -2354,14 +2684,13 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   </View>
   <Text style={{fontSize:14,fontWeight:'900',lineHeight:19,minHeight:38,color:darkMode?'#F3F6FC':'#17233B'}}>{course.title}</Text>
                 <Text style={{fontSize:11,lineHeight:16,minHeight:48,color:darkMode?'#B4C1D6':'#68758B',marginTop:5}}>{t(course.desc, ({'Arithmetic, algebra and topic-wise practice':'అంకగణితం, బీజగణితం మరియు అంశాల వారీగా సాధన','Verbal and non-verbal reasoning':'వెర్బల్ మరియు నాన్-వెర్బల్ రీజనింగ్','History, geography, polity and science':'చరిత్ర, భూగోళశాస్త్రం, రాజ్యాంగం మరియు సైన్స్','Grammar and vocabulary':'వ్యాకరణం మరియు పదజాలం'})[course.desc] || course.desc)}</Text>
-                <Text style={{fontSize:16,fontWeight:'900',marginTop:7,color:course.price==='FREE'?'#10B981':(darkMode?'#F6C453':'#B77908')}}>{course.price}</Text>
+                {!(course.id && unlockedCourses[course.id]) && (
+                  <Text style={{fontSize:16,fontWeight:'900',marginTop:7,color:course.price==='FREE'?'#10B981':(darkMode?'#F6C453':'#B77908')}}>{course.price}</Text>
+                )}
                 {course.id && unlockedCourses[course.id] && (
-                  <View style={{marginTop:8,padding:7,borderRadius:8,backgroundColor:darkMode?'#20334A':'#EFFAF5'}}>
-                    <Text style={{fontSize:10,fontWeight:'700',color:darkMode?'#A7F3D0':'#087F67'}}>
-                      Purchased: {unlockedCourses[course.id].purchaseDate ? new Date(unlockedCourses[course.id].purchaseDate).toLocaleDateString() : 'Available'}
-                    </Text>
-                    <Text style={{fontSize:10,fontWeight:'800',marginTop:4,color:darkMode?'#FCD34D':'#9A6700'}}>
-                      Expires: {unlockedCourses[course.id].expiresAt ? new Date(unlockedCourses[course.id].expiresAt).toLocaleDateString() : '6 months from purchase'}
+                  <View style={{marginTop:8,marginBottom:2,height:25,borderRadius:7,backgroundColor:'#078653',overflow:'hidden',justifyContent:'center',alignItems:'center'}}>
+                    <Text numberOfLines={1} style={{color:'#FFFFFF',fontSize:10,fontWeight:'900'}}>
+                      {'✓ PURCHASED'}
                     </Text>
                   </View>
                 )}
@@ -2510,7 +2839,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
         {page === 'SSC English Folders' && !!unlockedCourses['ssc-english-foundation'] && <>
           <View style={{padding:18}}>
-            
+
             <Text style={[styles.pageTitle,{color:mainText,marginTop:8}]}>SSC English Foundation</Text>
             <Text style={{color:mutedText,marginTop:5}}>English Syllabus • Topic-wise Folders</Text>
             {[
@@ -2526,9 +2855,9 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 <Text style={{fontSize:20,color:mutedText}}>›</Text>
               </TouchableOpacity>
             ))}
-          
-<TouchableOpacity onPress={() => setPage('Free Courses')} style={{width:'100%',alignSelf:'stretch',paddingVertical:17,paddingHorizontal:12,marginTop:24,marginBottom:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center'}}>
-              <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>← Back to Free Courses</Text>
+
+<TouchableOpacity onPress={() => setPage('Courses')} style={{width:'100%',alignSelf:'stretch',paddingVertical:17,paddingHorizontal:12,marginTop:24,marginBottom:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center'}}>
+              <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>← Back to English Courses</Text>
             </TouchableOpacity>
 </View>
         </>}
@@ -2541,8 +2870,8 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             <TouchableOpacity onPress={() => setPage('SSC Exam: English')} style={{backgroundColor:'#2457D6',padding:15,borderRadius:12,marginTop:20,width:'100%',alignItems:'center'}}>
               <Text style={{color:'#FFFFFF',fontWeight:'900'}}>Buy for ₹49 →</Text>
             </TouchableOpacity>
-            
-          
+
+
 <TouchableOpacity onPress={() => setPage('SSC English Folders')} style={{width:'100%',alignSelf:'stretch',paddingVertical:17,paddingHorizontal:12,marginTop:24,marginBottom:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center'}}>
               <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>← Back to English Folders</Text>
             </TouchableOpacity>
@@ -2558,44 +2887,64 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               Open your topic-wise English study PDF from Supabase.
             </Text>
 
+            <View style={{flexDirection:'row',gap:10,marginTop:24,alignItems:'stretch'}}>
             <TouchableOpacity
+              disabled={pdfDownloadBusy}
               onPress={async () => {
-                let pdfWindow = null;
-                if (typeof window !== 'undefined' && window.open) {
-                  pdfWindow = window.open('about:blank', '_blank');
-                }
+                const topic = page.replace('SSC English Topic: ', '');
+                const endpoint = topic === 'Articles'
+                  ? ARTICLES_API + '/english/articles-full-url'
+                  : ARTICLES_API + '/english/topic-pdf-url?topic=' + encodeURIComponent(topic);
+                const tab = Platform.OS === 'web' ? window.open('about:blank', '_blank') : null;
                 try {
                   const user = auth.currentUser;
                   if (!user) throw new Error('Please log in again.');
                   const token = await user.getIdToken();
-                  const topic = page.replace('SSC English Topic: ', '');
-                  const endpoint = topic === 'Articles'
-                    ? ARTICLES_API + '/english/articles-full-url'
-                    : ARTICLES_API + '/english/topic-pdf-url?topic=' + encodeURIComponent(topic);
-
                   const response = await fetch(endpoint, {
                     headers: { Authorization: 'Bearer ' + token }
                   });
                   const data = await response.json();
                   if (!response.ok || !data.url) {
-                    throw new Error(data.error || 'Could not open this English PDF.');
+                    throw new Error(data.error || 'Could not open this PDF.');
                   }
-
-                  if (pdfWindow && !pdfWindow.closed) {
-                    pdfWindow.location.href = data.url;
-                  } else if (typeof window !== 'undefined') {
-                    window.location.href = data.url;
+                  if (Platform.OS === 'web') {
+                    if (tab) tab.location.href = data.url;
+                    else {
+                      const link = document.createElement('a');
+                      link.href = data.url;
+                      link.target = '_blank';
+                      link.rel = 'noopener noreferrer';
+                      link.click();
+                    }
                   } else {
                     await Linking.openURL(data.url);
                   }
                 } catch (error) {
-                  if (pdfWindow && !pdfWindow.closed) pdfWindow.close();
-                  Alert.alert('English PDF error', error.message || 'Please try again.');
+                  if (tab) tab.close();
+                  Alert.alert('Could not open PDF', error.message || 'Please try again.');
                 }
               }}
-              style={{backgroundColor:'#2457D6',padding:17,borderRadius:14,alignItems:'center',marginTop:24}}>
-              <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'900'}}>📄 Open English PDF</Text>
+              style={{flex:1,backgroundColor:'#087F67',paddingVertical:16,paddingHorizontal:6,borderRadius:14,alignItems:'center'}}>
+              <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'900'}}>
+                📖 View
+              </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              disabled={pdfDownloadBusy}
+              onPress={async () => {
+                const topic = page.replace('SSC English Topic: ', '');
+                const endpoint = topic === 'Articles'
+                  ? ARTICLES_API + '/english/articles-full-url'
+                  : ARTICLES_API + '/english/topic-pdf-url?topic=' + encodeURIComponent(topic);
+                const fileName = 'English-' + topic.replace(/[^a-zA-Z0-9_-]/g, '-') + '.pdf';
+                await downloadStudyPdfForOffline(endpoint, fileName);
+              }}
+              style={{flex:1,backgroundColor:pdfDownloadBusy?'#94A3B8':'#2457D6',paddingVertical:16,paddingHorizontal:6,borderRadius:14,alignItems:'center'}}>
+              <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'900'}}>
+                {pdfDownloadBusy ? '⏳ Downloading PDF...' : '📥 Download Offline'}
+              </Text>
+            </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               onPress={() => setPage('SSC English Folders')}
@@ -2607,10 +2956,14 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
         {page === 'SSC General Awareness Syllabus' && <>
           <View style={{padding:18}}>
-            
+
 
             <Text style={{fontSize:25,fontWeight:'900',color:mainText}}>🌍 SSC General Awareness</Text>
             <Text style={{fontSize:14,color:mutedText,marginTop:6,marginBottom:18}}>Subject Syllabus • Topic-wise Folders</Text>
+
+            <Text style={{color:mutedText,fontSize:11,marginBottom:8}}>
+              Debug: General Awareness {unlockedCourses['ssc-general-awareness'] ? 'UNLOCKED' : 'LOCKED'}
+            </Text>
 
             {!unlockedCourses['ssc-general-awareness'] && (
               <TouchableOpacity
@@ -2701,7 +3054,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
         {page.startsWith('SSC General Awareness Topic: ') && <>
           <View style={{padding:20}}>
-            
+
 
             <Text style={{fontSize:23,fontWeight:'900',color:mainText}}>
               {page.replace('SSC General Awareness Topic: ','')}
@@ -2720,46 +3073,73 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 ) : generalAwarenessError ? (
                   <Text style={{color:'#DC2626',marginTop:14}}>{generalAwarenessError}</Text>
                 ) : generalAwarenessFiles.length > 0 ? (
-                  generalAwarenessFiles.map(item => (
-                    <TouchableOpacity
-                      key={item.name}
-                      onPress={async () => {
-                        let pdfWindow = null;
-                        if (typeof window !== 'undefined' && window.open) {
-                          pdfWindow = window.open('about:blank', '_blank');
-                        }
-                        try {
-                          const user = auth.currentUser;
-                          if (!user) throw new Error('Please log in again.');
-                          const token = await user.getIdToken();
-                          const folder = page.replace('SSC General Awareness Topic: ', '');
-                          const response = await fetch(
-                            ARTICLES_API + '/general-awareness/topic-pdf-url?topic=' +
-                              encodeURIComponent(folder) + '&file=' + encodeURIComponent(item.name),
-                            { headers: { Authorization: 'Bearer ' + token } }
-                          );
-                          const data = await response.json();
-                          if (!response.ok || !data.url) {
-                            throw new Error(data.error || 'Could not open this PDF.');
-                          }
-                          if (pdfWindow && !pdfWindow.closed) {
-                            pdfWindow.location.href = data.url;
-                          } else if (typeof window !== 'undefined') {
-                            window.location.href = data.url;
-                          } else {
-                            await Linking.openURL(data.url);
-                          }
-                        } catch (error) {
-                          Alert.alert('PDF error', error.message || 'Please try again.');
-                        }
-                      }}
-                      style={{padding:15,marginTop:10,borderRadius:13,backgroundColor:cardBg,borderWidth:1,borderColor:darkMode?'#475569':'#D8E1EF',flexDirection:'row',alignItems:'center'}}
-                    >
-                      <Text style={{fontSize:24,marginRight:12}}>📄</Text>
-                      <Text style={{flex:1,fontSize:14,fontWeight:'800',color:mainText}}>{item.name}</Text>
-                      <Text style={{color:'#2457D6',fontWeight:'900'}}>Open ›</Text>
-                    </TouchableOpacity>
-                  ))
+                  generalAwarenessFiles.map(item => {
+                    const folder = page.replace('SSC General Awareness Topic: ', '');
+                    const endpoint = ARTICLES_API + '/general-awareness/topic-pdf-url?topic=' +
+                      encodeURIComponent(folder) + '&file=' + encodeURIComponent(item.name);
+                    const fileName = 'GA-' + folder.replace(/[^a-zA-Z0-9_-]/g, '-') + '-' +
+                      item.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+                    return (
+                      <View
+                        key={item.name}
+                        style={{padding:14,marginTop:12,borderRadius:14,backgroundColor:cardBg,borderWidth:1,borderColor:darkMode?'#475569':'#D8E1EF'}}
+                      >
+                        <Text style={{fontSize:15,fontWeight:'900',color:mainText,marginBottom:12}}>
+                          📄 {item.name}
+                        </Text>
+
+                        <View style={{flexDirection:'row',gap:10}}>
+                          <TouchableOpacity
+                            disabled={pdfDownloadBusy}
+                            onPress={async () => {
+                              const tab = Platform.OS === 'web' ? window.open('about:blank', '_blank') : null;
+                              try {
+                                const user = auth.currentUser;
+                                if (!user) throw new Error('Please log in again.');
+                                const token = await user.getIdToken();
+                                const response = await fetch(endpoint, {
+                                  headers:{Authorization:'Bearer ' + token}
+                                });
+                                const data = await response.json();
+                                if (!response.ok || !data.url) {
+                                  throw new Error(data.error || 'Could not open this PDF.');
+                                }
+                                if (Platform.OS === 'web') {
+                                  if (tab) tab.location.href = data.url;
+                                  else {
+                                    const link = document.createElement('a');
+                                    link.href = data.url;
+                                    link.target = '_blank';
+                                    link.rel = 'noopener noreferrer';
+                                    link.click();
+                                  }
+                                } else {
+                                  await Linking.openURL(data.url);
+                                }
+                              } catch (error) {
+                                if (tab) tab.close();
+                                Alert.alert('Could not open PDF', error.message || 'Please try again.');
+                              }
+                            }}
+                            style={{flex:1,backgroundColor:'#087F67',paddingVertical:14,paddingHorizontal:4,borderRadius:12,alignItems:'center',justifyContent:'center'}}
+                          >
+                            <Text style={{color:'#FFFFFF',fontSize:14,fontWeight:'900'}}>📖 View</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            disabled={pdfDownloadBusy}
+                            onPress={() => downloadStudyPdfForOffline(endpoint, fileName)}
+                            style={{flex:1,backgroundColor:pdfDownloadBusy?'#94A3B8':'#2457D6',paddingVertical:14,paddingHorizontal:4,borderRadius:12,alignItems:'center',justifyContent:'center'}}
+                          >
+                            <Text style={{color:'#FFFFFF',fontSize:13,fontWeight:'900'}}>
+                              {pdfDownloadBusy ? '⏳ Downloading...' : '📥 Download Offline'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  })
                 ) : (
                   <Text style={{fontSize:13,color:mutedText,marginTop:12}}>
                     'No PDF files found in this folder yet.'
@@ -2800,7 +3180,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
         {page === 'Master Reasoning Syllabus' && <>
           <View style={{padding:18}}>
-            
+
 
             <Text style={{fontSize:25,fontWeight:'900',color:mainText}}>🧠 SSC Reasoning Masterclass</Text>
             <Text style={{fontSize:14,color:mutedText,marginTop:6,marginBottom:18}}>Subject Syllabus • Topic-wise Folders</Text>
@@ -3060,7 +3440,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
         {page === 'Quant Questions' && <>
           <View style={{padding:18}}>
-            
+
 
             <Text style={{fontSize:24,fontWeight:'900',color:'#087F67',marginTop:8}}>
               {quantTopic}
@@ -3159,7 +3539,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 </>}
               </View>
             </> : null}
-          
+
             <TouchableOpacity
               onPress={() => setPage('Quant Practice')}
               style={{width:'100%',alignSelf:'stretch',paddingVertical:16,paddingHorizontal:12,marginTop:24,marginBottom:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center',minHeight:58}}>
@@ -3601,12 +3981,20 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 </View>
 
                 <TextInput
+                  ref={chatInputRef}
+                  onPressIn={() => chatInputRef.current?.focus?.()}
                   value={chatDraft}
                   onChangeText={setChatDraft}
                   placeholder="Type your message..."
                   placeholderTextColor={mutedText}
-                  multiline
+                  multiline={false}
                   maxLength={2000}
+                  editable={!chatSending}
+                  autoCorrect={true}
+                  autoCapitalize="sentences"
+                  returnKeyType="send"
+                  blurOnSubmit={false}
+                  onFocus={() => setChatNotice('')}
                   style={{
                     marginTop:12,minHeight:48,maxHeight:110,
                     borderWidth:1,borderColor:darkMode?'#475569':'#CBD5E1',
@@ -3635,14 +4023,148 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         {page === 'Downloads' && <>
           <View style={{padding:18}}>
             <Text style={styles.pageTitle}>Downloads</Text>
-            <Text style={[styles.muted,{color:mutedText}]}>{t('Access your study materials and PDF question papers.','మీ స్టడీ మెటీరియల్స్ మరియు PDF ప్రశ్నపత్రాలను ఇక్కడ చూడవచ్చు.')}</Text>
-            <View style={{padding:22,marginTop:18,borderRadius:18,backgroundColor:darkMode?'#1E293B':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#334155':'#DCE5F5',alignItems:'center'}}>
-              <Text style={{fontSize:42}}>📥</Text>
-              <Text style={{fontSize:18,fontWeight:'900',color:mainText,marginTop:12}}>Study Materials</Text>
-              <Text style={{color:mutedText,textAlign:'center',marginTop:8}}>{t('Downloaded files and available PDF materials will appear here when download support is added.','డౌన్‌లోడ్ సదుపాయం అందుబాటులోకి వచ్చిన తర్వాత డౌన్‌లోడ్ చేసిన ఫైళ్లు మరియు PDF మెటీరియల్స్ ఇక్కడ కనిపిస్తాయి.')}</Text>
+            <Text style={[styles.muted,{color:mutedText}]}>
+              {t('Your saved PDFs are available here, even when offline.','మీరు సేవ్ చేసిన PDFలు ఇంటర్నెట్ లేకపోయినా ఇక్కడ అందుబాటులో ఉంటాయి.')}
+            </Text>
+
+            <View style={{padding:18,marginTop:18,borderRadius:18,backgroundColor:darkMode?'#1E293B':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#334155':'#DCE5F5'}}>
+              <Text style={{fontSize:20,fontWeight:'900',color:mainText}}>📥 My Downloaded PDFs</Text>
+
+              {offlinePdfs.length === 0 ? (
+                <View style={{alignItems:'center',paddingVertical:24}}>
+                  <Text style={{fontSize:42}}>📄</Text>
+                  <Text style={{fontSize:15,fontWeight:'800',color:mainText,marginTop:12,textAlign:'center'}}>No PDFs downloaded yet</Text>
+                  <Text style={{fontSize:13,color:mutedText,marginTop:8,textAlign:'center',lineHeight:20}}>
+                    Open a course topic and tap “Download for Offline” to save its PDF here.
+                  </Text>
+                </View>
+              ) : (
+                offlinePdfs.map((item, index) => (
+                  <View key={item.uri || item.name || index} style={{marginTop:12,padding:13,borderRadius:12,borderWidth:1,borderColor:darkMode?'#475569':'#DCE5F5',flexDirection:'row',alignItems:'center'}}>
+                    <Text style={{fontSize:25,marginRight:10}}>📄</Text>
+                    <View style={{flex:1}}>
+                      <Text style={{fontSize:13,fontWeight:'800',color:mainText}}>{item.name}</Text>
+                      <Text style={{fontSize:11,color:mutedText,marginTop:4}}>Saved on this device</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={async () => {
+                        try {
+                          if (Platform.OS === 'web' && item.uri && item.uri.startsWith('indexeddb:')) {
+                            const storageKey = item.uri.slice('indexeddb:'.length);
+                            const blob = await new Promise((resolve, reject) => {
+                              const request = indexedDB.open('study-with-veer-pdfs', 1);
+                              request.onerror = () => reject(request.error || new Error('Browser storage could not open.'));
+                              request.onsuccess = () => {
+                                const db = request.result;
+                                if (!db.objectStoreNames.contains('pdfs')) {
+                                  db.close();
+                                  resolve(null);
+                                  return;
+                                }
+                                const tx = db.transaction('pdfs', 'readonly');
+                                const getRequest = tx.objectStore('pdfs').get(storageKey);
+                                getRequest.onsuccess = () => { const value = getRequest.result; db.close(); resolve(value || null); };
+                                getRequest.onerror = () => { db.close(); reject(getRequest.error || new Error('Saved PDF could not be read.')); };
+                              };
+                            });
+                            if (!blob) {
+                              Alert.alert('PDF not found', 'Please download this PDF again.');
+                              return;
+                            }
+                            const objectUrl = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = objectUrl;
+                            link.target = '_blank';
+                            link.rel = 'noopener';
+                            link.click();
+                            setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+                            return;
+                          }
+                          const info = await FileSystem.getInfoAsync(item.uri);
+                          if (!info.exists) {
+                            Alert.alert('File not found','This PDF is no longer available on this device. Please download it again.');
+                            return;
+                          }
+                          const available = await Sharing.isAvailableAsync();
+                          if (available) {
+                            await Sharing.shareAsync(item.uri, {
+                              mimeType:'application/pdf',
+                              dialogTitle:'Open downloaded PDF'
+                            });
+                          } else {
+                            await Linking.openURL(item.uri);
+                          }
+                        } catch (error) {
+                          Alert.alert('Could not open PDF',error.message || 'Please try again.');
+                        }
+                      }}
+                      style={{backgroundColor:'#2457D6',paddingVertical:9,paddingHorizontal:12,borderRadius:10,marginLeft:8}}
+                    >
+                      <Text style={{color:'#FFFFFF',fontSize:12,fontWeight:'900'}}>Open</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={async () => {
+                        const removePdf = async () => {
+                          try {
+                            if (Platform.OS === 'web' && item.uri && item.uri.startsWith('indexeddb:')) {
+                              const storageKey = item.uri.slice('indexeddb:'.length);
+                              await new Promise((resolve, reject) => {
+                                const request = indexedDB.open('study-with-veer-pdfs', 1);
+                                request.onerror = () => reject(request.error || new Error('Could not open offline storage.'));
+                                request.onsuccess = () => {
+                                  const db = request.result;
+                                  if (!db.objectStoreNames.contains('pdfs')) {
+                                    db.close();
+                                    resolve();
+                                    return;
+                                  }
+                                  const tx = db.transaction('pdfs', 'readwrite');
+                                  tx.objectStore('pdfs').delete(storageKey);
+                                  tx.oncomplete = () => { db.close(); resolve(); };
+                                  tx.onerror = () => { db.close(); reject(tx.error || new Error('Could not delete PDF.')); };
+                                };
+                              });
+                            } else if (item.uri) {
+                              const info = await FileSystem.getInfoAsync(item.uri);
+                              if (info.exists) await FileSystem.deleteAsync(item.uri, { idempotent: true });
+                            }
+
+                            const uid = auth.currentUser && auth.currentUser.uid;
+                            if (uid) {
+                              const key = 'veer_offline_pdfs_' + uid;
+                              const saved = await AsyncStorage.getItem(key);
+                              const list = saved ? JSON.parse(saved) : [];
+                              await AsyncStorage.setItem(key, JSON.stringify(
+                                list.filter(pdf => pdf.uri !== item.uri && pdf.name !== item.name)
+                              ));
+                            }
+                            setOfflinePdfs(prev => prev.filter(pdf => pdf.uri !== item.uri && pdf.name !== item.name));
+                            Alert.alert('Deleted', 'The downloaded PDF was removed from this device.');
+                          } catch (error) {
+                            Alert.alert('Delete failed', error.message || 'Please try again.');
+                          }
+                        };
+
+                        if (Platform.OS === 'web') {
+                          if (window.confirm('Delete this downloaded PDF from this device?')) await removePdf();
+                        } else {
+                          Alert.alert('Delete PDF?', 'Remove this downloaded PDF from this device?', [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Delete', style: 'destructive', onPress: removePdf }
+                          ]);
+                        }
+                      }}
+                      style={{backgroundColor:'#DC2626',paddingVertical:9,paddingHorizontal:10,borderRadius:10,marginLeft:8}}
+                    >
+                      <Text style={{color:'#FFFFFF',fontSize:12,fontWeight:'900'}}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))
+              )}
             </View>
           </View>
         </>}
+
 
       <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 8) }]}>
         {navItems.map(([name, symbol]) => <TouchableOpacity key={name}
