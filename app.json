@@ -21,7 +21,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": false,
-      "package": "com.veerteam.veerprepssc"
+      "package": "com.veerteam.veerprepssc",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -41,7 +42,9 @@
           "icon": "./assets/icon.png",
           "color": "#173B83"
         }
-      ]
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth"
     ],
     "scheme": "studywithveer"
   }

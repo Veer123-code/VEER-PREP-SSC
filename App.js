@@ -775,7 +775,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
       setGeneralAwarenessError('');
       setGeneralAwarenessFiles([]);
 
-      if (!unlockedCourses['ssc-general-awareness']) {
+      if (!(unlockedCourses['ssc-general-awareness'] || unlockedCourses['ssc-all-subjects-pack'])) {
         setGeneralAwarenessLoading(false);
         return;
       }
@@ -1470,7 +1470,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         'auth/captcha-check-failed': 'reCAPTCHA verification failed. Please try again.',
         'auth/network-request-failed': 'Network error. Check your internet connection.'
       };
-      setAuthError(messages[error.code] || 'Could not send OTP. Please try again.');
+      setAuthError(messages[error.code] || ('OTP error: ' + (error.code || error.name || 'unknown') + '. ' + (error.message || '')));
     } finally {
       setAuthBusy(false);
     }
@@ -1829,11 +1829,11 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                   value={phoneNumber}
                   onChangeText={setPhoneNumber}
                   editable={!phoneOtpSent && !authBusy}
-                  placeholder="+91 9876543210"
+                  placeholder={t('Mobile number', 'మొబైల్ నంబర్')}
                   placeholderTextColor={mutedText}
                   keyboardType="phone-pad"
                   autoComplete="tel"
-                  style={{borderBottomWidth:2,borderBottomColor:'#87CEFA',paddingVertical:12,fontSize:17,color:mainText,marginBottom:12}}
+                  style={{borderWidth:1.5,borderColor:'#87CEFA',borderRadius:10,paddingHorizontal:14,paddingVertical:12,fontSize:17,color:mainText,marginBottom:12,backgroundColor:cardBg}}
                 />
                 {phoneOtpSent && (
                   <TextInput
@@ -1904,6 +1904,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             )}
 
             {!phoneLoginMode && (
+            <>
             <View style={{marginBottom:22, paddingTop:10}}>
               <TextInput
                 style={{backgroundColor:'transparent', borderWidth:0, outlineStyle:'none', borderColor:'transparent', borderBottomWidth:2, borderBottomColor:(emailFocused || email) ? '#87CEFA' : '#DCE3F0', paddingHorizontal:0, paddingTop:15, paddingBottom:10, fontSize:18, color:mainText}}
@@ -1982,6 +1983,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               </View>
             )}
 
+            </>
             )}
 
             {!!authError && (
@@ -1991,6 +1993,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             )}
 
             {!phoneLoginMode && (
+            <>
             <TouchableOpacity
               nativeID="veer-login-space" className="veer-space-btn"
               onPress={handleAuth}
@@ -2021,6 +2024,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 </Text>
               </View>
             </TouchableOpacity>
+            </>
             )}
             </View>
           </Animated.View>
@@ -2776,11 +2780,23 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               <Text style={styles.pageTitle}>Previous Year Papers</Text>
 
               <Text style={[styles.muted,{color:mutedText}]}>Choose your exam board.</Text>
-              {['SSC Papers','RRB Papers','TGPSC Papers'].map(board => (
-                <TouchableOpacity key={board} onPress={() => setPage(board)} style={{backgroundColor:BLUE,padding:16,borderRadius:12,marginTop:14}}>
-                  <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'800'}}>{board}  ›</Text>
-                </TouchableOpacity>
-              ))}
+
+              <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',marginTop:14}}>
+                {[
+                  {title:'SSC Previous Papers',page:'SSC Papers',image:require('./assets/images/ssc-previous.png'),subtitle:'GD • CGL • CHSL • MTS'},
+                  {title:'RRB Previous Papers',page:'RRB Papers',image:require('./assets/images/rrb-previous.jpeg'),subtitle:'NTPC • Group D • ALP'},
+                  {title:'TGPSC Previous Papers',page:'TGPSC Papers',image:require('./assets/images/tgpsc-previous.png'),subtitle:'Groups 1 • 2 • 3 • 4'}
+                ].map(board => (
+                  <TouchableOpacity key={board.page} onPress={() => setPage(board.page)} style={{width:'48.5%',backgroundColor:cardBg,borderRadius:16,marginBottom:14,padding:10,borderWidth:1,borderColor:mutedText,alignItems:'center',overflow:'hidden'}}>
+                    <Image source={board.image} style={{width:'100%',height:125,borderRadius:11}} resizeMode="cover" />
+                    <Text style={{color:mainText,fontSize:14,fontWeight:'900',textAlign:'center',marginTop:10}}>{board.title}</Text>
+                    <Text style={{color:mutedText,fontSize:11,textAlign:'center',marginTop:5}}>{board.subtitle}</Text>
+                    <View style={{backgroundColor:BLUE,borderRadius:9,paddingVertical:9,paddingHorizontal:12,marginTop:10,width:'100%',alignItems:'center'}}>
+                      <Text style={{color:'#FFFFFF',fontSize:12,fontWeight:'900'}}>Open Papers  ›</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
 
       <TouchableOpacity onPress={() => setPage('Home')} style={{paddingVertical:16,paddingHorizontal:18,marginTop:4,marginBottom:8,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center',minHeight:58}}>
@@ -2788,27 +2804,105 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
       </TouchableOpacity></>}
           {['SSC Papers','RRB Papers','TGPSC Papers'].includes(page) && <>
             <View style={{padding:18}}>
-
-              <Text style={styles.pageTitle}>{page}</Text>
-              <Text style={[styles.muted,{color:mutedText}]}>Choose your exam.</Text>
-              {(page === 'SSC Papers' ? ['SSC GD','SSC CGL','SSC CHSL','SSC MTS','SSC JE','SSC CPO'] : page === 'RRB Papers' ? ['RRB NTPC','RRB Group D','RRB ALP','RRB Technician'] : ['TGPSC Group 1','TGPSC Group 2','TGPSC Group 3','TGPSC Group 4']).map(exam => (
-                <TouchableOpacity key={exam} onPress={() => {
-                  if (page === 'SSC Papers') {
-                    Linking.openURL(String.fromCharCode(104,116,116,112,115,58,47,47,100,114,105,118,101,46,103,111,111,103,108,101,46,99,111,109,47,102,105,108,101,47,100,47,49,86,86,73,116,104,114,81,100,45,68,120,66,48,68,98,52,75,45,79,114,73,116,66,65,56,108,53,49,90,115,97,98,47,118,105,101,119,63,117,115,112,61,100,114,105,118,101,115,100,107)).catch(() => {});
-                  } else {
-                    setPage(exam + ' - Papers Link Not Added');
-                  }
-                }} style={{backgroundColor:cardBg,padding:15,borderRadius:12,marginTop:12,borderWidth:1,borderColor:mutedText}}>
-                  <Text style={{color:mainText,fontSize:15,fontWeight:'700'}}>{exam}  ›</Text>
-                  <Text style={[styles.muted,{color:mutedText,fontSize:12,marginTop:4}]}>{page === 'SSC Papers' ? 'Open available SSC papers PDF' : 'Papers link not added yet'}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-              <TouchableOpacity onPress={() => setPage('Previous Year Papers')} style={{width:'100%',alignSelf:'stretch',paddingVertical:16,paddingHorizontal:18,marginTop:24,marginBottom:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center',minHeight:58}}>
+  <Text style={styles.pageTitle}>{page}</Text>
+  <Text style={[styles.muted,{color:mutedText}]}>Choose your exam.</Text>
+  <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',marginTop:12}}>
+    {(page === 'SSC Papers' ? ['SSC GD','SSC CGL','SSC CHSL','SSC MTS','SSC JE','SSC CPO'] : page === 'RRB Papers' ? ['RRB NTPC','RRB Group D','RRB ALP','RRB Technician'] : ['TGPSC Group 1','TGPSC Group 2','TGPSC Group 3','TGPSC Group 4']).map(exam => (
+      <TouchableOpacity key={exam} onPress={() => {
+        if (page === 'SSC Papers') {
+          setPage(exam + ' - Subject Folders');
+        } else {
+          setPage(exam + ' - Papers Link Not Added');
+        }
+      }} style={{width:'48.5%',backgroundColor:cardBg,padding:10,borderRadius:15,marginTop:12,borderWidth:1,borderColor:mutedText,alignItems:'center'}}>
+        {page === 'SSC Papers' ? (
+          <Image source={({
+            'SSC GD':require('./assets/images/ssc-gd.jpeg'),
+            'SSC CGL':require('./assets/images/ssc-cgl.png'),
+            'SSC CHSL':require('./assets/images/ssc-chsl.png'),
+            'SSC MTS':require('./assets/images/ssc-mts.png'),
+            'SSC JE':require('./assets/images/ssc-je.jpeg'),
+            'SSC CPO':require('./assets/images/ssc-cpo.jpeg')
+          })[exam]} style={{width:'100%',height:110,borderRadius:10}} resizeMode="contain" />
+        ) : (
+          <View style={{width:42,height:42,borderRadius:13,backgroundColor:darkMode?'#233B65':'#E6EDFF',alignItems:'center',justifyContent:'center',marginBottom:9}}>
+            <Text style={{fontSize:22}}>{page === 'RRB Papers' ? '🚆' : '📚'}</Text>
+          </View>
+        )}
+        <Text style={{color:mainText,fontSize:14,fontWeight:'900',textAlign:'center',marginTop:8}}>{exam}</Text>
+        <Text style={{color:mutedText,fontSize:11,marginTop:5,textAlign:'center'}}>{page === 'SSC Papers' ? 'Previous Papers' : 'Papers link not added yet'}</Text>
+        <View style={{backgroundColor:BLUE,borderRadius:9,paddingVertical:10,marginTop:10,width:'100%',alignItems:'center'}}>
+  <Text style={{color:'#FFFFFF',fontSize:12,fontWeight:'900'}}>Open  ›</Text>
+</View>
+      </TouchableOpacity>
+    ))}
+  </View>
+</View>
+<TouchableOpacity onPress={() => setPage('Previous Year Papers')} style={{width:'100%',alignSelf:'stretch',paddingVertical:16,paddingHorizontal:18,marginTop:24,marginBottom:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center',minHeight:58}}>
                 <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>← Back to Previous Year Papers</Text>
               </TouchableOpacity>
 
           </>}
+          {page.endsWith(' - Subject Folders') && <>
+            <View style={{padding:18}}>
+              <Text style={styles.pageTitle}>{page.replace(' - Subject Folders','')}</Text>
+              <Text style={[styles.muted,{color:mutedText}]}>Choose a subject for previous year papers.</Text>
+              {['SSC English Previous Papers','SSC Maths Previous Papers','SSC Reasoning Previous Papers','SSC General Awareness Previous Papers'].map(subject => (
+                <TouchableOpacity key={subject} onPress={() => setPage(page.replace(' - Subject Folders','') + ' - ' + subject)} style={{backgroundColor:cardBg,padding:16,borderRadius:12,marginTop:12,borderWidth:1,borderColor:mutedText}}>
+                  <Text style={{color:mainText,fontSize:15,fontWeight:'800'}}>📁  {subject}  ›</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity onPress={() => setPage('SSC Papers')} style={{padding:16,margin:12,borderRadius:12,backgroundColor:'#2457D6',alignItems:'center'}}>
+              <Text style={{color:'#FFFFFF',fontWeight:'900'}}>← Back to SSC Exams</Text>
+            </TouchableOpacity>
+          </>}
+
+          {page.endsWith(' Previous Papers') && page.includes(' - SSC ') && (() => {
+            const subjectLinks = [
+              { name: 'SSC English Previous Papers', id: '1CvD0vN9Lz0ixr81Dc9XDzQz9IYgqdJl8' },
+              { name: 'SSC Maths Previous Papers', id: '1AJyu9c0aWFfayowXjR--tK5cLqfUoxKr' },
+              { name: 'SSC Reasoning Previous Papers', id: '1AvLJ3yK-4SNt3Fdwu_l2FGZZ29Ond87o' },
+              { name: 'SSC General Awareness Previous Papers', id: '1NbqWACIKge6CEDHDBHR6DG3jhGZy0adp' }
+            ];
+            const subject = subjectLinks.find(item => page.includes(item.name));
+            const viewUrl = subject ? 'https://drive.google.com/file/d/' + subject.id + '/view' : '';
+            const downloadUrl = subject ? 'https://drive.google.com/uc?export=download&id=' + subject.id : '';
+            const fileName = subject ? subject.name.replace(/ /g, '-') + '.pdf' : 'SSC-Previous-Papers.pdf';
+
+            return <>
+              <View style={{padding:18}}>
+                <Text style={styles.pageTitle}>{subject ? subject.name : 'SSC Previous Papers'}</Text>
+                <Text style={[styles.muted,{color:mutedText,marginTop:8}]}>View the PDF online or download it for offline study.</Text>
+
+                <View style={{flexDirection:'row',gap:10,marginTop:16}}>
+                  <TouchableOpacity
+                    onPress={() => viewUrl && Linking.openURL(viewUrl).catch(() => Alert.alert('Unable to open PDF','Please try again.'))}
+                    style={{flex:1,backgroundColor:BLUE,paddingVertical:16,paddingHorizontal:6,borderRadius:14,alignItems:'center',justifyContent:'center',minHeight:64}}>
+                    <Text style={{color:'#FFFFFF',fontSize:14,fontWeight:'800',textAlign:'center'}}>📖 View PDF</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    disabled={pdfDownloadBusy || !subject}
+                    onPress={() => downloadStudyPdfForOffline(downloadUrl, fileName)}
+                    style={{flex:1,backgroundColor:'#0D9668',paddingVertical:16,paddingHorizontal:6,borderRadius:14,alignItems:'center',justifyContent:'center',minHeight:64,opacity:pdfDownloadBusy?0.6:1}}>
+                    <Text style={{color:'#FFFFFF',fontSize:14,fontWeight:'800',textAlign:'center'}}>
+                      {pdfDownloadBusy ? '⏳ Downloading…' : '📥 Download Offline'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={{color:mutedText,fontSize:12,marginTop:10}}>
+                  Download once for offline study. Google Drive permissions must allow access to the PDF.
+                </Text>
+              </View>
+
+              <TouchableOpacity onPress={() => setPage(page.split(' - ')[0] + ' - Subject Folders')} style={{padding:16,margin:12,borderRadius:12,backgroundColor:'#2457D6',alignItems:'center'}}>
+                <Text style={{color:'#FFFFFF',fontWeight:'900'}}>← Back to Subject Folders</Text>
+              </TouchableOpacity>
+            </>;
+          })()}
+
           {page.endsWith(' - Papers Link Not Added') && <>
             <View style={{padding:18}}>
 
@@ -2871,7 +2965,14 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               ].map(exam => (
                 <TouchableOpacity key={exam.title} onPress={() => setPage('SSC Exam: ' + exam.title)} style={{width:'48.2%',backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:18,padding:screenWidth < 360 ? 7 : 11,marginTop:14,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#E0E7F2',elevation:3}}>
                   <View style={{height:76,borderRadius:13,backgroundColor:darkMode?exam.accent+'33':exam.tint,alignItems:'center',justifyContent:'center',marginBottom:10,overflow:'hidden'}}>
-                    <Image source={require('./assets/images/ssc-all-exams.jpeg')} style={{width:'100%',height:'100%'}} resizeMode="cover" />
+                    <Image source={({
+                      'SSC GD':require('./assets/images/ssc-gd.jpeg'),
+                      'SSC CGL':require('./assets/images/ssc-cgl.png'),
+                      'SSC CHSL':require('./assets/images/ssc-chsl.png'),
+                      'SSC MTS':require('./assets/images/ssc-mts.png'),
+                      'SSC JE':require('./assets/images/ssc-je.jpeg'),
+                      'SSC CPO':require('./assets/images/ssc-cpo.jpeg')
+                    })[exam.title]} style={{width:'100%',height:'100%',borderRadius:10}} resizeMode="contain" />
                   </View>
                   <Text style={{fontSize:15,fontWeight:'900',color:darkMode?'#F3F6FC':'#17233B',textAlign:'center'}}>{exam.title}</Text>
                   <Text style={{fontSize:12,color:darkMode?'#B4C1D6':'#68758B',textAlign:'center',marginTop:7}}>Open Folder →</Text>
@@ -2880,7 +2981,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             </View>}
 
             {page.startsWith('SSC Exam:') && <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>{[
-              {title:'SSC Mathematics',desc:'Arithmetic, algebra and topic-wise practice',price:'FREE',icon:'🧮',accent:'#8B5CF6',tint:'#F0EAFE'},
+              {id:'ssc-mathematics',title:'SSC Mathematics',desc:'Arithmetic, algebra and topic-wise practice',price:'₹49',icon:'🧮',accent:'#8B5CF6',tint:'#F0EAFE'},
               {id:'ssc-reasoning-masterclass',title:'SSC Reasoning Masterclass',desc:'Verbal and non-verbal reasoning',price:'₹49',icon:'🧠',accent:'#2563EB',tint:'#E8F0FF'},
               {id:'ssc-general-awareness',title:'SSC General Awareness',desc:'History, geography, polity and science',price:'₹49',icon:'🌍',accent:'#059669',tint:'#DDF8EE'},
               {id:'ssc-english-foundation',title:'SSC English Foundation',desc:'Grammar and vocabulary',price:'₹49',icon:'📚',accent:'#D97706',tint:'#FFF0D8'}
@@ -2918,7 +3019,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 )}
                 <TouchableOpacity
                   onPress={() => {
-                    if (course.price === 'FREE') {
+                    if (course.id === 'ssc-mathematics') {
                       setPage('Quant Practice');
                     } else if (course.id === 'ssc-reasoning-masterclass') {
                       setPage('Master Reasoning Syllabus');
@@ -2934,7 +3035,63 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                   </Text>
                 </TouchableOpacity>
               </View>
-            ))}</View>}
+            ))}
+
+            <View style={{width:'48.2%',backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:18,padding:screenWidth < 360 ? 7 : 11,marginTop:14,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#E0E7F2',elevation:3}}>
+              <View style={{height:125,borderRadius:13,backgroundColor:darkMode?'#47356B':'#F0EAFE',alignItems:'center',justifyContent:'center',marginBottom:10,overflow:'hidden'}}>
+                <Image source={require('./assets/images/SSC All in one pack.jpeg')} style={{width:'100%',height:'100%'}} resizeMode="cover" />
+                <View style={{position:'absolute',top:5,right:5,backgroundColor:'#D9A323',paddingHorizontal:6,paddingVertical:4,borderRadius:6}}>
+                  <Text style={{fontSize:9,fontWeight:'900',color:'#35245C'}}>ALL-IN-ONE</Text>
+                </View>
+              </View>
+              <Text style={{fontSize:14,fontWeight:'900',lineHeight:19,minHeight:38,color:darkMode?'#F3F6FC':'#17233B'}}>SSC All Subjects Pack</Text>
+              <Text style={{fontSize:11,lineHeight:16,minHeight:48,color:darkMode?'#B4C1D6':'#68758B',marginTop:5}}>Mathematics, Reasoning, General Awareness and English</Text>
+              {unlockedCourses['ssc-all-subjects-pack'] ? (
+                <View style={{marginTop:8,marginBottom:2,height:25,borderRadius:7,backgroundColor:'#078653',justifyContent:'center',alignItems:'center'}}>
+                  <Text style={{color:'#FFFFFF',fontSize:10,fontWeight:'900'}}>✓ PURCHASED</Text>
+                </View>
+              ) : (
+                <Text style={{fontSize:16,fontWeight:'900',marginTop:7,color:darkMode?'#F6C453':'#B77908'}}>₹149</Text>
+              )}
+              <TouchableOpacity
+                onPress={async () => {
+                  let checkoutWindow = null;
+                  try {
+                    if (unlockedCourses['ssc-all-subjects-pack']) {
+                      setPage('Quant Practice');
+                      return;
+                    }
+                    if (Platform.OS === 'web') checkoutWindow = window.open('about:blank', '_blank');
+                    const user = auth.currentUser;
+                    if (!user) throw new Error('Please log in before purchasing.');
+                    const token = await user.getIdToken();
+                    const response = await fetch('https://' + 'study-with-veer-payment-backend.onrender.com/create-checkout-session', {
+                      method: 'POST',
+                      headers: {'Content-Type':'application/json','Authorization':'Bearer ' + token},
+                      body: JSON.stringify({courseId:'ssc-all-subjects-pack'})
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.sessionToken) throw new Error(data.error || 'Could not start checkout.');
+                    const checkoutUrl = 'https://' + 'study-with-veer-payment-backend.onrender.com/checkout.html#session=' + encodeURIComponent(data.sessionToken);
+                    if (Platform.OS === 'web') {
+                      if (checkoutWindow && !checkoutWindow.closed) checkoutWindow.location.href = checkoutUrl;
+                      else window.location.href = checkoutUrl;
+                    } else {
+                      await Linking.openURL(checkoutUrl);
+                    }
+                  } catch (e) {
+                    if (checkoutWindow && !checkoutWindow.closed) checkoutWindow.close();
+                    if (Platform.OS === 'web') window.alert('Checkout error: ' + (e.message || String(e)));
+                    else Alert.alert('Checkout error', e.message || 'Could not open checkout.');
+                  }
+                }}
+                style={{backgroundColor:darkMode?'#2563EB':'#2457D6',paddingVertical:11,paddingHorizontal:4,borderRadius:10,alignItems:'center',marginTop:10,minHeight:40,justifyContent:'center'}}>
+                <Text style={{color:'#FFFFFF',fontWeight:'800',textAlign:'center'}}>
+                  {unlockedCourses['ssc-all-subjects-pack'] ? 'Continue Learning →' : 'Buy Pack – ₹149 →'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            </View>}
 
             {page === 'TGPSC Courses' && <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>
             {[
@@ -2995,7 +3152,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             <Text style={[styles.pageTitle,{color:mainText,marginTop:8}]}>Free Courses</Text>
             <Text style={{color:mutedText,marginTop:5}}>Learn for free with these courses.</Text>
             {[
-              {title:'SSC Mathematics',desc:'Arithmetic and topic-wise practice',icon:'🧮',action:() => setPage('Quant Practice')},
+
             ].map(course => (
               <View key={course.title} style={{backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:18,padding:16,marginTop:16,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5'}}>
                 <View style={{flexDirection:'row',alignItems:'center'}}>
@@ -3018,7 +3175,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           </View>
         </>}
 
-        {page === 'SSC English Folders' && !unlockedCourses['ssc-english-foundation'] && <>
+        {page === 'SSC English Folders' && !(unlockedCourses['ssc-english-foundation'] || unlockedCourses['ssc-all-subjects-pack']) && <>
           <View style={{padding:24,alignItems:'center'}}>
             <Text style={[styles.pageTitle,{color:mainText,textAlign:'center'}]}>SSC English Foundation Locked</Text>
             <Text style={{color:mutedText,textAlign:'center',marginTop:10}}>Purchase this course for ₹49 to access English topics and study materials.</Text>
@@ -3059,24 +3216,29 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           </View>
         </>}
 
-        {page === 'SSC English Folders' && !!unlockedCourses['ssc-english-foundation'] && <>
+        {page === 'SSC English Folders' && (unlockedCourses['ssc-english-foundation'] || unlockedCourses['ssc-all-subjects-pack']) && <>
           <View style={{padding:18}}>
 
             <Text style={[styles.pageTitle,{color:mainText,marginTop:8}]}>SSC English Foundation</Text>
             <Text style={{color:mutedText,marginTop:5}}>English Syllabus • Topic-wise Folders</Text>
-            {[
+            <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',marginTop:12}}>
+              {[
   'Articles','Nouns','Pronouns','Verbs','Tenses',
               'Subject-Verb Agreement','Adjectives & Adverbs','Conjunctions',
               'Active & Passive Voice','Cloze Test','Question Tags',].map((topic,index) => (
               <TouchableOpacity key={topic} onPress={() => setPage('SSC English Topic: '+topic)}
-                style={{flexDirection:'row',alignItems:'center',padding:15,marginTop:10,borderRadius:13,backgroundColor:darkMode?'#17243B':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5'}}>
-                <View style={{width:36,height:36,borderRadius:10,backgroundColor:darkMode?'#0D966833':'#E3F4EE',alignItems:'center',justifyContent:'center',marginRight:12}}>
-                  <Text style={{fontWeight:'900',color:darkMode?'#6EE7B7':'#087F67'}}>{index+1}</Text>
+                style={{width:'48.5%',minHeight:132,padding:12,marginBottom:12,borderRadius:16,backgroundColor:darkMode?'#17243B':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5'}}>
+                <View style={{width:42,height:42,borderRadius:12,backgroundColor:darkMode?'#1D3760':'#E8EEFF',alignItems:'center',justifyContent:'center',marginBottom:10}}>
+                  <Text style={{fontSize:19,fontWeight:'900',color:darkMode?'#AFC8FF':'#2457D6'}}>{['📘','📝','📚','✍️','⏳','🎯','🔤','🔗','📖','🧩','❓'][index]}</Text>
                 </View>
-                <Text style={{flex:1,fontSize:15,fontWeight:'800',color:mainText}}>{topic}</Text>
-                <Text style={{fontSize:20,color:mutedText}}>›</Text>
+                <Text style={{fontSize:14,fontWeight:'800',lineHeight:19,color:mainText}}>{topic}</Text>
+                <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:8}}>
+                  <Text style={{fontSize:11,fontWeight:'700',color:mutedText}}>Study Notes PDF</Text>
+                  <Text style={{fontSize:19,color:'#2457D6'}}>›</Text>
+                </View>
               </TouchableOpacity>
             ))}
+            </View>
 
 <TouchableOpacity onPress={() => setPage('Courses')} style={{width:'100%',alignSelf:'stretch',paddingVertical:17,paddingHorizontal:12,marginTop:24,marginBottom:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center'}}>
               <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>← Back to English Courses</Text>
@@ -3085,7 +3247,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         </>}
 
 
-        {page.startsWith('SSC English Topic: ') && !unlockedCourses['ssc-english-foundation'] && <>
+        {page.startsWith('SSC English Topic: ') && !(unlockedCourses['ssc-english-foundation'] || unlockedCourses['ssc-all-subjects-pack']) && <>
           <View style={{padding:24,alignItems:'center'}}>
             <Text style={[styles.pageTitle,{color:mainText,textAlign:'center'}]}>Course Locked</Text>
             <Text style={{color:mutedText,textAlign:'center',marginTop:10}}>Buy SSC English Foundation for ₹49 to access this topic.</Text>
@@ -3100,7 +3262,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 </View>
         </>}
 
-        {page.startsWith('SSC English Topic: ') && !!unlockedCourses['ssc-english-foundation'] && <>
+        {page.startsWith('SSC English Topic: ') && (unlockedCourses['ssc-english-foundation'] || unlockedCourses['ssc-all-subjects-pack']) && <>
           <View style={{padding:22}}>
             <Text style={[styles.pageTitle,{color:mainText}]}>
               {page.replace('SSC English Topic: ', '')}
@@ -3187,7 +3349,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               Debug: General Awareness {unlockedCourses['ssc-general-awareness'] ? 'UNLOCKED' : 'LOCKED'}
             </Text>
 
-            {!unlockedCourses['ssc-general-awareness'] && (
+            {!(unlockedCourses['ssc-general-awareness'] || unlockedCourses['ssc-all-subjects-pack']) && (
               <TouchableOpacity
                 onPress={async () => {
                   let checkoutWindow = null;
@@ -3230,7 +3392,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               </TouchableOpacity>
             )}
 
-            {!unlockedCourses['ssc-general-awareness'] ? (
+            {!(unlockedCourses['ssc-general-awareness'] || unlockedCourses['ssc-all-subjects-pack']) ? (
               <Text style={{color:mutedText,marginBottom:14}}>
                 Purchase the course to unlock folders and study materials.
               </Text>
@@ -3282,7 +3444,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               {page.replace('SSC General Awareness Topic: ','')}
             </Text>
 
-            {unlockedCourses['ssc-general-awareness'] ? <>
+            {(unlockedCourses['ssc-general-awareness'] || unlockedCourses['ssc-all-subjects-pack']) ? <>
               <Text style={{fontSize:14,color:'#059669',fontWeight:'900',marginTop:10}}>🔓 COURSE ACCESS UNLOCKED</Text>
               <Text style={{fontSize:14,color:mutedText,marginTop:8,lineHeight:22}}>This topic is included in your purchased course. Detailed lesson notes, PDFs and videos need to be added to this topic separately.</Text>
               {/* GENERAL_AWARENESS_PDF_LIST_UI */}
@@ -3376,22 +3538,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>← Back to General Awareness Course</Text>
               </TouchableOpacity>
             </> : <>
-              <Text style={{fontSize:22,fontWeight:'900',color:mainText,marginTop:18}}>🔒 Premium Study Materials</Text>
-              <Text style={{fontSize:14,color:mutedText,marginTop:8,marginBottom:10}}>Ee topic syllabus chudavachu. Premium materials course purchase ayyaka unlock avuthayi.</Text>
-              {[
-                {title:'PDF Notes',desc:'Topic-wise notes and revision material',icon:'📄'},
-                {title:'Video Lessons',desc:'Concept explanations and revision videos',icon:'🎥'},
-                {title:'Practice Questions',desc:'Topic-wise questions and answers',icon:'📝'}
-              ].map(item => (
-                <View key={item.title} style={{padding:15,marginTop:10,borderRadius:14,backgroundColor:cardBg,borderWidth:1,borderColor:darkMode?'#475569':'#D8E1EF',flexDirection:'row',alignItems:'center'}}>
-                  <Text style={{fontSize:26,marginRight:12}}>{item.icon}</Text>
-                  <View style={{flex:1}}>
-                    <Text style={{fontSize:16,fontWeight:'900',color:mainText}}>{item.title}</Text>
-                    <Text style={{fontSize:12,color:mutedText,marginTop:4}}>{item.desc}</Text>
-                  </View>
-                  <Text style={{fontSize:22}}>🔒</Text>
-                </View>
-              ))}
+
               <TouchableOpacity onPress={() => setPage('SSC General Awareness Syllabus')}
                 style={{width:'100%',alignSelf:'stretch',marginTop:24,marginBottom:12,paddingVertical:16,paddingHorizontal:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center'}}>
                 <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>← Back to Syllabus</Text>
@@ -3407,7 +3554,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             <Text style={{fontSize:25,fontWeight:'900',color:mainText}}>🧠 SSC Reasoning Masterclass</Text>
             <Text style={{fontSize:14,color:mutedText,marginTop:6,marginBottom:18}}>Subject Syllabus • Topic-wise Folders</Text>
 
-            {!unlockedCourses['ssc-reasoning-masterclass'] && (
+            {!(unlockedCourses['ssc-reasoning-masterclass'] || unlockedCourses['ssc-all-subjects-pack']) && (
               <TouchableOpacity
                 onPress={async () => {
                   try {
@@ -3450,6 +3597,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               </TouchableOpacity>
             )}
 
+            <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>
             {[
               {title:'Analogy',desc:'Word, Number and Figure Analogy',icon:'🔗',color:'#6344E8'},
               {title:'Number Series',desc:'Patterns and Missing Numbers',icon:'🔢',color:'#2563EB'},
@@ -3460,30 +3608,28 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               {title:'Syllogism',desc:'Logical Statements',icon:'💡',color:'#7C3AED'},
               {title:'Non-Verbal Reasoning',desc:'Figures, Mirror and Patterns',icon:'🔷',color:'#DC2626'}
             ].map((folder,index) => {
-              const unlocked = !!unlockedCourses['ssc-reasoning-masterclass'];
+              const unlocked = !!(unlockedCourses['ssc-reasoning-masterclass'] || unlockedCourses['ssc-all-subjects-pack']);
               return (
                 <TouchableOpacity key={folder.title}
                   onPress={() => {
                     setPage('Master Reasoning Topic: ' + folder.title);
                   }}
-                  style={{marginBottom:16,borderRadius:20,backgroundColor:darkMode?'#172033':'#FFFFFF',borderWidth:1,borderColor:folder.color+'66',borderBottomWidth:5,borderBottomColor:folder.color,elevation:6,shadowColor:folder.color,shadowOffset:{width:0,height:4},shadowOpacity:0.18,shadowRadius:6,overflow:'hidden'}}>
-                  <View style={{flexDirection:'row',alignItems:'center',padding:15}}>
-                    <View style={{width:65,height:68,borderRadius:16,backgroundColor:folder.color+'20',alignItems:'center',justifyContent:'center',marginRight:13,borderWidth:1,borderColor:folder.color+'55'}}>
-                      <Text style={{fontSize:29}}>{folder.icon}</Text>
-                      <Text style={{fontSize:10,fontWeight:'900',color:folder.color}}>TOPIC {index+1}</Text>
+                  style={{width:'48.5%',marginBottom:12,borderRadius:16,backgroundColor:darkMode?'#172033':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5',overflow:'hidden'}}>
+                  <View style={{padding:12,minHeight:174}}>
+                    <View style={{width:44,height:44,borderRadius:12,backgroundColor:folder.color+'20',alignItems:'center',justifyContent:'center',marginBottom:10}}>
+                      <Text style={{fontSize:24}}>{folder.icon}</Text>
                     </View>
-                    <View style={{flex:1}}>
-                      <Text style={{fontSize:16,fontWeight:'900',color:mainText}}>{folder.title}</Text>
-                      <Text style={{fontSize:12,color:mutedText,marginTop:5,lineHeight:17}}>{folder.desc}</Text>
-                      <Text style={{fontSize:12,fontWeight:'900',color:unlocked?'#059669':'#D97706',marginTop:8}}>
-                        {unlocked?'🔓 UNLOCKED':'🔒 LOCKED • ₹49 COURSE'}
-                      </Text>
+                    <Text style={{fontSize:14,fontWeight:'900',color:mainText,lineHeight:19}}>{folder.title}</Text>
+                    <Text style={{fontSize:11,color:mutedText,marginTop:5,lineHeight:15}}>{folder.desc}</Text>
+                    <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:10}}>
+                      <Text style={{fontSize:10,fontWeight:'900',color:unlocked?'#059669':'#D97706',flex:1}}>{unlocked?'🔓 UNLOCKED':'🔒 LOCKED · ₹49'}</Text>
+                      <Text style={{fontSize:20,color:folder.color}}>{unlocked?'›':'🔒'}</Text>
                     </View>
-                    <Text style={{fontSize:25}}>{unlocked?'›':'🔒'}</Text>
                   </View>
                 </TouchableOpacity>
               );
             })}
+            </View>
           </View>
         </>}
 
@@ -3493,7 +3639,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               style={{padding:14,borderRadius:13,backgroundColor:darkMode?'#173B35':'#E3F4EE',alignItems:'center',marginBottom:20}}>
               <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'900'}}>← Back to Reasoning Syllabus</Text>
             </TouchableOpacity>
-            {unlockedCourses['ssc-reasoning-masterclass'] ? <>
+            {(unlockedCourses['ssc-reasoning-masterclass'] || unlockedCourses['ssc-all-subjects-pack']) ? <>
               <Text style={{fontSize:24,fontWeight:'900',color:mainText}}>{page.replace('Master Reasoning Topic: ','')}</Text>
               {(() => {
         const topic = page.replace('Master Reasoning Topic: ', '');
@@ -3576,22 +3722,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         );
       })()}
             </> : <>
-              <Text style={{fontSize:23,fontWeight:'900',color:mainText}}>🔒 Premium Study Materials</Text>
-              <Text style={{color:mutedText,marginTop:8,marginBottom:16}}>Ee topic materials course purchase ayyaka unlock avuthayi.</Text>
-              {[
-                {title:'PDF Notes',desc:'Topic-wise notes and revision material',icon:'📄'},
-                {title:'Video Lessons',desc:'Concept explanations and practice videos',icon:'🎥'},
-                {title:'Practice Questions',desc:'Topic-wise questions with answers',icon:'📝'}
-              ].map((item) => (
-                <View key={item.title} style={{padding:15,marginTop:10,borderRadius:14,backgroundColor:cardBg,borderWidth:1,borderColor:darkMode?'#475569':'#D8E1EF',flexDirection:'row',alignItems:'center'}}>
-                  <Text style={{fontSize:27,marginRight:12}}>{item.icon}</Text>
-                  <View style={{flex:1}}>
-                    <Text style={{fontSize:16,fontWeight:'900',color:mainText}}>{item.title}</Text>
-                    <Text style={{fontSize:12,color:mutedText,marginTop:4}}>{item.desc}</Text>
-                  </View>
-                  <Text style={{fontSize:22}}>🔒</Text>
-                </View>
-              ))}
+
               <TouchableOpacity onPress={() => setPage('Courses')} style={{marginTop:20,padding:14,backgroundColor:'#2457D6',borderRadius:12,alignItems:'center'}}>
                 <Text style={{color:'#FFFFFF',fontWeight:'900'}}>View Courses</Text>
               </TouchableOpacity>
@@ -3605,7 +3736,46 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           </View>
         </>}
 
-        {page === 'Quant Practice' && <>
+        {page === 'Quant Practice' && !(unlockedCourses['ssc-mathematics'] || unlockedCourses['ssc-all-subjects-pack']) && <>
+          <View style={{padding:24,alignItems:'center'}}>
+            <Text style={[styles.pageTitle,{color:mainText,textAlign:'center'}]}>🔒 SSC Mathematics Locked</Text>
+            <Text style={{color:mutedText,textAlign:'center',marginTop:10}}>Purchase SSC Mathematics for ₹49 to unlock all topic-wise practice folders.</Text>
+            <TouchableOpacity onPress={async () => {
+              let checkoutWindow = null;
+              try {
+                if (Platform.OS === 'web') checkoutWindow = window.open('about:blank', '_blank');
+                const user = auth.currentUser;
+                if (!user) throw new Error('Please log in before purchasing.');
+                const token = await user.getIdToken();
+                const response = await fetch('https://' + 'study-with-veer-payment-backend.onrender.com/create-checkout-session', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                  body: JSON.stringify({ courseId: 'ssc-mathematics' })
+                });
+                const data = await response.json();
+                if (!response.ok || !data.sessionToken) throw new Error(data.error || 'Could not start checkout.');
+                const checkoutUrl = 'https://' + 'study-with-veer-payment-backend.onrender.com/checkout.html#session=' + encodeURIComponent(data.sessionToken);
+                if (Platform.OS === 'web') {
+                  if (checkoutWindow && !checkoutWindow.closed) checkoutWindow.location.href = checkoutUrl;
+                  else window.location.href = checkoutUrl;
+                } else {
+                  await Linking.openURL(checkoutUrl);
+                }
+              } catch (e) {
+                if (checkoutWindow && !checkoutWindow.closed) checkoutWindow.close();
+                if (Platform.OS === 'web') window.alert('Checkout error: ' + (e.message || String(e)));
+                else Alert.alert(e.message || 'Could not open checkout.');
+              }
+            }} style={{backgroundColor:'#2457D6',padding:15,borderRadius:12,marginTop:20,width:'100%',alignItems:'center'}}>
+              <Text style={{color:'#FFFFFF',fontWeight:'900'}}>Buy for ₹49 →</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setPage('Courses')} style={{paddingVertical:16,paddingHorizontal:18,marginTop:20,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',width:'100%'}}>
+              <Text style={{color:'#FFFFFF',fontWeight:'900'}}>← Back to Courses</Text>
+            </TouchableOpacity>
+          </View>
+        </>}
+
+        {page === 'Quant Practice' && (unlockedCourses['ssc-mathematics'] || unlockedCourses['ssc-all-subjects-pack']) && <>
           <View style={{padding:18}}>
 
             <Text style={{fontSize:25,fontWeight:'900',color:'#087F67',marginTop:8}}>
@@ -3614,6 +3784,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             <Text style={{fontSize:13,color:'#718096',marginTop:6}}>
               Quantitative Aptitude • Topic-wise Practice
             </Text>
+            <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>
             {[
               'Number System','Simplification','Percentage',
               'Ratio & Proportion','Average','Profit & Loss',
@@ -3634,25 +3805,24 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                     alert(topic + ': Questions will be added soon.');
                   }
                 }}
-                style={{backgroundColor:'#FFFFFF',borderRadius:13,padding:15,
-                  marginTop:10,borderWidth:1,borderColor:'#DCEAE4',
-                  flexDirection:'row',alignItems:'center'}}>
+                style={{width:'48.2%',minHeight:130,backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:15,padding:12,marginTop:12,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5',alignItems:'flex-start',justifyContent:'space-between'}}>
                 <View style={{width:36,height:36,borderRadius:10,
                   backgroundColor:'#E3F4EE',alignItems:'center',
                   justifyContent:'center',marginRight:12}}>
                   <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'900'}}>{index+1}</Text>
                 </View>
-                <View style={{flex:1}}>
-                  <Text style={{fontSize:15,fontWeight:'800',color:'#173B35'}}>
+                <View style={{width:'100%',marginTop:10}}>
+                  <Text style={{fontSize:14,fontWeight:'800',color:darkMode?'#F3F6FC':'#173B35'}}>
                     {topic}
                   </Text>
-                  <Text style={{fontSize:12,color:'#718096',marginTop:4}}>
+                  <Text style={{fontSize:11,color:mutedText,marginTop:5}}>
                     10 MCQs • Answers & explanations
                   </Text>
                 </View>
-                <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontSize:20}}>›</Text>
+                <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontSize:16,alignSelf:'flex-end'}}>Open →</Text>
               </TouchableOpacity>
             ))}
+            </View>
                       <TouchableOpacity onPress={() => setPage('Courses')}
               style={{width:'100%',alignSelf:'stretch',marginTop:24,marginBottom:12,paddingVertical:17,paddingHorizontal:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center'}}>
               <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>{t('← Back to Courses','← కోర్సులకు తిరిగి వెళ్లండి')}</Text>
@@ -3662,7 +3832,13 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
         {page === 'Quant Questions' && <>
           <View style={{padding:18}}>
-
+            <TouchableOpacity
+              onPress={() => setPage('Quant Practice')}
+              style={{alignSelf:'flex-start',paddingVertical:10,paddingHorizontal:14,marginBottom:12,borderRadius:12,backgroundColor:darkMode?'#17243B':'#E9DEFF',borderWidth:1,borderColor:darkMode?'#2B3D5C':'#D7C8FF'}}>
+              <Text style={{fontSize:14,fontWeight:'900',color:darkMode?'#FFFFFF':'#173B83'}}>
+                ← Back to Mathematics
+              </Text>
+            </TouchableOpacity>
 
             <Text style={{fontSize:24,fontWeight:'900',color:'#087F67',marginTop:8}}>
               {quantTopic}

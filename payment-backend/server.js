@@ -52,17 +52,40 @@ async function hasActiveCoursePurchase(userId, courseId) {
 
     if (error) throw error;
 
-    return (data || []).some(row => isCourseActive({
+    const directActive = (data || []).some(row => isCourseActive({
       purchaseDate: row.purchase_date,
       unlockedAt: row.purchase_date,
       expiresAt: row.expires_at,
       validityMonths: row.validity_months || 6
     }));
+
+    if (directActive || courseId === 'ssc-all-subjects-pack') return directActive;
+
+    const packCourses = [
+      'ssc-mathematics',
+      'ssc-reasoning-masterclass',
+      'ssc-general-awareness',
+      'ssc-english-foundation'
+    ];
+    return packCourses.includes(courseId)
+      ? hasActiveCoursePurchase(userId, 'ssc-all-subjects-pack')
+      : false;
   } catch (error) {
     console.error('Supabase purchase verification failed:', error.message);
     const unlocks = readUnlocks();
     const courses = (unlocks[userId] && unlocks[userId].courses) || {};
-    return isCourseActive(courses[courseId]);
+    const directActive = isCourseActive(courses[courseId]);
+    if (directActive || courseId === 'ssc-all-subjects-pack') return directActive;
+
+    const packCourses = [
+      'ssc-mathematics',
+      'ssc-reasoning-masterclass',
+      'ssc-general-awareness',
+      'ssc-english-foundation'
+    ];
+    return packCourses.includes(courseId)
+      ? hasActiveCoursePurchase(userId, 'ssc-all-subjects-pack')
+      : false;
   }
 }
 
@@ -345,7 +368,9 @@ if (!checkoutSessionSecret || checkoutSessionSecret.length < 64) {
 const allowedCheckoutCourses = new Set([
   'ssc-reasoning-masterclass',
   'ssc-general-awareness',
-  'ssc-english-foundation'
+  'ssc-english-foundation',
+  'ssc-mathematics',
+  'ssc-all-subjects-pack'
 ]);
 
 function createCheckoutSessionToken(uid, courseId) {
@@ -476,11 +501,11 @@ app.post('/create-order', async (req, res) => {
     if (auth.sessionCourseId && req.body.courseId !== auth.sessionCourseId) {
       return res.status(403).json({ error: 'Checkout session course mismatch.' });
     }
-    if (!['ssc-reasoning-masterclass', 'ssc-general-awareness', 'ssc-english-foundation'].includes(req.body.courseId)) {
+    if (!allowedCheckoutCourses.has(req.body.courseId)) {
       return res.status(400).json({ error: 'Invalid course selection' });
     }
 
-    const amount = 4900;
+    const amount = req.body.courseId === 'ssc-all-subjects-pack' ? 14900 : 4900;
     const currency = 'INR';
 
     const order = await razorpay.orders.create({
@@ -610,6 +635,8 @@ app.post('/verify-payment', async (req, res) => {
         'ssc-reasoning-masterclass': 'SSC Reasoning Masterclass',
         'ssc-general-awareness': 'SSC General Awareness',
         'ssc-english-foundation': 'SSC English Foundation',
+        'ssc-mathematics': 'SSC Mathematics',
+        'ssc-all-subjects-pack': 'SSC All Subjects Pack',
       };
       const courseName = courseNames[record.courseId] || record.courseId;
       let studentName = user.name || user.displayName || '';
@@ -710,6 +737,8 @@ app.get('/invoice/:paymentId', async (req, res) => {
       'ssc-reasoning-masterclass': 'SSC Reasoning Masterclass',
       'ssc-general-awareness': 'SSC General Awareness',
       'ssc-english-foundation': 'SSC English Foundation',
+      'ssc-mathematics': 'SSC Mathematics',
+      'ssc-all-subjects-pack': 'SSC All Subjects Pack',
     };
     const courseName = courseNames[courseId];
     if (!courseName || !purchase.orderId) {
@@ -873,6 +902,7 @@ app.get('/english/articles-full-url', async (req, res) => {
       (await hasActiveCoursePurchase(user.uid, 'ssc-english-foundation')) ||
       (await hasActiveCoursePurchase(user.uid, 'ssc-reasoning-masterclass')) ||
       (await hasActiveCoursePurchase(user.uid, 'ssc-general-awareness')) ||
+      (await hasActiveCoursePurchase(user.uid, 'ssc-all-subjects-pack')) ||
       (await hasActiveCoursePurchase(user.uid, 'english-articles-pdf'));
     if (!eligible) return res.status(403).json({ error: 'Full PDF requires an eligible course purchase or Articles PDF purchase.' });
     const result = await supabase.storage.from('English -pdfs').createSignedUrl('Articles/Articles notes.pdf', 60);
@@ -914,6 +944,7 @@ app.get('/english/topic-pdf-url', async (req, res) => {
       (await hasActiveCoursePurchase(user.uid, 'ssc-english-foundation')) ||
       (await hasActiveCoursePurchase(user.uid, 'ssc-reasoning-masterclass')) ||
       (await hasActiveCoursePurchase(user.uid, 'ssc-general-awareness')) ||
+      (await hasActiveCoursePurchase(user.uid, 'ssc-all-subjects-pack')) ||
       (await hasActiveCoursePurchase(user.uid, 'english-articles-pdf'));
 
     if (!eligible) {
