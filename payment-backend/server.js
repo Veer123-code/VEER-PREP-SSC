@@ -148,7 +148,8 @@ async function getAuthenticatedUser(req) {
   if (!header.startsWith('Bearer ')) return null;
   try {
     return await firebaseAdminAuth.verifyIdToken(header.slice(7));
-  } catch {
+  } catch (error) {
+    console.error('Firebase token verification failed:', error.code || error.name || 'unknown');
     return null;
   }
 }
