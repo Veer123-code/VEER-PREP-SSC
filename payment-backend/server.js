@@ -156,6 +156,34 @@ async function getAuthenticatedUser(req) {
 
 
 
+
+app.post('/auth/native-phone-custom-token', async (req, res) => {
+  const idToken = typeof req.body?.idToken === 'string'
+    ? req.body.idToken.trim()
+    : '';
+
+  if (!idToken) {
+    return res.status(400).json({ error: 'Missing Firebase ID token.' });
+  }
+
+  try {
+    const decoded = await firebaseAdminAuth.verifyIdToken(idToken, true);
+    const provider = decoded.firebase?.sign_in_provider;
+
+    if (provider !== 'phone' || !decoded.phone_number) {
+      return res.status(403).json({
+        error: 'Please verify your mobile number using Phone OTP.'
+      });
+    }
+
+    const customToken = await firebaseAdminAuth.createCustomToken(decoded.uid);
+    return res.json({ customToken });
+  } catch (error) {
+    console.error('Native phone token exchange failed:', error.code || error.name || 'unknown');
+    return res.status(401).json({ error: 'Phone verification failed. Please try again.' });
+  }
+});
+
 const firebaseAdminDb = getFirestore();
 
 app.post('/notifications/register-token', async (req, res) => {

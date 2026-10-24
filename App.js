@@ -1,4 +1,5 @@
 import React, {useState, useEffect, useRef} from 'react';
+import nativeAuth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -6,10 +7,14 @@ import {
   TextInput, StyleSheet, StatusBar, Linking, AppState, Alert
 } from 'react-native';
 import {
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  signInWithCustomToken,
   onAuthStateChanged,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword
-  , signOut,
+  sendPasswordResetEmail,
+  createUserWithEmailAndPassword,
+  signOut,
   updateProfile
 } from 'firebase/auth';
 /* VEER_NOTIFICATIONS_IMPORT */
@@ -249,6 +254,12 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   const [password, setPassword] = useState('');
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [phoneLoginMode, setPhoneLoginMode] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneOtp, setPhoneOtp] = useState('');
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const phoneConfirmationRef = useRef(null);
+  const webRecaptchaRef = useRef(null);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -1339,6 +1350,36 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
     { label: 'One special character (@, #, !)', valid: /[^A-Za-z0-9]/.test(password) },
   ];
 
+  const handlePasswordReset = async () => {
+    const cleanEmail = email.trim();
+
+    if (!cleanEmail) {
+      setAuthError('Please enter your registered email address first.');
+      return;
+    }
+
+    setAuthBusy(true);
+    setAuthError('');
+
+    try {
+      await sendPasswordResetEmail(auth, cleanEmail);
+      Alert.alert(
+        'Check your email',
+        'If an account exists for this email, Firebase will send a password reset link. Check your inbox and spam folder.'
+      );
+    } catch (error) {
+      const messages = {
+        'auth/invalid-email': 'Please enter a valid email address.',
+        'auth/user-not-found': 'No account was found for this email address.',
+        'auth/too-many-requests': 'Too many requests. Please try again later.',
+        'auth/network-request-failed': 'Network error. Check your internet connection.'
+      };
+      setAuthError(messages[error.code] || 'Could not send the reset email. Please try again.');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
   const handleAuth = async () => {
     const cleanEmail = email.trim();
 
@@ -1382,6 +1423,100 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         'auth/too-many-requests': 'Too many attempts. Please try again later.'
       };
       setAuthError(messages[error.code] || 'Authentication failed. Please try again.');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+
+  const handleSendPhoneOtp = async () => {
+    const digits = phoneNumber.replace(/[\s()-]/g, '');
+    const e164 = digits.startsWith('+') ? digits : '+91' + digits;
+
+    if (!/^\+[1-9]\d{7,14}$/.test(e164)) {
+      setAuthError('Enter a valid mobile number or a 10-digit Indian number.');
+      return;
+    }
+
+    setAuthBusy(true);
+    setAuthError('');
+
+    try {
+      if (Platform.OS === 'web') {
+        let verifier = webRecaptchaRef.current;
+        if (!verifier) {
+          verifier = new RecaptchaVerifier(auth, 'veer-phone-recaptcha', {
+            size: 'normal'
+          });
+          webRecaptchaRef.current = verifier;
+        }
+        phoneConfirmationRef.current = await signInWithPhoneNumber(auth, e164, verifier);
+      } else {
+        phoneConfirmationRef.current = await nativeAuth().signInWithPhoneNumber(e164);
+      }
+
+      setPhoneNumber(e164);
+      setPhoneOtpSent(true);
+      setAuthError('OTP sent. Check your phone.');
+    } catch (error) {
+      if (webRecaptchaRef.current) {
+        try { webRecaptchaRef.current.clear(); } catch (_) {}
+        webRecaptchaRef.current = null;
+      }
+      const messages = {
+        'auth/invalid-phone-number': 'Please enter a valid mobile number.',
+        'auth/too-many-requests': 'Too many attempts. Please try later.',
+        'auth/quota-exceeded': 'SMS quota exceeded. Please try later.',
+        'auth/captcha-check-failed': 'reCAPTCHA verification failed. Please try again.',
+        'auth/network-request-failed': 'Network error. Check your internet connection.'
+      };
+      setAuthError(messages[error.code] || 'Could not send OTP. Please try again.');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleVerifyPhoneOtp = async () => {
+    const code = phoneOtp.trim();
+    if (!/^\d{6}$/.test(code)) {
+      setAuthError('Enter the 6-digit OTP.');
+      return;
+    }
+    if (!phoneConfirmationRef.current) {
+      setAuthError('Please request a new OTP first.');
+      return;
+    }
+
+    setAuthBusy(true);
+    setAuthError('');
+    try {
+      if (Platform.OS === 'web') {
+        await phoneConfirmationRef.current.confirm(code);
+      } else {
+        const credential = await phoneConfirmationRef.current.confirm(code);
+        const idToken = await credential.user.getIdToken();
+        const response = await fetch(ARTICLES_API + '/auth/native-phone-custom-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.customToken) {
+          throw new Error(data.error || 'Phone login could not be completed.');
+        }
+        await signInWithCustomToken(auth, data.customToken);
+      }
+      setPhoneOtp('');
+      setPhoneOtpSent(false);
+      phoneConfirmationRef.current = null;
+      setAuthError('');
+    } catch (error) {
+      const messages = {
+        'auth/invalid-verification-code': 'Incorrect OTP. Please try again.',
+        'auth/code-expired': 'OTP expired. Please request a new one.',
+        'auth/session-expired': 'OTP session expired. Please request a new one.'
+      };
+      setAuthError(messages[error.code] || error.message || 'OTP verification failed.');
     } finally {
       setAuthBusy(false);
     }
@@ -1665,8 +1800,90 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             </Text>
 
 
-            {isCreatingAccount && (
-              <View style={{marginBottom:22, paddingTop:10}}>
+            <TouchableOpacity
+              disabled={authBusy || isCreatingAccount}
+              onPress={() => {
+                setPhoneLoginMode(v => !v);
+                setPhoneOtpSent(false);
+                setPhoneOtp('');
+                phoneConfirmationRef.current = null;
+                setAuthError('');
+                if (webRecaptchaRef.current) {
+                  try { webRecaptchaRef.current.clear(); } catch (_) {}
+                  webRecaptchaRef.current = null;
+                }
+              }}
+              style={{marginBottom:16,paddingVertical:11,borderRadius:14,borderWidth:1,borderColor:'#B9C9E8',alignItems:'center'}}
+            >
+              <Text style={{color:'#2457D6',fontWeight:'800'}}>
+                {phoneLoginMode ? t('Use Email Login', 'ఈమెయిల్ లాగిన్ ఉపయోగించండి') : t('Login with Mobile OTP', 'మొబైల్ OTPతో లాగిన్')}
+              </Text>
+            </TouchableOpacity>
+
+            {phoneLoginMode && (
+              <View style={{marginBottom:18}}>
+                <Text style={{fontSize:13,color:mutedText,marginBottom:8}}>
+                  {t('Enter 10-digit Indian mobile number or include country code.', '10 అంకెల మొబైల్ నంబర్ ఇవ్వండి.')}
+                </Text>
+                <TextInput
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  editable={!phoneOtpSent && !authBusy}
+                  placeholder="+91 9876543210"
+                  placeholderTextColor={mutedText}
+                  keyboardType="phone-pad"
+                  autoComplete="tel"
+                  style={{borderBottomWidth:2,borderBottomColor:'#87CEFA',paddingVertical:12,fontSize:17,color:mainText,marginBottom:12}}
+                />
+                {phoneOtpSent && (
+                  <TextInput
+                    value={phoneOtp}
+                    onChangeText={v => setPhoneOtp(v.replace(/\D/g, '').slice(0,6))}
+                    placeholder={t('Enter 6-digit OTP', '6 అంకెల OTP నమోదు చేయండి')}
+                    placeholderTextColor={mutedText}
+                    keyboardType="number-pad"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    style={{borderBottomWidth:2,borderBottomColor:'#87CEFA',paddingVertical:12,fontSize:17,color:mainText,marginBottom:12}}
+                  />
+                )}
+                {Platform.OS === 'web' && (
+                  <View nativeID="veer-phone-recaptcha" style={{marginBottom:12}} />
+                )}
+                <TouchableOpacity
+                  onPress={phoneOtpSent ? handleVerifyPhoneOtp : handleSendPhoneOtp}
+                  disabled={authBusy}
+                  style={{backgroundColor:'#173B83',paddingVertical:14,borderRadius:30,alignItems:'center',marginBottom:8}}
+                >
+                  <Text style={{color:'#FFFFFF',fontWeight:'800'}}>
+                    {authBusy ? t('PLEASE WAIT...', 'దయచేసి వేచి ఉండండి...') : phoneOtpSent ? t('VERIFY OTP & LOGIN', 'OTP ధృవీకరించి లాగిన్') : t('SEND OTP', 'OTP పంపండి')}
+                  </Text>
+                </TouchableOpacity>
+                {phoneOtpSent && (
+                  <TouchableOpacity
+                    disabled={authBusy}
+                    onPress={() => {
+                      setPhoneOtpSent(false);
+                      setPhoneOtp('');
+                      phoneConfirmationRef.current = null;
+                      if (webRecaptchaRef.current) {
+                        try { webRecaptchaRef.current.clear(); } catch (_) {}
+                        webRecaptchaRef.current = null;
+                      }
+                      setAuthError('');
+                    }}
+                    style={{alignItems:'center',padding:8}}
+                  >
+                    <Text style={{color:'#2457D6',fontWeight:'700'}}>
+                      {t('Change number / resend OTP', 'నంబర్ మార్చండి / OTP మళ్లీ పంపండి')}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {isCreatingAccount && !phoneLoginMode && (
+            <View style={{marginBottom:22, paddingTop:10}}>
                 <TextInput
                   value={fullName}
                   onChangeText={setFullName}
@@ -1686,6 +1903,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               </View>
             )}
 
+            {!phoneLoginMode && (
             <View style={{marginBottom:22, paddingTop:10}}>
               <TextInput
                 style={{backgroundColor:'transparent', borderWidth:0, outlineStyle:'none', borderColor:'transparent', borderBottomWidth:2, borderBottomColor:(emailFocused || email) ? '#87CEFA' : '#DCE3F0', paddingHorizontal:0, paddingTop:15, paddingBottom:10, fontSize:18, color:mainText}}
@@ -1734,6 +1952,19 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               </TouchableOpacity>
             </View>
 
+            {!isCreatingAccount && (
+              <TouchableOpacity
+                onPress={handlePasswordReset}
+                disabled={authBusy}
+                activeOpacity={0.7}
+                style={{alignSelf:'flex-end',marginTop:-7,marginBottom:15,paddingVertical:6}}
+              >
+                <Text style={{fontSize:13,fontWeight:'800',color:'#2457D6'}}>
+                  {t('Forgot Password?', 'పాస్‌వర్డ్ మర్చిపోయారా?')}
+                </Text>
+              </TouchableOpacity>
+            )}
+
             {isCreatingAccount && (
               <View style={{marginTop:-8, marginBottom:14}}>
                 {passwordChecks.map(rule => (
@@ -1751,12 +1982,15 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               </View>
             )}
 
+            )}
+
             {!!authError && (
               <Text style={{color:'#C62828', fontSize:12, marginBottom:12}}>
                 {authError}
               </Text>
             )}
 
+            {!phoneLoginMode && (
             <TouchableOpacity
               nativeID="veer-login-space" className="veer-space-btn"
               onPress={handleAuth}
@@ -1787,6 +2021,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 </Text>
               </View>
             </TouchableOpacity>
+            )}
             </View>
           </Animated.View>
 
