@@ -1806,7 +1806,12 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
     );
   }
 
-  const navItems = [     ['Home', '⌂'],     ['My Courses', '🎓'],     ['Live Classes', '📡'],     ['Chat', '💬'],     ['Downloads', '📥']
+  const navItems = [
+    ['Home', 'home', '#2457D6'],
+    ['My Courses', 'book-open', '#9333EA'],
+    ['Live Classes', 'radio', '#E11D48'],
+    ['Chat', 'message-circle', '#10B981'],
+    ['Downloads', 'download', '#2563EB']
   ];
 
   return (
@@ -4167,11 +4172,23 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
 
       <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-        {navItems.map(([name, symbol]) => <TouchableOpacity key={name}
-          onPress={() => setPage(name === 'Feed' ? 'Current Affairs' : name === 'My Courses' ? 'Courses' : name)} style={styles.navItem}>
-          <Text style={[styles.navSymbol, page===name && styles.activeNav]}>{symbol}</Text>
-          <Text style={[styles.navLabel, page===name && styles.activeNav]}>{t(name, ({Home:'హోమ్','My Courses':'నా కోర్సులు','Live Classes':'లైవ్ తరగతులు',Downloads:'డౌన్‌లోడ్స్'})[name] || name)}</Text>
-        </TouchableOpacity>)}
+        {navItems.map(([name, iconName, iconColor]) => {
+          const active = page === name || (name === 'My Courses' && page === 'Courses');
+          return (
+            <TouchableOpacity
+              key={name}
+              onPress={() => setPage(name === 'Feed' ? 'Current Affairs' : name === 'My Courses' ? 'Courses' : name)}
+              activeOpacity={0.75}
+              style={[styles.navItem, active && { backgroundColor: '#F3EEFF', borderRadius: 14 }]}
+            >
+              <Feather name={iconName} size={23} color={active ? '#2457D6' : iconColor} />
+              <Text style={[styles.navLabel, active && styles.activeNav]}>
+                {t(name, ({Home:'హోమ్','My Courses':'నా కోర్సులు','Live Classes':'లైవ్ తరగతులు',Downloads:'డౌన్‌లోడ్స్'})[name] || name)}
+              </Text>
+              {active && <View style={{width:18,height:3,borderRadius:2,backgroundColor:'#2457D6',marginTop:3}} />}
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {purchasePopupName ? (
