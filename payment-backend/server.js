@@ -42,6 +42,30 @@ const unlockFile = path.join(__dirname, 'unlocked-courses.json');
 function readUnlocks() { try { return JSON.parse(fs.readFileSync(unlockFile, 'utf8')); } catch { return {}; } }
 function saveUnlocks(data) { fs.writeFileSync(unlockFile, JSON.stringify(data, null, 2)); }
 
+async function hasActiveCoursePurchase(userId, courseId) {
+  try {
+    const { data, error } = await supabase
+      .from('course_purchases')
+      .select('purchase_date, expires_at, validity_months')
+      .eq('user_id', userId)
+      .eq('course_id', courseId);
+
+    if (error) throw error;
+
+    return (data || []).some(row => isCourseActive({
+      purchaseDate: row.purchase_date,
+      unlockedAt: row.purchase_date,
+      expiresAt: row.expires_at,
+      validityMonths: row.validity_months || 6
+    }));
+  } catch (error) {
+    console.error('Supabase purchase verification failed:', error.message);
+    const unlocks = readUnlocks();
+    const courses = (unlocks[userId] && unlocks[userId].courses) || {};
+    return isCourseActive(courses[courseId]);
+  }
+}
+
 async function saveCoursePurchaseToSupabase(userId, courseId, purchase) {
   const { error } = await supabase
     .from('course_purchases')
@@ -887,9 +911,7 @@ app.get('/general-awareness/folders', async (req, res) => {
       return res.status(401).json({ error: 'Please log in to access General Awareness folders.' });
     }
 
-    const unlocks = readUnlocks();
-    const courses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
-    if (!isCourseActive(courses['ssc-general-awareness'])) {
+    if (!(await hasActiveCoursePurchase(user.uid, 'ssc-general-awareness'))) {
       return res.status(403).json({ error: 'Purchase the General Awareness course to access these folders.' });
     }
 
@@ -917,9 +939,7 @@ app.get('/general-awareness/topic-files', async (req, res) => {
       return res.status(401).json({ error: 'Please log in to access General Awareness PDFs.' });
     }
 
-    const unlocks = readUnlocks();
-    const courses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
-    if (!isCourseActive(courses['ssc-general-awareness'])) {
+    if (!(await hasActiveCoursePurchase(user.uid, 'ssc-general-awareness'))) {
       return res.status(403).json({ error: 'Purchase the General Awareness course to access these PDFs.' });
     }
 
@@ -968,9 +988,7 @@ app.get('/general-awareness/topic-pdf-url', async (req, res) => {
       return res.status(401).json({ error: 'Please log in to access General Awareness PDFs.' });
     }
 
-    const unlocks = readUnlocks();
-    const courses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
-    if (!isCourseActive(courses['ssc-general-awareness'])) {
+    if (!(await hasActiveCoursePurchase(user.uid, 'ssc-general-awareness'))) {
       return res.status(403).json({
         error: 'Purchase the General Awareness course to access these PDFs.'
       });
