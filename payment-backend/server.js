@@ -835,12 +835,11 @@ app.get('/english/articles-full-url', async (req, res) => {
   try {
     const user = await getAuthenticatedUser(req);
     if (!user) return res.status(401).json({ error: 'Please log in to access the full PDF.' });
-    const unlocks = readUnlocks();
-    const courses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
-    const eligible = isCourseActive(courses['ssc-english-foundation']) ||
-      isCourseActive(courses['ssc-reasoning-masterclass']) ||
-      isCourseActive(courses['ssc-general-awareness']) ||
-      isCourseActive(courses['english-articles-pdf']);
+    const eligible =
+      (await hasActiveCoursePurchase(user.uid, 'ssc-english-foundation')) ||
+      (await hasActiveCoursePurchase(user.uid, 'ssc-reasoning-masterclass')) ||
+      (await hasActiveCoursePurchase(user.uid, 'ssc-general-awareness')) ||
+      (await hasActiveCoursePurchase(user.uid, 'english-articles-pdf'));
     if (!eligible) return res.status(403).json({ error: 'Full PDF requires an eligible course purchase or Articles PDF purchase.' });
     const result = await supabase.storage.from('English -pdfs').createSignedUrl('Articles/Articles notes.pdf', 60);
     if (result.error) throw result.error;
@@ -877,12 +876,11 @@ app.get('/english/topic-pdf-url', async (req, res) => {
       return res.status(404).json({ error: 'No matching PDF is available for this topic yet.' });
     }
 
-    const unlocks = readUnlocks();
-    const courses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
-    const eligible = isCourseActive(courses['ssc-english-foundation']) ||
-      isCourseActive(courses['ssc-reasoning-masterclass']) ||
-      isCourseActive(courses['ssc-general-awareness']) ||
-      isCourseActive(courses['english-articles-pdf']);
+    const eligible =
+      (await hasActiveCoursePurchase(user.uid, 'ssc-english-foundation')) ||
+      (await hasActiveCoursePurchase(user.uid, 'ssc-reasoning-masterclass')) ||
+      (await hasActiveCoursePurchase(user.uid, 'ssc-general-awareness')) ||
+      (await hasActiveCoursePurchase(user.uid, 'english-articles-pdf'));
 
     if (!eligible) {
       return res.status(403).json({
