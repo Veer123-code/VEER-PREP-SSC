@@ -1818,14 +1818,14 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
     <View style={[styles.app, {backgroundColor:pageBg}]}>
       <StatusBar barStyle="light-content" backgroundColor={BLUE} />
 
-      <View style={{backgroundColor:'#F3EEFF',paddingTop:12,paddingHorizontal:14,paddingBottom:14,borderBottomWidth:1,borderBottomColor:'#E2D6FF'}}>
+      <View style={{backgroundColor:darkMode?'#0B1730':'#F3EEFF',paddingTop:12,paddingHorizontal:14,paddingBottom:14,borderBottomWidth:1,borderBottomColor:darkMode?'#263858':'#E2D6FF'}}>
         <View style={{flexDirection:'row',alignItems:'center',minHeight:54}}>
           <TouchableOpacity
             onPress={() => setMenuOpen(v => !v)}
             activeOpacity={0.75}
-            style={{width:46,height:46,alignItems:'center',justifyContent:'center',borderRadius:15,backgroundColor:'#E9DEFF',borderWidth:0,borderColor:'transparent',marginRight:11}}
+            style={{width:46,height:46,alignItems:'center',justifyContent:'center',borderRadius:15,backgroundColor:darkMode?'#1A2A49':'#E9DEFF',borderWidth:1,borderColor:darkMode?'#34496C':'#D8C8FF',marginRight:11}}
           >
-            <Text style={{fontSize:25,color:'#35245C',fontWeight:'700'}}>{menuOpen ? '✕' : '☰'}</Text>
+            <Feather name={menuOpen ? 'x' : 'menu'} size={24} color={darkMode?'#FFFFFF':'#35245C'} />
           </TouchableOpacity>
 
           <View style={{flex:1}}>
@@ -1881,26 +1881,25 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
       {menuOpen && (
         <View style={{
-          backgroundColor:darkMode?'#06142D':'#FFFFFF',
-          marginHorizontal:12,marginTop:2,marginBottom:8,
-          borderRadius:22,padding:14,
-          borderWidth:1.5,borderColor:darkMode?'#237BFF':'#B9D2FF',
-          elevation:9,shadowColor:'#1677FF',shadowOpacity:0.22,
-          shadowRadius:12,shadowOffset:{width:0,height:5}
+          backgroundColor:darkMode?'#101B32':'#FFFFFF',
+          marginHorizontal:12,marginTop:8,marginBottom:10,
+          borderRadius:22,padding:15,
+          borderWidth:1,borderColor:darkMode?'#293B5B':'#E2D6FF',
+          elevation:5,shadowColor:'#6D5BA6',shadowOpacity:0.12,
+          shadowRadius:10,shadowOffset:{width:0,height:4}
         }}>
           <View style={{flexDirection:'row',alignItems:'center',marginBottom:15}}>
             <View style={{
               width:58,height:58,borderRadius:29,
-              backgroundColor:darkMode?'#102C59':'#E8F1FF',
-              borderWidth:2,borderColor:'#2785FF',
+              backgroundColor:darkMode?'#263254':'#E9DEFF',
+              borderWidth:2,borderColor:darkMode?'#5B6594':'#C9B6FF',
               alignItems:'center',justifyContent:'center',marginRight:12
             }}>
-              <Text style={{fontSize:29,fontWeight:'900',color:'#4DA2FF'}}>V</Text>
-              <Text style={{position:'absolute',top:1,right:4,fontSize:12}}>🎓</Text>
+              <Feather name="book-open" size={27} color={darkMode?'#D8CCFF':'#6741A5'} />
             </View>
             <View style={{flex:1}}>
-              <Text style={{fontSize:10,fontWeight:'900',color:'#3995FF',letterSpacing:1.4}}>{t('WELCOME TO', 'స్వాగతం')}</Text>
-              <Text numberOfLines={1} style={{fontSize:17,fontWeight:'900',color:darkMode?'#FFFFFF':'#10264A',letterSpacing:2}}>{(auth.currentUser?.displayName?.trim() || auth.currentUser?.email?.split('@')[0] || 'Student').toUpperCase().split('').join(' ')}</Text>
+              <Text style={{fontSize:10,fontWeight:'900',color:darkMode?'#C5B3FF':'#7952C7',letterSpacing:1.4}}>{t('WELCOME TO', 'స్వాగతం')}</Text>
+              <Text numberOfLines={1} style={{fontSize:17,fontWeight:'900',color:darkMode?'#FFFFFF':'#35245C',letterSpacing:1}}>{(auth.currentUser?.displayName?.trim() || auth.currentUser?.email?.split('@')[0] || 'Student').toUpperCase().split('').join(' ')}</Text>
               <Text style={{fontSize:11,color:darkMode?'#B7C9E8':'#61738F',marginTop:3}}>{t('Prepare  •  Practice  •  Succeed', 'సిద్ధం అవ్వండి  •  సాధన చేయండి  •  విజయం సాధించండి')}</Text>
             </View>
             <TouchableOpacity onPress={() => setMenuOpen(false)} style={{
@@ -1917,9 +1916,9 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             <View key={section.title} style={{marginBottom: index===0?10:4}}>
               <Text style={{
                 fontSize:11,fontWeight:'900',letterSpacing:1.3,
-                color:'#25BFFF',marginBottom:8,marginLeft:4
+                color:darkMode?'#C5B3FF':'#7952C7',marginBottom:8,marginLeft:4
               }}>{section.title}</Text>
-              {section.items.map(([name,symbol]) => {
+              {section.items.map(([name,symbol,iconColor]) => {
                 const destination = ['Mock Tests','Previous Year Papers'].includes(name)
                   ? 'Mock Test Folders'
                   : ['My Purchases','Paid Courses','Free Courses'].includes(name)
@@ -1937,45 +1936,28 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                       paddingVertical:12,paddingHorizontal:11,
                       borderRadius:13,marginBottom:4,
                       backgroundColor:active
-                        ? (darkMode?'#124BB5':'#E5EFFF')
+                        ? (darkMode?'#30254F':'#F0E9FF')
                         : 'transparent',
                       borderWidth:active?1.2:1,
-                      borderColor:active?'#278BFF':'transparent'
+                      borderColor:active?(darkMode?'#7962B5':'#D2C0FF'):'transparent'
                     }}>
                     <View style={{
                       width:35,height:35,borderRadius:11,
                       alignItems:'center',justifyContent:'center',
                       backgroundColor:active
-                        ? (darkMode?'#1768E8':'#C9DEFF')
+                        ? (darkMode?'#45376C':'#E2D6FF')
                         : (darkMode?'#18345C':'#E4EDFA'),
                       borderWidth:1,
                       borderColor:'transparent',
                       marginRight:11
                     }}>
-                      <Text style={{
-                        fontSize:18,
-                        color: name==='Paid Courses'?'#D9A52E':
-                          (darkMode?'#FFFFFF':'#163D78')
-                      }}>{symbol}</Text>
+                      <Feather name={symbol} size={20} color={iconColor || (darkMode?'#FFFFFF':'#163D78')} />
                     </View>
                     <Text style={{
                       flex:1,fontSize:14,fontWeight:active?'900':'700',
                       color:active?(darkMode?'#FFFFFF':'#12366B'):(darkMode?'#E4EDFF':'#183153')
                     }}>{t(name, ({Home:'హోమ్','My Courses':'నా కోర్సులు','Live Classes':'లైవ్ తరగతులు',Downloads:'డౌన్‌లోడ్స్'})[name] || name)}</Text>
-                    <View style={{
-                      width:30,height:30,borderRadius:10,
-                      alignItems:'center',justifyContent:'center',
-                      backgroundColor:active
-                        ? (darkMode?'#2879F5':'#D1E3FF')
-                        : (darkMode?'#102441':'#F0F5FC'),
-                      borderWidth:1,
-                      borderColor:'transparent'
-                    }}>
-                      <Text style={{
-                        fontSize:21,fontWeight:'900',
-                        color:active?(darkMode?'#FFFFFF':'#16458A'):(darkMode?'#C5DCFF':'#315784')
-                      }}>→</Text>
-                    </View>
+                    <Feather name="chevron-right" size={20} color={darkMode?'#A9B8D4':'#8B82A6'} />
                   </TouchableOpacity>
                 );
               })}
@@ -1994,10 +1976,10 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           <View style={{padding:12,marginBottom:14,borderRadius:15,backgroundColor:darkMode?'#102441':'#F0F5FC',borderWidth:1,borderColor:darkMode?'#29446E':'#DCE7F7'}}>
             <Text style={{fontSize:13,fontWeight:'800',color:darkMode?'#FFFFFF':'#173B70',marginBottom:9}}>{t('Language','భాష')}</Text>
             <View style={{flexDirection:'row',gap:8}}>
-              <TouchableOpacity onPress={() => changeLanguage('en')} style={{flex:1,alignItems:'center',paddingVertical:10,borderRadius:10,backgroundColor:language==='en'?'#173B83':'transparent',borderWidth:1,borderColor:language==='en'?'#278BFF':'#94A3B8'}}>
+              <TouchableOpacity onPress={() => changeLanguage('en')} style={{flex:1,alignItems:'center',paddingVertical:10,borderRadius:10,backgroundColor:language==='en'?'#7952C7':'transparent',borderWidth:1,borderColor:language==='en'?'#7952C7':(darkMode?'#40516F':'#D8C8FF')}}>
                 <Text style={{fontSize:13,fontWeight:'800',color:language==='en'?'#FFFFFF':(darkMode?'#E4EDFF':'#183153')}}>English</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => changeLanguage('te')} style={{flex:1,alignItems:'center',paddingVertical:10,borderRadius:10,backgroundColor:language==='te'?'#173B83':'transparent',borderWidth:1,borderColor:language==='te'?'#278BFF':'#94A3B8'}}>
+              <TouchableOpacity onPress={() => changeLanguage('te')} style={{flex:1,alignItems:'center',paddingVertical:10,borderRadius:10,backgroundColor:language==='te'?'#7952C7':'transparent',borderWidth:1,borderColor:language==='te'?'#7952C7':(darkMode?'#40516F':'#D8C8FF')}}>
                 <Text style={{fontSize:13,fontWeight:'800',color:language==='te'?'#FFFFFF':(darkMode?'#E4EDFF':'#183153')}}>తెలుగు</Text>
               </TouchableOpacity>
             </View>
