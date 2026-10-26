@@ -967,6 +967,59 @@ app.get('/english/topic-pdf-url', async (req, res) => {
 });
 
 
+
+app.get('/mathematics/topic-pdf-url', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Please log in to view Mathematics study material.' });
+    }
+
+    const topicFiles = {
+      'Profit & Loss': 'Arithmetic/Profit_and_Loss.pdf',
+      'Percentage': 'Arithmetic/PercentageS.pdf',
+      'Time & Work': 'Arithmetic/Time_and_Work.pdf',
+      'Discount': 'Arithmetic/Discount.pdf',
+      'Partnership': 'Arithmetic/Partnership.pdf',
+      'Simple Interest': 'Arithmetic/Simple_interest.pdf',
+      'Average': 'Arithmetic/AVERAGES.pdf',
+      'Boats & Streams': 'Arithmetic/BOATS AND STREMS .pdf',
+      'Ages': 'Arithmetic/Ages_RAM_NAYAK.pdf',
+      'Chain Rule': 'Arithmetic/CHAIN RULE .pdf',
+      'Problems on Trains': 'Arithmetic/Problems_on_Trains.pdf',
+      'Ratio & Proportion': 'Arithmetic/Ratio_and_Proportion.pdf',
+      'Pipes & Cisterns': 'Arithmetic/Pipes_and_Cisterns (1).pdf'
+    };
+
+    const filePath = topicFiles[req.query.topic];
+    if (!filePath) {
+      return res.status(404).json({ error: 'No Mathematics PDF is available for this topic yet.' });
+    }
+
+    const eligible =
+      (await hasActiveCoursePurchase(user.uid, 'ssc-mathematics')) ||
+      (await hasActiveCoursePurchase(user.uid, 'ssc-all-subjects-pack'));
+
+    if (!eligible) {
+      return res.status(403).json({
+        error: 'Purchase the SSC Mathematics course to access these PDFs.'
+      });
+    }
+
+    const result = await supabase.storage
+      .from('Mathematics-pdfs')
+      .createSignedUrl(filePath, 60);
+
+    if (result.error) throw result.error;
+
+    return res.json({ url: result.data.signedUrl, expiresIn: 60 });
+  } catch (error) {
+    console.error('Mathematics PDF access failed:', error.message);
+    return res.status(500).json({ error: 'Could not open this Mathematics PDF.' });
+  }
+});
+
+
 app.get('/general-awareness/folders', async (req, res) => {
   try {
     const user = await getAuthenticatedUser(req);
