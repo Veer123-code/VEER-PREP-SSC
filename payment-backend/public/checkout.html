@@ -1,106 +1,215 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>STUDY WITH VEER - Checkout</title>
-+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f3eeff">
+<title>STUDY WITH VEER - Secure Checkout</title>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#172554;background:linear-gradient(145deg,#f3eeff,#f7faff 55%,#e7f5ff);min-height:100vh;padding:24px 16px;display:flex;justify-content:center;align-items:center}
+.wrap{width:100%;max-width:440px}
+.brand{text-align:center;margin-bottom:22px}
+.logo{width:76px;height:76px;object-fit:contain;border-radius:20px;background:#fff;padding:5px;box-shadow:0 8px 24px #243e8018}
+.brand h1{font-size:21px;letter-spacing:1.3px;margin:12px 0 5px;color:#173b83}
+.brand p{margin:0;color:#64748b;font-size:13px}
+.card{background:#fff;border:1px solid #e5eaf5;border-radius:25px;padding:24px;box-shadow:0 18px 55px rgba(39,57,112,.11)}
+.tag{display:inline-flex;align-items:center;gap:7px;border-radius:30px;background:#eefbf4;color:#147747;padding:8px 11px;font-size:11px;font-weight:700}
+.dot{width:7px;height:7px;background:#16a36a;border-radius:50%}
+h2{font-size:22px;line-height:1.3;margin:17px 0 7px;color:#172554}
+.sub{font-size:13px;color:#718096;line-height:1.6;margin:0}
+.course{display:flex;align-items:center;gap:13px;margin:23px 0 20px;padding:14px;border:1px solid #e8eaf5;border-radius:17px;background:#fafaff}
+.course img{width:54px;height:54px;object-fit:contain;border-radius:13px;background:white}
+.course-name{font-weight:700;font-size:14px;line-height:1.4}
+.course-sub{font-size:12px;color:#718096;margin-top:5px}
+.line{height:1px;background:#edf0f7;margin:18px 0}
+.summary{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;color:#64748b}
+.summary strong{color:#172554}
+.total{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
+.total span{font-size:14px;font-weight:700;color:#334155}
+.total strong{font-size:28px;color:#173b83}
+#pay{width:100%;margin-top:22px;border:0;border-radius:15px;padding:17px 15px;color:#fff;font-size:16px;font-weight:700;cursor:pointer;position:relative;overflow:hidden;isolation:isolate;background:linear-gradient(105deg,#173b83 0%,#2457d6 35%,#6d45e8 65%,#087eca 100%);background-size:250% 100%;animation:payColorFlow 4s ease-in-out infinite;box-shadow:0 9px 23px rgba(36,87,214,.28)}
+#pay .pay-shine{position:absolute;top:-30%;left:-55%;width:38%;height:160%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),rgba(255,255,255,.72),rgba(255,255,255,.15),transparent);transform:skewX(-22deg);pointer-events:none;z-index:0;animation:payColorSwipe 2.4s ease-in-out infinite}
+#pay .pay-label,#pay .arrow{position:relative;z-index:1}
+#pay .arrow{display:inline-block;margin-left:8px}
+#pay:disabled{opacity:.65;cursor:wait;animation:none}
+#status{min-height:20px;text-align:center;font-size:12px;line-height:1.5;color:#53627b;margin:13px 0 0;overflow-wrap:anywhere}
+.secure{display:flex;justify-content:center;align-items:center;gap:7px;margin:19px 0 0;color:#718096;font-size:11px}
+.footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:17px}
+@keyframes payColorFlow{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@keyframes payColorSwipe{0%{left:-55%}70%,100%{left:125%}}
+@media(prefers-reduced-motion:reduce){#pay{animation:none;background:#2457d6}#pay .pay-shine{animation:none;display:none}}
+@media(max-width:380px){body{padding:18px 12px}.card{padding:20px}.total strong{font-size:25px}}
+</style>
 </head>
-<body style="font-family:Arial,sans-serif;padding:24px;text-align:center">
-  <h2>STUDY WITH VEER</h2>
-  <p>Secure Course Checkout</p>
-  <button id="pay" style="padding:14px 24px;font-size:16px">Continue to Payment</button>
-  <p id="status"></p>
+<body>
+<main class="wrap">
+  <header class="brand">
+    <img class="logo" src="/slide2.png" alt="STUDY WITH VEER logo">
+    <h1>STUDY WITH VEER</h1>
+    <p>Your learning journey starts here</p>
+  </header>
 
-  <script>
-    const statusEl = document.getElementById('status');
-    const button = document.getElementById('pay');
-    const params = new URLSearchParams(location.hash.slice(1));
-    const sessionToken = params.get('session');
+  <section class="card">
+    <span class="tag"><span class="dot"></span> SECURE CHECKOUT</span>
+    <h2>Complete your purchase</h2>
+    <p class="sub">Review your course and continue to secure payment.</p>
 
-    // Remove the session token from the visible URL after reading it.
-    history.replaceState(null, '', location.pathname + location.search);
+    <div class="course">
+      <img src="/slide2.png" alt="">
+      <div>
+        <div class="course-name" id="courseName">Your selected course</div>
+        <div class="course-sub">Digital course access</div>
+      </div>
+    </div>
 
-    button.onclick = async () => {
-      if (!sessionToken) {
-        statusEl.textContent = 'Checkout session missing. Please return to the app and try again.';
-        return;
+    <div class="summary"><span>Course price</span><strong id="price">Shown securely at checkout</strong></div>
+    <div class="line"></div>
+    <div class="total"><span>Total to pay</span><strong id="total">—</strong></div>
+
+    <button id="pay" type="button">
+      <span class="pay-shine"></span>
+      <span class="pay-label">Continue to Payment</span><span class="arrow">→</span>
+    </button>
+    <p id="status" role="status" aria-live="polite"></p>
+    <div class="secure"><span>🔒</span> Secure payment powered by Razorpay</div>
+  </section>
+  <footer class="footer">Please do not close the page while payment is being verified.</footer>
+</main>
+
+<script>
+(() => {
+  const statusEl = document.getElementById('status');
+  const button = document.getElementById('pay');
+  const courseNameEl = document.getElementById('courseName');
+  const priceEl = document.getElementById('price');
+  const totalEl = document.getElementById('total');
+  const params = new URLSearchParams(location.hash.slice(1));
+  const sessionToken = params.get('session');
+
+  // Keep the session token in memory, not in the visible URL.
+  history.replaceState(null, '', location.pathname + location.search);
+
+  const names = {
+    'ssc-reasoning-masterclass': 'SSC Reasoning Masterclass',
+    'ssc-general-awareness': 'SSC General Awareness',
+    'english-articles-pdf': 'English Articles PDF',
+    'ssc-mathematics': 'SSC Mathematics',
+    'ssc-english-foundation': 'SSC English Foundation'
+  };
+
+  function formatPrice(amount, currency) {
+    try {
+      return new Intl.NumberFormat('en-IN', {
+        style: 'currency', currency: currency || 'INR',
+        maximumFractionDigits: 2
+      }).format(amount);
+    } catch {
+      return (currency || 'INR') + ' ' + amount;
+    }
+  }
+
+  async function startCheckout() {
+    if (!sessionToken) {
+      statusEl.textContent = 'Checkout session missing. Please return to the app and try again.';
+      return;
+    }
+    if (typeof Razorpay === 'undefined') {
+      statusEl.textContent = 'Secure payment could not load. Check your internet and try again.';
+      return;
+    }
+
+    button.disabled = true;
+    statusEl.textContent = 'Preparing secure checkout...';
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Checkout-Session': sessionToken
+    };
+
+    try {
+      const infoResponse = await fetch('/checkout-session-info', {
+        headers: { 'X-Checkout-Session': sessionToken }
+      });
+      const info = await infoResponse.json();
+      if (!infoResponse.ok || !info.courseId) {
+        throw new Error(info.error || 'Checkout session expired. Return to the app and try again.');
       }
 
-      button.disabled = true;
-      statusEl.textContent = 'Preparing secure checkout...';
+      courseNameEl.textContent = names[info.courseId] || info.courseName || 'Selected course';
+      statusEl.textContent = 'Creating secure order...';
 
-      const headers = {
-        'Content-Type': 'application/json',
-        'X-Checkout-Session': sessionToken
-      };
+      const response = await fetch('/create-order', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ courseId: info.courseId })
+      });
+      const order = await response.json();
+      if (!response.ok || !order.orderId) {
+        throw new Error(order.error || 'Order creation failed.');
+      }
 
-      try {
-        const infoResponse = await fetch('/checkout-session-info', {
-          headers: { 'X-Checkout-Session': sessionToken }
-        });
-        const info = await infoResponse.json();
-        if (!infoResponse.ok || !info.courseId) {
-          throw new Error(info.error || 'Checkout session expired. Return to the app and try again.');
-        }
+      const currency = order.currency || 'INR';
+      const amount = Number(order.amount);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error('The server returned an invalid order amount.');
+      }
+      const displayAmount = formatPrice(amount / 100, currency);
+      priceEl.textContent = displayAmount;
+      totalEl.textContent = displayAmount;
 
-        statusEl.textContent = 'Creating order...';
-        const response = await fetch('/create-order', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ courseId: info.courseId })
-        });
-        const order = await response.json();
-        if (!response.ok || !order.orderId) {
-          throw new Error(order.error || 'Order creation failed.');
-        }
-
-        const checkout = new Razorpay({
-          key: order.keyId,
-          amount: order.amount,
-          currency: order.currency,
-          name: 'STUDY WITH VEER',
-          description: 'Course purchase',
-          order_id: order.orderId,
-          handler: async function (result) {
-            statusEl.textContent = 'Verifying payment...';
-            try {
-              const verification = await fetch('/verify-payment', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(result)
-              });
-              const data = await verification.json();
-              if (data.verified && data.unlocked) {
-                statusEl.textContent = 'Payment verified. Returning to STUDY WITH VEER...';
-                setTimeout(() => { location.href = 'studywithveer://payment-success'; }, 700);
-              } else {
-                statusEl.textContent = data.error || 'Payment verification failed. Do not treat this as paid.';
-              }
-            } catch {
-              statusEl.textContent = 'Could not verify payment. Please contact support before retrying.';
-            }
-          },
-          modal: {
-            ondismiss: () => {
-              statusEl.textContent = 'Checkout closed. Payment is not confirmed.';
+      const checkout = new Razorpay({
+        key: order.keyId,
+        amount: order.amount,
+        currency,
+        name: 'STUDY WITH VEER',
+        description: courseNameEl.textContent,
+        order_id: order.orderId,
+        handler: async function(result) {
+          statusEl.textContent = 'Verifying payment securely...';
+          try {
+            const verification = await fetch('/verify-payment', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify(result)
+            });
+            const data = await verification.json();
+            if (verification.ok && data.verified && data.unlocked) {
+              statusEl.textContent = 'Payment verified! Returning to STUDY WITH VEER...';
+              setTimeout(() => { location.href = 'studywithveer://payment-success'; }, 700);
+            } else {
+              statusEl.textContent = data.error || 'Payment verification failed. Do not treat this as paid.';
               button.disabled = false;
             }
-          },
-          theme: { color: '#123A70' }
-        });
+          } catch {
+            statusEl.textContent = 'Could not verify payment. Please contact support before retrying.';
+            button.disabled = false;
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            statusEl.textContent = 'Checkout closed. Payment is not confirmed.';
+            button.disabled = false;
+          }
+        },
+        theme: { color: '#2457D6' }
+      });
 
-        checkout.on('payment.failed', () => {
-          statusEl.textContent = 'Payment failed. Please try again.';
-          button.disabled = false;
-        });
-        checkout.open();
-      } catch (error) {
-        statusEl.textContent = error.message || 'Could not start checkout.';
+      checkout.on('payment.failed', () => {
+        statusEl.textContent = 'Payment failed. Please try again.';
         button.disabled = false;
-      }
-    };
-  </script>
+      });
+      statusEl.textContent = 'Opening secure payment...';
+      checkout.open();
+    } catch (error) {
+      statusEl.textContent = error.message || 'Could not start checkout.';
+      button.disabled = false;
+    }
+  }
+
+  button.addEventListener('click', startCheckout);
+})();
+</script>
 </body>
 </html>
