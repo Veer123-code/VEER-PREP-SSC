@@ -1020,6 +1020,53 @@ app.get('/mathematics/topic-pdf-url', async (req, res) => {
 });
 
 
+app.get('/reasoning/topic-pdf-url', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Please log in to view Reasoning study material.' });
+    }
+
+    const topicFiles = {
+      'Analogy': 'Analogy/Analogy.pdf',
+      'Blood Relations': 'Blood Relations/Blood relation.pdf',
+      'Calendar': 'Calendar/Calendar .pdf',
+      'Coding and Decoding': 'Coding and Decoding/Coding - decoding.pdf',
+      'Dice': 'Dice/Dice.pdf',
+      'Directions': 'Directions/Directions.pdf',
+      'Seating Arrangement': 'Seating Arrangement/Seating arrangement.pdf',
+      'Venn Diagram': 'Venn Diagram/Venn diagram.pdf'
+    };
+
+    const filePath = topicFiles[req.query.topic];
+    if (!filePath) {
+      return res.status(404).json({ error: 'No Reasoning PDF is available for this topic yet.' });
+    }
+
+    const eligible =
+      (await hasActiveCoursePurchase(user.uid, 'ssc-reasoning-masterclass')) ||
+      (await hasActiveCoursePurchase(user.uid, 'ssc-all-subjects-pack'));
+
+    if (!eligible) {
+      return res.status(403).json({
+        error: 'Purchase the SSC Reasoning course to access these PDFs.'
+      });
+    }
+
+    const result = await supabase.storage
+      .from('Reasoning-pdfs')
+      .createSignedUrl(filePath, 60);
+
+    if (result.error) throw result.error;
+
+    return res.json({ url: result.data.signedUrl, expiresIn: 60 });
+  } catch (error) {
+    console.error('Reasoning PDF access failed:', error.message);
+    return res.status(500).json({ error: 'Could not open this Reasoning PDF.' });
+  }
+});
+
+
 app.get('/general-awareness/folders', async (req, res) => {
   try {
     const user = await getAuthenticatedUser(req);
