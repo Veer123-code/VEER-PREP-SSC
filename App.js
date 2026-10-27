@@ -398,6 +398,13 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         text-align: center !important;
         text-shadow: 0 0 5px #fff !important;
       }
+      @keyframes veerButtonColorFlow {
+        0%,100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .veer-space-btn { animation: none !important; }
+      }
       @keyframes veer-stars {
         from { background-position: 0 0; }
         to { background-position: 120px -120px; }
@@ -905,6 +912,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   const [quantQuestion, setQuantQuestion] = useState(0);
   const [quantAnswers, setQuantAnswers] = useState({});
   const [quantFinished, setQuantFinished] = useState(false);
+  const [quantResultSaved, setQuantResultSaved] = useState(false);
 
 
   useEffect(() => {
@@ -1261,7 +1269,6 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
       {q:'Largest ocean:',options:['Atlantic','Indian','Arctic','Pacific'],answer:3,explanation:'తెలుగు వివరణ: Pacific Ocean ప్రపంచంలోనే అతిపెద్ద మహాసముద్రం.\nMemory Trick: Largest Ocean → Pacific.'}
     ]
   };
-  const questions = questionBank[currentSubject] || questionBank['Mathematics'];
   const quantTopics = [
     'Number System','Simplification','Percentage','Ratio & Proportion',
     'Average','Profit & Loss','Discount','Simple Interest',
@@ -1271,20 +1278,1012 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   ];
 
   const quantBank = {
+    'Reasoning: Analogy': [
+      {q:'Book is to Reading as Fork is to ____.',options:['Drawing','Writing','Eating','Sleeping'],answer:2,explanation:'English: A book is used for reading; a fork is used for eating. Telugu: పుస్తకాన్ని చదవడానికి, ఫోర్క్‌ను తినడానికి ఉపయోగిస్తారు.'},
+      {q:'Bird : Nest :: Bee : ?',options:['Cave','Hive','Stable','Web'],answer:1,explanation:'English: A nest is a bird’s home; a hive is a bee’s home. Telugu: పక్షి గూడు లో ఉంటుంది; తేనెటీగ తేనెపెట్టెలో ఉంటుంది.'},
+      {q:'Doctor : Hospital :: Teacher : ?',options:['Court','School','Farm','Bank'],answer:1,explanation:'English: A doctor commonly works in a hospital; a teacher works in a school. Telugu: వైద్యుడు ఆసుపత్రిలో, ఉపాధ్యాయుడు పాఠశాలలో పనిచేస్తారు.'},
+      {q:'Puppy : Dog :: Kitten : ?',options:['Cow','Cat','Goat','Horse'],answer:1,explanation:'English: Puppy is a young dog; kitten is a young cat. Telugu: Puppy అంటే కుక్క పిల్ల; Kitten అంటే పిల్లి పిల్ల.'},
+      {q:'2 : 4 :: 5 : ?',options:['10','15','20','25'],answer:0,explanation:'English: The second number is twice the first: 2×2=4, so 5×2=10. Telugu: రెండో సంఖ్య మొదటి సంఖ్యకు రెండింతలు. 5×2=10.'},
+      {q:'Hand : Glove :: Foot : ?',options:['Cap','Sock','Shirt','Belt'],answer:1,explanation:'English: A glove covers a hand; a sock covers a foot. Telugu: గ్లౌవ్ చేతికి, సాక్ పాదానికి ధరిస్తారు.'},
+      {q:'India : Rupee :: Japan : ?',options:['Dollar','Euro','Yen','Pound'],answer:2,explanation:'English: Rupee is India’s currency; Yen is Japan’s currency. Telugu: భారత కరెన్సీ రూపాయి; జపాన్ కరెన్సీ యెన్.'},
+      {q:'Eye : See :: Ear : ?',options:['Smell','Hear','Taste','Touch'],answer:1,explanation:'English: Eyes are used to see; ears are used to hear. Telugu: కళ్లతో చూస్తాం; చెవులతో వింటాం.'},
+      {q:'Monday : Tuesday :: Friday : ?',options:['Thursday','Saturday','Sunday','Wednesday'],answer:1,explanation:'English: Tuesday follows Monday; Saturday follows Friday. Telugu: సోమవారం తర్వాత మంగళవారం; శుక్రవారం తర్వాత శనివారం.'},
+      {q:'Triangle : 3 :: Pentagon : ?',options:['4','5','6','8'],answer:1,explanation:'English: A triangle has 3 sides; a pentagon has 5 sides. Telugu: త్రిభుజానికి 3 భుజాలు; పంచభుజానికి 5 భుజాలు.'}
+    ],
+    'Number System': [
+      {q:'Which is the smallest prime number?',options:['0','1','2','3'],answer:2,explanation:"Concept: A prime number has exactly two factors: 1 and itself.\nRule: 1 is not prime. The smallest prime is 2.\nCheck: Factors of 2 are 1 and 2. So it has exactly two factors.\nShortcut: 2 is the only even prime number.\nతెలుగు: ప్రధాన సంఖ్యకు 1 మరియు అదే సంఖ్య అనే రెండు కారణాంకాలు మాత్రమే ఉంటాయి. అతి చిన్న ప్రధాన సంఖ్య 2."},
+      {q:'Which of these is a natural number?',options:['-3','0.5','7','-1'],answer:2,explanation:"Concept: Natural numbers are counting numbers.\nFormula / Rule: N = {1, 2, 3, 4, ...}\nCheck options: -3 and -1 are negative; 0.5 is a fraction; 7 is a positive counting number.\nAnswer: 7.\nతెలుగు: లెక్కించడానికి ఉపయోగించే 1, 2, 3, 4... సహజ సంఖ్యలు. ఇచ్చిన వాటిలో 7 సరైనది."},
+      {q:'What is the HCF of 12 and 18?',options:['2','3','6','9'],answer:2,explanation:"Concept: HCF is the greatest number that divides both numbers exactly.\nMethod 1 — Factors:\n12: 1, 2, 3, 4, 6, 12\n18: 1, 2, 3, 6, 9, 18\nCommon factors: 1, 2, 3, 6. Greatest = 6.\nFormula: HCF × LCM = Product of the two numbers.\nతెలుగు: రెండు సంఖ్యలను శేషం లేకుండా భాగించే సాధారణ కారణాంకాలలో అతి పెద్దది HCF. కాబట్టి సమాధానం 6."},
+      {q:'What is the LCM of 4 and 6?',options:['8','10','12','24'],answer:2,explanation:"Concept: LCM is the smallest positive number divisible by both numbers.\nMultiples of 4: 4, 8, 12, 16, ...\nMultiples of 6: 6, 12, 18, ...\nFirst common multiple = 12.\nFormula: LCM = (First number × Second number) ÷ HCF.\nCalculation: (4 × 6) ÷ 2 = 12.\nతెలుగు: 4 మరియు 6 రెండింటితో శేషం లేకుండా భాగించబడే అతి చిన్న సంఖ్య 12."},
+      {q:'Which number is divisible by 3?',options:['124','235','417','502'],answer:2,explanation:"Rule: A number is divisible by 3 if the sum of its digits is divisible by 3.\nOption C: 417 → 4 + 1 + 7 = 12.\nCheck: 12 ÷ 3 = 4, with no remainder.\nOther options: 124 → 7; 235 → 10; 502 → 7. These digit sums are not divisible by 3.\nShortcut: Add the digits instead of dividing the entire number.\nతెలుగు: అంకెల మొత్తాన్ని 3తో భాగించగలిగితే ఆ సంఖ్య కూడా 3తో భాగించబడుతుంది. 417 అంకెల మొత్తం 12."},
+      {q:'What is the remainder when 29 is divided by 5?',options:['2','3','4','5'],answer:2,explanation:"Concept: Dividend = Divisor × Quotient + Remainder.\nFormula: Remainder = Dividend − (Divisor × Quotient).\nStep 1: 29 ÷ 5 gives quotient 5.\nStep 2: 5 × 5 = 25.\nStep 3: Remainder = 29 − 25 = 4.\nCorrect answer: Option C (4).\nతెలుగు: 29లో 5ను ఐదు సార్లు తీస్తే 25. మిగిలిన 29 − 25 = 4. కాబట్టి శేషం 4."},
+      {q:'Which of these is an even number?',options:['17','23','36','41'],answer:2,explanation:"Concept: An even integer is exactly divisible by 2.\nRule: Even number = 2 × an integer.\nCheck: 36 ÷ 2 = 18, remainder 0.\nThe other options 17, 23 and 41 are odd numbers.\nShortcut: Whole numbers ending in 0, 2, 4, 6 or 8 are even.\nతెలుగు: 2తో శేషం లేకుండా భాగించబడే పూర్ణసంఖ్య సరి సంఖ్య. 36 సరి సంఖ్య."},
+      {q:'What is the square of 15?',options:['125','200','225','250'],answer:2,explanation:"Concept: The square of a number is the number multiplied by itself.\nFormula: n² = n × n.\nMethod 1: 15² = 15 × 15 = 225.\nShortcut: (a + b)² = a² + 2ab + b².\nApply: 15² = (10 + 5)² = 100 + 100 + 25 = 225.\nతెలుగు: ఒక సంఖ్యను అదే సంఖ్యతో గుణిస్తే వర్గం వస్తుంది. 15² = 225."},
+      {q:'Which is the greatest number?',options:['0.7','0.07','0.77','0.707'],answer:2,explanation:"Concept: Write decimals with the same number of decimal places.\n0.7 = 0.700; 0.07 = 0.070; 0.77 = 0.770; 0.707 = 0.707.\nCompare: 0.770 is greater than 0.707, 0.700 and 0.070.\nAnswer: 0.77.\nShortcut: Add zeros to the right of decimals; the value does not change.\nతెలుగు: దశాంశ స్థానాలను సమానంగా రాసి పోల్చాలి. 0.770 అన్నింటికంటే పెద్దది."},
+      {q:'What is 2³ × 2²?',options:['16','24','32','64'],answer:2,explanation:"Concept: When multiplying powers with the same base, add their exponents.\nFormula: aᵐ × aⁿ = aᵐ⁺ⁿ.\nStep 1: 2³ × 2² = 2⁽³⁺²⁾ = 2⁵.\nStep 2: 2⁵ = 2 × 2 × 2 × 2 × 2 = 32.\nAdvanced rule: aᵐ ÷ aⁿ = aᵐ⁻ⁿ, for a non-zero base.\nతెలుగు: ఒకే ఆధారం ఉన్న ఘాతాలను గుణించినప్పుడు ఘాతాలను కలపాలి. 3 + 2 = 5; 2⁵ = 32."}
+    ],
     'Percentage': [
-      {q:'25% of 240 = ?',options:['40','50','60','80'],answer:2,explanation:'240 × 25/100 = 60.'},
-      {q:'40% of 350 = ?',options:['120','130','140','150'],answer:2,explanation:'350 × 40/100 = 140.'},
-      {q:'A number increases from 80 to 100. Percentage increase?',options:['20%','25%','30%','40%'],answer:1,explanation:'Increase = 20. Percentage = 20/80 × 100 = 25%.'},
-      {q:'15% of 600 = ?',options:['60','75','90','120'],answer:2,explanation:'600 × 15/100 = 90.'},
-      {q:'A student scores 360 out of 450. Percentage?',options:['70%','75%','80%','85%'],answer:2,explanation:'360/450 × 100 = 80%.'},
-      {q:'20% of a number is 50. Find the number.',options:['200','225','250','275'],answer:2,explanation:'Number = 50 × 100/20 = 250.'},
-      {q:'A price of ₹500 is reduced by 10%. New price?',options:['₹400','₹450','₹475','₹490'],answer:1,explanation:'Discount = ₹50; new price = ₹450.'},
-      {q:'What percentage of 80 is 20?',options:['20%','25%','30%','40%'],answer:1,explanation:'20/80 × 100 = 25%.'},
-      {q:'Population 2000 increases by 5%. New population?',options:['2050','2100','2150','2200'],answer:1,explanation:'5% of 2000 = 100; total = 2100.'},
-      {q:'A number decreases from 120 to 90. Percentage decrease?',options:['20%','25%','30%','35%'],answer:1,explanation:'Decrease = 30; 30/120 × 100 = 25%.'}
+      {q:'25% of 240 = ?',options:['40','50','60','80'],answer:2,explanation:"Concept: Percent means per hundred.\nFormula: x% of N = (x ÷ 100) × N.\nMethod 1: 25% of 240 = 25/100 × 240 = 60.\nShortcut: 25% = 1/4. So 240 ÷ 4 = 60.\nతెలుగు: శాతాన్ని సంఖ్యతో గుణించి 100తో భాగించాలి. 25% అంటే నాలుగో వంతు; 240 ÷ 4 = 60."},
+      {q:'40% of 350 = ?',options:['120','130','140','150'],answer:2,explanation:"Formula: x% of N = (x/100) × N.\nStep 1: 40% of 350 = 40/100 × 350.\nStep 2: 350 ÷ 10 = 35; 35 × 4 = 140.\nShortcut: 40% = 4/10, so 350 × 4 ÷ 10 = 140.\nతెలుగు: 350లో 10% = 35. కాబట్టి 40% = 35 × 4 = 140."},
+      {q:'A number increases from 80 to 100. Percentage increase?',options:['20%','25%','30%','40%'],answer:1,explanation:"Formula: Percentage increase = (Increase ÷ Original value) × 100.\nStep 1: Increase = 100 − 80 = 20.\nStep 2: Percentage increase = (20 ÷ 80) × 100.\nStep 3: = 0.25 × 100 = 25%.\nImportant: Always divide by the original value, not the final value.\nతెలుగు: పెరుగుదల 20. అసలు సంఖ్య 80 కాబట్టి (20 ÷ 80) × 100 = 25%."},
+      {q:'15% of 600 = ?',options:['60','75','90','120'],answer:2,explanation:"Formula: x% of N = (x/100) × N.\nMethod 1: 15/100 × 600 = 90.\nShortcut: 10% of 600 = 60; 5% = half of 10% = 30.\nTherefore 15% = 60 + 30 = 90.\nతెలుగు: 600లో 10% = 60; 5% = 30. రెండింటిని కలిపితే 15% = 90."},
+      {q:'A student scores 360 out of 450. Percentage?',options:['70%','75%','80%','85%'],answer:2,explanation:"Formula: Percentage = (Obtained marks ÷ Total marks) × 100.\nStep 1: Percentage = (360 ÷ 450) × 100.\nStep 2: Simplify 360/450 = 36/45 = 4/5.\nStep 3: (4/5) × 100 = 80%.\nShortcut: Simplify the fraction before multiplying by 100.\nతెలుగు: వచ్చిన మార్కులను మొత్తం మార్కులతో భాగించి 100తో గుణించాలి. 360/450 = 4/5; శాతం 80%."},
+      {q:'20% of a number is 50. Find the number.',options:['200','225','250','275'],answer:2,explanation:"Let the unknown number be x.\nFormula: (Percentage/100) × x = Given value.\nStep 1: (20/100) × x = 50.\nStep 2: x = 50 × 100/20.\nStep 3: x = 250.\nShortcut: If 20% = 50, then 10% = 25 and 100% = 25 × 10 = 250.\nతెలుగు: 20% విలువ 50 అయితే 10% విలువ 25. పూర్తి 100% విలువ 25 × 10 = 250."},
+      {q:'A price of ₹500 is reduced by 10%. New price?',options:['₹400','₹450','₹475','₹490'],answer:1,explanation:"Formula: Discount = Marked price × Discount rate/100.\nStep 1: Discount = 500 × 10/100 = ₹50.\nStep 2: New price = Original price − Discount.\nStep 3: New price = 500 − 50 = ₹450.\nShortcut: After a 10% reduction, 90% of the original price remains.\nCheck: 500 × 90/100 = ₹450.\nతెలుగు: ₹500లో 10% తగ్గింపు ₹50. కొత్త ధర = 500 − 50 = ₹450."},
+      {q:'What percentage of 80 is 20?',options:['20%','25%','30%','40%'],answer:1,explanation:"Formula: Percentage = (Part ÷ Whole) × 100.\nStep 1: Part = 20; Whole = 80.\nStep 2: Percentage = (20/80) × 100.\nStep 3: 20/80 = 1/4; 1/4 × 100 = 25%.\nShortcut: 20 is one-fourth of 80, and one-fourth equals 25%.\nతెలుగు: 80లో 20 నాలుగో వంతు. కాబట్టి శాతం 25%."},
+      {q:'Population 2000 increases by 5%. New population?',options:['2050','2100','2150','2200'],answer:1,explanation:"Formula: Increase = Original value × Rate/100.\nStep 1: Increase = 2000 × 5/100 = 100.\nStep 2: New population = Original population + Increase.\nStep 3: 2000 + 100 = 2100.\nShortcut: For a 5% increase, multiply the original value by 1.05.\nCheck: 2000 × 1.05 = 2100.\nతెలుగు: 2000లో 5% పెరుగుదల 100. కొత్త జనాభా = 2000 + 100 = 2100."},
+      {q:'A number decreases from 120 to 90. Percentage decrease?',options:['20%','25%','30%','35%'],answer:1,explanation:"Formula: Percentage decrease = (Decrease ÷ Original value) × 100.\nStep 1: Decrease = 120 − 90 = 30.\nStep 2: Percentage decrease = (30 ÷ 120) × 100.\nStep 3: 30/120 = 1/4; 1/4 × 100 = 25%.\nImportant: Use the original value (120) as the denominator.\nతెలుగు: తగ్గుదల 30. అసలు సంఖ్య 120. కాబట్టి (30 ÷ 120) × 100 = 25%."}
+    ],
+    "Simplification": [
+      {
+        "q": "Simplify: 18 + 6 ÷ 3 × 2",
+        "options": [
+          "16",
+          "20",
+          "22",
+          "24"
+        ],
+        "answer": 2,
+        "explanation": "Formula / Rule: BODMAS — division and multiplication before addition.\nStep 1: 6 ÷ 3 = 2.\nStep 2: 2 × 2 = 4.\nStep 3: 18 + 4 = 22. Correct option: C.\nతెలుగు: ముందుగా భాగహారం, గుణకారం; తర్వాత కూడిక. సమాధానం 22."
+      },
+      {
+        "q": "Simplify: 3/4 + 1/8",
+        "options": [
+          "4/12",
+          "5/8",
+          "7/8",
+          "1"
+        ],
+        "answer": 2,
+        "explanation": "Formula: a/b + c/d = (ad + bc)/bd.\nStep 1: 3/4 = 6/8.\nStep 2: 6/8 + 1/8 = 7/8.\nతెలుగు: హారాలు సమానం చేయాలి. 3/4 = 6/8; మొత్తం 7/8."
+      },
+      {
+        "q": "√144 + √25 = ?",
+        "options": [
+          "12",
+          "15",
+          "17",
+          "19"
+        ],
+        "answer": 1,
+        "explanation": "Rule: √a is the non-negative number whose square is a.\n√144 = 12 because 12² = 144.\n√25 = 5 because 5² = 25.\nTotal = 12 + 5 = 17. Correct option: C.\nతెలుగు: 144 వర్గమూలం 12; 25 వర్గమూలం 5. మొత్తం 17."
+      }
+    ,
+      {q:"Simplify: 24 ÷ 6 × 3",options:["2","4","12","18"],answer:2,explanation:"Left to right: 24 ÷ 6 = 4; 4 × 3 = 12. తెలుగు: భాగహారం, గుణకారం ఒకే ప్రాధాన్యత; ఎడమ నుంచి కుడికి చేయాలి."},
+      {q:"Simplify: 15 + 5 × 4",options:["80","35","60","20"],answer:1,explanation:"BODMAS: 5 × 4 = 20; 15 + 20 = 35. తెలుగు: ముందుగా గుణకారం చేయాలి."},
+      {q:"Simplify: (18 − 6) ÷ 3",options:["2","3","4","6"],answer:2,explanation:"Bracket first: 18 − 6 = 12; 12 ÷ 3 = 4. తెలుగు: ముందుగా కుండలిలోని లెక్క."},
+      {q:"Simplify: 7² − 5²",options:["12","24","14","49"],answer:1,explanation:"Squares: 49 − 25 = 24. తెలుగు: 7² = 49, 5² = 25; తేడా 24."},
+      {q:"Simplify: 36 ÷ (3 × 4)",options:["3","9","12","6"],answer:0,explanation:"Bracket: 3 × 4 = 12; 36 ÷ 12 = 3. తెలుగు: ముందుగా కుండలిలో గుణించాలి."},
+      {q:"Simplify: 8 + 24 ÷ 6",options:["12","5","4","16"],answer:0,explanation:"Division first: 24 ÷ 6 = 4; 8 + 4 = 12. తెలుగు: ముందుగా భాగహారం."},
+      {q:"Simplify: 5 × (9 − 3) ÷ 2",options:["10","12","15","30"],answer:2,explanation:"Bracket: 9 − 3 = 6; 5 × 6 ÷ 2 = 15. తెలుగు: కుండలి తర్వాత గుణకారం, భాగహారం ఎడమ నుంచి కుడికి."}
+    ],
+    "Ratio & Proportion": [
+      {
+        "q": "Simplify the ratio 24:36.",
+        "options": [
+          "2:3",
+          "3:2",
+          "4:5",
+          "6:9"
+        ],
+        "answer": 0,
+        "explanation": "Formula: Divide both terms by their HCF.\nHCF(24,36) = 12.\n24:36 = (24÷12):(36÷12) = 2:3.\nతెలుగు: రెండు భాగాలను 12తో భాగిస్తే సరళ నిష్పత్తి 2:3."
+      },
+      {
+        "q": "If 5 pens cost ₹60, what is the cost of 8 pens at the same rate?",
+        "options": [
+          "₹84",
+          "₹90",
+          "₹96",
+          "₹100"
+        ],
+        "answer": 2,
+        "explanation": "Formula: Unit cost = Total cost ÷ Quantity.\nOne pen = ₹60 ÷ 5 = ₹12.\nEight pens = 8 × ₹12 = ₹96.\nతెలుగు: ఒక పెన్ను ధర ₹12. ఎనిమిది పెన్నుల ధర 8 × 12 = ₹96."
+      },
+      {
+        "q": "Divide ₹720 in the ratio 5:7. What is the smaller share?",
+        "options": [
+          "₹250",
+          "₹300",
+          "₹350",
+          "₹420"
+        ],
+        "answer": 1,
+        "explanation": "Formula: Share = Total × Required ratio part ÷ Sum of ratio parts.\nRatio total = 5 + 7 = 12.\nSmaller share = 720 × 5/12 = ₹300.\nతెలుగు: మొత్తం భాగాలు 12. చిన్న వాటా = 720 × 5/12 = ₹300."
+      }
+    ,
+      {q:"Simplify the ratio 24:36",options:["2:3","3:2","4:5","3:4"],answer:0,explanation:"Divide both terms by HCF 12: 24:36 = 2:3. తెలుగు: రెండు సంఖ్యలను 12తో భాగించాలి."},
+      {q:"If 3:5 = x:20, find x.",options:["10","12","15","18"],answer:1,explanation:"3/5 = x/20; x = 3 × 20 ÷ 5 = 12. తెలుగు: క్రాస్ గుణకారం చేస్తే x = 12."},
+      {q:"Divide ₹640 in ratio 3:5. Find the first share.",options:["₹240","₹300","₹400","₹160"],answer:0,explanation:"Total parts = 8; first share = 640 × 3/8 = ₹240. తెలుగు: మొత్తం భాగాలు 3+5 = 8."},
+      {q:"If a:b = 4:7 and b = 35, find a.",options:["15","20","25","28"],answer:1,explanation:"7 parts = 35, so 1 part = 5; a = 4 × 5 = 20. తెలుగు: ఒక్క భాగం విలువ 5."},
+      {q:"Two numbers are in ratio 2:3 and their sum is 45. Find the smaller.",options:["15","18","20","27"],answer:1,explanation:"Total parts = 5; one part = 45/5 = 9; smaller = 2 × 9 = 18. తెలుగు: చిన్న సంఖ్య 18."},
+      {q:"If 5 pens cost ₹60, what is the cost of 8 pens?",options:["₹84","₹90","₹96","₹100"],answer:2,explanation:"One pen = 60/5 = ₹12; 8 pens = 8 × 12 = ₹96. తెలుగు: ఒక్క పెన్ను ₹12."},
+      {q:"Find the fourth proportional to 4, 6, 8.",options:["10","12","14","16"],answer:1,explanation:"4:6 = 8:x; x = 6 × 8/4 = 12. తెలుగు: నాలుగో అనుపాతం 12."}
+    ],
+    "Average": [
+      {
+        "q": "Find the average of 12, 18, 20 and 10.",
+        "options": [
+          "12",
+          "14",
+          "15",
+          "16"
+        ],
+        "answer": 2,
+        "explanation": "Formula: Average = Sum of observations ÷ Number of observations.\nSum = 12 + 18 + 20 + 10 = 60.\nAverage = 60 ÷ 4 = 15.\nతెలుగు: మొత్తం 60; సంఖ్యలు 4. సగటు 60 ÷ 4 = 15."
+      },
+      {
+        "q": "The average of 5 numbers is 18. Find their total.",
+        "options": [
+          "80",
+          "85",
+          "90",
+          "95"
+        ],
+        "answer": 2,
+        "explanation": "Formula: Total = Average × Number of observations.\nTotal = 18 × 5 = 90.\nతెలుగు: మొత్తం = సగటు × సంఖ్యల సంఖ్య = 18 × 5 = 90."
+      },
+      {
+        "q": "The average of 4 numbers is 16. If 20 is added, what is the new average?",
+        "options": [
+          "16",
+          "16.8",
+          "17",
+          "18"
+        ],
+        "answer": 1,
+        "explanation": "Original total = 4 × 16 = 64.\nNew total = 64 + 20 = 84.\nNew count = 5.\nNew average = 84 ÷ 5 = 16.8.\nతెలుగు: పాత మొత్తం 64. కొత్త మొత్తం 84; 5 సంఖ్యల సగటు 16.8."
+      }
+    ,
+      {q:"Find the average of 12, 18 and 24.",options:["16","18","20","22"],answer:1,explanation:"Average = sum/count = (12+18+24)/3 = 54/3 = 18. తెలుగు: మొత్తం 54; సంఖ్యలు 3."},
+      {q:"Average of 5 numbers is 16. Find their sum.",options:["64","70","75","80"],answer:3,explanation:"Sum = average × count = 16 × 5 = 80. తెలుగు: మొత్తం = సగటు × సంఖ్యల సంఖ్య."},
+      {q:"Average of 10 and 20 is:",options:["12","15","18","30"],answer:1,explanation:"Average = (10+20)/2 = 15. తెలుగు: మొత్తం 30ను 2తో భాగించాలి."},
+      {q:"Average of 6 numbers is 14. If 20 is added, find the new average.",options:["14","14 6/7","15","16"],answer:1,explanation:"Old sum = 6×14 = 84; new sum = 104; average = 104/7 = 14 6/7. తెలుగు: కొత్త మొత్తాన్ని 7తో భాగించాలి."},
+      {q:"Average of 4 numbers is 25. If one number 31 is removed, find the average of the remaining numbers.",options:["21","23","24","25"],answer:1,explanation:"Total = 4×25 = 100; remaining sum = 100−31 = 69; average = 69/3 = 23. తెలుగు: మిగిలిన మొత్తం 69."},
+      {q:"Average of 8 numbers is 12. If each increases by 3, what is the new average?",options:["12","13","15","24"],answer:2,explanation:"When every value rises by 3, average also rises by 3: 12+3 = 15. తెలుగు: సగటు కూడా 3 పెరుగుతుంది."},
+      {q:"Average of 7 consecutive integers is 18. Find the middle integer.",options:["16","17","18","19"],answer:2,explanation:"For an odd count of consecutive integers, average equals the middle integer. తెలుగు: మధ్య సంఖ్య 18."}
+    ],
+    "Profit & Loss": [
+      {
+        "q": "An article costs ₹800 and is sold for ₹920. Find the profit percentage.",
+        "options": [
+          "10%",
+          "12%",
+          "15%",
+          "20%"
+        ],
+        "answer": 2,
+        "explanation": "Formula: Profit = SP − CP; Profit% = Profit/CP × 100.\nProfit = 920 − 800 = ₹120.\nProfit% = 120/800 × 100 = 15%.\nతెలుగు: లాభం ₹120. లాభ శాతం = 120/800 × 100 = 15%."
+      },
+      {
+        "q": "An item bought for ₹500 is sold at a loss of 10%. Find the selling price.",
+        "options": [
+          "₹400",
+          "₹450",
+          "₹475",
+          "₹550"
+        ],
+        "answer": 1,
+        "explanation": "Formula: SP = CP × (100 − Loss%)/100.\nSP = 500 × 90/100 = ₹450.\nతెలుగు: 10% నష్టం తర్వాత ధర అసలు ధరలో 90%. 500 × 0.9 = ₹450."
+      },
+      {
+        "q": "An item is sold for ₹660 at a profit of 10%. Find its cost price.",
+        "options": [
+          "₹580",
+          "₹600",
+          "₹620",
+          "₹630"
+        ],
+        "answer": 1,
+        "explanation": "Formula: CP = SP × 100/(100 + Profit%).\nCP = 660 × 100/110 = ₹600.\nCheck: 10% of 600 = 60; 600 + 60 = 660.\nతెలుగు: 110% విలువ ₹660 అయితే 100% విలువ ₹600."
+      }
+    ,
+      {q:"Cost price ₹500, selling price ₹600. Find profit percentage.",options:["10%","15%","20%","25%"],answer:2,explanation:"Profit = 600−500 = ₹100; profit% = 100/500×100 = 20%. తెలుగు: లాభ శాతం అసలు ధర ఆధారంగా."},
+      {q:"An article bought for ₹800 is sold at 10% loss. Find selling price.",options:["₹700","₹720","₹740","₹780"],answer:1,explanation:"Loss = 10% of 800 = ₹80; SP = 800−80 = ₹720. తెలుగు: అమ్మకపు ధర ₹720."},
+      {q:"An article is sold for ₹450 at 25% profit. Find cost price.",options:["₹300","₹340","₹360","₹400"],answer:2,explanation:"SP = 125% of CP; CP = 450×100/125 = ₹360. తెలుగు: CP = SP×100/125."},
+      {q:"Cost price ₹1,200 and loss ₹150. Find loss percentage.",options:["10%","12.5%","15%","20%"],answer:1,explanation:"Loss% = 150/1200×100 = 12.5%. తెలుగు: నష్టం ÷ అసలు ధర × 100."},
+      {q:"An article costs ₹250 and is sold for ₹300. Find profit.",options:["₹25","₹40","₹50","₹60"],answer:2,explanation:"Profit = SP−CP = 300−250 = ₹50. తెలుగు: అమ్మకపు ధర నుంచి కొనుగోలు ధర తీసివేయాలి."},
+      {q:"A shopkeeper sells an item for ₹960 at 20% profit. Find CP.",options:["₹720","₹768","₹800","₹840"],answer:2,explanation:"SP = 120% of CP; CP = 960×100/120 = ₹800. తెలుగు: కొనుగోలు ధర ₹800."},
+      {q:"An article bought for ₹400 is sold for ₹340. Find loss percentage.",options:["10%","12%","15%","20%"],answer:2,explanation:"Loss = 400−340 = ₹60; loss% = 60/400×100 = 15%. తెలుగు: నష్టం ₹60, శాతం 15%."}
+    ],
+    "Discount": [
+      {
+        "q": "Marked price is ₹1,000 and discount is 15%. Find selling price.",
+        "options": [
+          "₹800",
+          "₹825",
+          "₹850",
+          "₹900"
+        ],
+        "answer": 2,
+        "explanation": "Formula: Discount = MP × rate/100.\nDiscount = 1000 × 15/100 = ₹150.\nSelling price = 1000 − 150 = ₹850.\nతెలుగు: తగ్గింపు ₹150. అమ్మకపు ధర ₹850."
+      },
+      {
+        "q": "A ₹2,000 item is sold for ₹1,700. Find the discount percentage.",
+        "options": [
+          "10%",
+          "12%",
+          "15%",
+          "20%"
+        ],
+        "answer": 2,
+        "explanation": "Discount = 2000 − 1700 = ₹300.\nFormula: Discount% = Discount/Marked price × 100.\n= 300/2000 × 100 = 15%.\nతెలుగు: తగ్గింపు ₹300; శాతం = 300/2000 × 100 = 15%."
+      },
+      {
+        "q": "After a 20% discount, an item costs ₹640. Find its marked price.",
+        "options": [
+          "₹720",
+          "₹760",
+          "₹800",
+          "₹840"
+        ],
+        "answer": 2,
+        "explanation": "After 20% discount, selling price is 80% of marked price.\nFormula: MP = SP × 100/(100 − discount%).\nMP = 640 × 100/80 = ₹800.\nతెలుగు: ₹640 అనేది మార్క్ ధరలో 80%. మార్క్ ధర ₹800."
+      }
+    ,
+      {q:"Marked price ₹1,000, discount 10%. Find selling price.",options:["₹800","₹850","₹900","₹950"],answer:2,explanation:"Discount = 1000×10/100 = ₹100; SP = ₹900. తెలుగు: తగ్గింపు ₹100."},
+      {q:"Marked price ₹800, selling price ₹680. Find discount percentage.",options:["10%","12%","15%","20%"],answer:2,explanation:"Discount = 800−680 = ₹120; discount% = 120/800×100 = 15%. తెలుగు: తగ్గింపు శాతం 15%."},
+      {q:"A ₹1,500 item has a 20% discount. Find its sale price.",options:["₹1,000","₹1,100","₹1,200","₹1,250"],answer:2,explanation:"Discount = ₹300; sale price = 1500−300 = ₹1,200. తెలుగు: 20% తగ్గింపు ₹300."},
+      {q:"After 25% discount, an item sells for ₹600. Find marked price.",options:["₹750","₹800","₹850","₹900"],answer:1,explanation:"SP = 75% of MP; MP = 600×100/75 = ₹800. తెలుగు: మార్క్ ధర ₹800."},
+      {q:"Marked price ₹2,000 with successive discounts of 10% and 10%. Find final price.",options:["₹1,600","₹1,620","₹1,700","₹1,800"],answer:1,explanation:"After first discount: 2000×0.9 = 1800; second: 1800×0.9 = ₹1620. తెలుగు: వరుస తగ్గింపులను విడివిడిగా లెక్కించాలి."},
+      {q:"A product marked ₹500 is sold at 8% discount. Find discount amount.",options:["₹20","₹30","₹40","₹50"],answer:2,explanation:"Discount = 500×8/100 = ₹40. తెలుగు: తగ్గింపు మొత్తం ₹40."},
+      {q:"An item marked ₹1,200 is sold for ₹1,020. Find discount percentage.",options:["10%","12%","15%","18%"],answer:2,explanation:"Discount = 1200−1020 = ₹180; 180/1200×100 = 15%. తెలుగు: తగ్గింపు శాతం 15%."}
+    ],
+    "Simple Interest": [
+      {
+        "q": "Find SI on ₹2,000 at 5% per annum for 3 years.",
+        "options": [
+          "₹200",
+          "₹250",
+          "₹300",
+          "₹350"
+        ],
+        "answer": 2,
+        "explanation": "Formula: SI = P × R × T/100.\nSI = 2000 × 5 × 3/100 = ₹300.\nAmount = Principal + SI = ₹2,300.\nతెలుగు: అసలు ₹2000, రేటు 5%, కాలం 3 సంవత్సరాలు. వడ్డీ ₹300."
+      },
+      {
+        "q": "SI is ₹240 on ₹1,200 for 2 years. Find the annual rate.",
+        "options": [
+          "8%",
+          "10%",
+          "12%",
+          "15%"
+        ],
+        "answer": 1,
+        "explanation": "Formula: R = SI × 100/(P × T).\nR = 240 × 100/(1200 × 2) = 10%.\nCorrect option: B.\nతెలుగు: రేటు = 240 × 100 ÷ 2400 = 10%."
+      },
+      {
+        "q": "At 8% SI per annum, how long will ₹1,000 earn ₹240 interest?",
+        "options": [
+          "2 years",
+          "2.5 years",
+          "3 years",
+          "4 years"
+        ],
+        "answer": 2,
+        "explanation": "Formula: T = SI × 100/(P × R).\nT = 240 × 100/(1000 × 8) = 3 years.\nతెలుగు: కాలం = 24000/8000 = 3 సంవత్సరాలు."
+      }
+    ,
+      {q:"Find SI on ₹2,000 at 5% per annum for 3 years.",options:["₹200","₹250","₹300","₹350"],answer:2,explanation:"SI = P×R×T/100 = 2000×5×3/100 = ₹300. తెలుగు: సాధారణ వడ్డీ సూత్రం PRT/100."},
+      {q:"SI is ₹400 at 8% per annum for 2 years. Find principal.",options:["₹2,000","₹2,500","₹3,000","₹3,500"],answer:1,explanation:"P = SI×100/(R×T) = 400×100/(8×2) = ₹2,500. తెలుగు: అసలు = SI×100/(R×T)."},
+      {q:"Find SI on ₹1,500 at 4% for 5 years.",options:["₹200","₹250","₹300","₹350"],answer:2,explanation:"SI = 1500×4×5/100 = ₹300. తెలుగు: వడ్డీ ₹300."},
+      {q:"At 10% SI, how many years will ₹500 earn ₹150 interest?",options:["2","3","4","5"],answer:1,explanation:"T = SI×100/(P×R) = 150×100/(500×10) = 3 years. తెలుగు: కాలం 3 సంవత్సరాలు."},
+      {q:"Find amount on ₹2,400 at 5% SI for 2 years.",options:["₹2,500","₹2,600","₹2,640","₹2,700"],answer:2,explanation:"SI = 2400×5×2/100 = ₹240; amount = 2400+240 = ₹2640. తెలుగు: మొత్తం = అసలు + వడ్డీ."},
+      {q:"At 6% SI for 4 years, interest is ₹480. Find principal.",options:["₹1,500","₹2,000","₹2,500","₹3,000"],answer:1,explanation:"P = 480×100/(6×4) = ₹2,000. తెలుగు: అసలు మొత్తం ₹2,000."},
+      {q:"Find SI on ₹3,500 at 4% for 2 years.",options:["₹240","₹260","₹280","₹300"],answer:2,explanation:"SI = 3500×4×2/100 = ₹280. తెలుగు: సాధారణ వడ్డీ ₹280."}
+    ],
+    "Compound Interest": [
+      {
+        "q": "Find the amount on ₹1,000 at 10% compound interest for 2 years, compounded annually.",
+        "options": [
+          "₹1,100",
+          "₹1,200",
+          "₹1,210",
+          "₹1,220"
+        ],
+        "answer": 2,
+        "explanation": "Formula: A = P(1 + R/100)^T.\nA = 1000(1.1)² = 1000 × 1.21 = ₹1,210.\nCI = A − P = ₹210.\nతెలుగు: మొదటి సంవత్సరం మొత్తం ₹1100. రెండో సంవత్సరం 10% వడ్డీతో మొత్తం ₹1210."
+      },
+      {
+        "q": "Find compound interest on ₹2,000 at 5% per annum for 2 years.",
+        "options": [
+          "₹200",
+          "₹205",
+          "₹210",
+          "₹220"
+        ],
+        "answer": 1,
+        "explanation": "Formula: CI = P(1 + R/100)^T − P.\nAmount = 2000 × (1.05)² = ₹2,205.\nCI = 2205 − 2000 = ₹205.\nతెలుగు: రెండు సంవత్సరాల మొత్తం ₹2205. చక్రవడ్డీ ₹205."
+      },
+      {
+        "q": "For ₹1,000 at 10% per annum for 2 years, what is CI − SI?",
+        "options": [
+          "₹5",
+          "₹10",
+          "₹15",
+          "₹20"
+        ],
+        "answer": 1,
+        "explanation": "For 2 years: CI − SI = P × (R/100)².\n= 1000 × (10/100)² = 1000 × 0.01 = ₹10.\nతెలుగు: రెండు సంవత్సరాలకు తేడా = 1000 × (10/100)² = ₹10."
+      }
+    ,
+      {q:"Find CI on ₹1,000 at 10% per annum for 2 years, compounded annually.",options:["₹200","₹210","₹220","₹250"],answer:1,explanation:"Amount = 1000×1.1² = ₹1210; CI = 1210−1000 = ₹210. తెలుగు: CI = మొత్తం − అసలు."},
+      {q:"Find amount on ₹2,000 at 5% CI for 1 year.",options:["₹2,050","₹2,100","₹2,150","₹2,200"],answer:0,explanation:"Amount = 2000×1.05 = ₹2100. తెలుగు: ఒక సంవత్సరానికి వడ్డీ ₹100, మొత్తం ₹2100."},
+      {q:"Find CI on ₹4,000 at 10% for 2 years, annually compounded.",options:["₹800","₹820","₹840","₹880"],answer:1,explanation:"Amount = 4000×1.1² = ₹4840; CI = ₹840. తెలుగు: మొదటి సంవత్సరం ₹400, రెండో సంవత్సరం ₹440."},
+      {q:"Find CI on ₹5,000 at 4% for 2 years, annually compounded.",options:["₹400","₹404","₹408","₹420"],answer:2,explanation:"Amount = 5000×1.04² = ₹5408; CI = ₹408. తెలుగు: చక్రవడ్డీ ₹408."},
+      {q:"Find amount on ₹1,000 at 20% CI for 2 years.",options:["₹1,200","₹1,400","₹1,440","₹1,500"],answer:2,explanation:"Amount = 1000×1.2² = ₹1440. తెలుగు: మొత్తం ₹1440."},
+      {q:"Find CI on ₹8,000 at 5% for 2 years, annually compounded.",options:["₹800","₹820","₹840","₹880"],answer:1,explanation:"Amount = 8000×1.05² = ₹8820; CI = ₹820. తెలుగు: చక్రవడ్డీ ₹820."},
+      {q:"Find the difference between CI and SI on ₹1,000 at 10% for 2 years.",options:["₹5","₹10","₹15","₹20"],answer:1,explanation:"SI = ₹200; CI = ₹210; difference = ₹10. తెలుగు: 2 సంవత్సరాలకు తేడా ₹10."}
+    ],
+    "Time & Work": [
+      {
+        "q": "A can finish a job in 10 days. What fraction of the work does A complete in one day?",
+        "options": [
+          "1/5",
+          "1/10",
+          "1/20",
+          "10"
+        ],
+        "answer": 1,
+        "explanation": "Formula: One-day work = 1/Total days.\nA completes 1/10 of the work per day.\nతెలుగు: మొత్తం పనిని 1గా తీసుకుంటే ఒక రోజు పని 1/10."
+      },
+      {
+        "q": "A completes a job in 12 days and B in 6 days. Working together, how many days are needed?",
+        "options": [
+          "3 days",
+          "4 days",
+          "6 days",
+          "9 days"
+        ],
+        "answer": 1,
+        "explanation": "A one-day work = 1/12; B one-day work = 1/6.\nTogether = 1/12 + 2/12 = 1/4 work per day.\nTime = 1 ÷ (1/4) = 4 days.\nతెలుగు: కలిసి రోజుకు 1/4 పని చేస్తారు. మొత్తం పని పూర్తవడానికి 4 రోజులు."
+      },
+      {
+        "q": "A can do a job in 15 days and B in 10 days. How long together?",
+        "options": [
+          "5 days",
+          "6 days",
+          "8 days",
+          "12 days"
+        ],
+        "answer": 1,
+        "explanation": "Combined daily work = 1/15 + 1/10 = 2/30 + 3/30 = 1/6.\nTime = 1 ÷ (1/6) = 6 days.\nతెలుగు: రోజువారీ పని 1/6. కాబట్టి మొత్తం పని 6 రోజుల్లో పూర్తవుతుంది."
+      }
+    ,
+      {q:"A can finish a job in 12 days. What fraction of the work does A complete in one day?",options:["1/6","1/10","1/12","1/15"],answer:2,explanation:"One-day work = 1/total days = 1/12. తెలుగు: రోజువారీ పని = 1/12."},
+      {q:"A finishes work in 10 days and B in 15 days. How long together?",options:["5 days","6 days","8 days","12 days"],answer:1,explanation:"Combined rate = 1/10+1/15 = 1/6; time = 6 days. తెలుగు: రోజువారీ పనులను కలిపితే 1/6."},
+      {q:"A does a job in 8 days. How many days for half the job at the same rate?",options:["2","3","4","6"],answer:2,explanation:"Half the work takes half the time: 8/2 = 4 days. తెలుగు: సగం పని చేయడానికి 4 రోజులు."},
+      {q:"12 workers finish a job in 10 days. How many days will 6 workers take?",options:["5","10","15","20"],answer:3,explanation:"Workers × days is constant: 12×10 = 6×d; d = 20. తెలుగు: కార్మికులు సగం అయితే రోజులు రెట్టింపు."},
+      {q:"A completes work in 20 days. What percentage is completed in 5 days?",options:["20%","25%","30%","40%"],answer:1,explanation:"Fraction = 5/20 = 1/4 = 25%. తెలుగు: 5 రోజుల్లో 25% పని."},
+      {q:"A and B together finish a job in 6 days. If A alone takes 10 days, how long does B alone take?",options:["12 days","15 days","18 days","20 days"],answer:1,explanation:"B rate = 1/6−1/10 = 1/15; B takes 15 days. తెలుగు: B రోజువారీ పని 1/15."},
+      {q:"15 workers complete work in 12 days. How many workers are needed to finish it in 9 days?",options:["18","20","22","25"],answer:1,explanation:"Workers×days = constant: 15×12 = w×9; w = 20. తెలుగు: అవసరమైన కార్మికులు 20."}
+    ],
+    "Pipes & Cisterns": [
+      {
+        "q": "A pipe fills a tank in 6 hours. What fraction does it fill in one hour?",
+        "options": [
+          "1/3",
+          "1/4",
+          "1/6",
+          "1/12"
+        ],
+        "answer": 2,
+        "explanation": "Formula: One-hour filling rate = 1/Total filling time.\nRate = 1/6 tank per hour.\nతెలుగు: 6 గంటల్లో పూర్తి ట్యాంక్ నిండితే ఒక గంటలో 1/6 నిండుతుంది."
+      },
+      {
+        "q": "Pipe A fills a tank in 4 hours and B in 12 hours. Together, how long?",
+        "options": [
+          "2 hours",
+          "3 hours",
+          "4 hours",
+          "6 hours"
+        ],
+        "answer": 1,
+        "explanation": "Combined rate = 1/4 + 1/12 = 3/12 + 1/12 = 1/3 tank/hour.\nTime = 1 ÷ 1/3 = 3 hours.\nతెలుగు: రెండు పైపుల కలిపిన వేగం గంటకు 1/3 ట్యాంక్. సమయం 3 గంటలు."
+      },
+      {
+        "q": "A pipe fills a tank in 5 hours; a leak empties it in 20 hours. If both operate, how long to fill the tank?",
+        "options": [
+          "4 hours",
+          "6 hours",
+          "6 hours 40 minutes",
+          "8 hours"
+        ],
+        "answer": 2,
+        "explanation": "Net rate = Filling rate − Emptying rate.\n= 1/5 − 1/20 = 4/20 − 1/20 = 3/20 tank/hour.\nTime = 1 ÷ 3/20 = 20/3 hours = 6 hours 40 minutes.\nతెలుగు: లీక్ తీసివేసిన తర్వాత గంటకు 3/20 ట్యాంక్ నిండుతుంది. సమయం 6 గంటల 40 నిమిషాలు."
+      }
+    ,
+      {q:"A pipe fills a tank in 6 hours. What part does it fill in 1 hour?",options:["1/3","1/4","1/5","1/6"],answer:3,explanation:"One-hour work = 1/total time = 1/6. తెలుగు: గంటకు ట్యాంకులో 1/6 భాగం నిండుతుంది."},
+      {q:"Pipe A fills a tank in 4 hours and B in 6 hours. How long together?",options:["2 hours","2.4 hours","3 hours","5 hours"],answer:1,explanation:"Rate = 1/4 + 1/6 = 5/12; time = 12/5 = 2.4 hours. తెలుగు: రెండు పైపుల పనివేగాలు కలపాలి."},
+      {q:"A pipe fills a tank in 8 hours. What fraction remains after 3 hours?",options:["3/8","5/8","1/2","7/8"],answer:1,explanation:"Filled = 3/8; remaining = 1−3/8 = 5/8. తెలుగు: మిగిలిన భాగం 5/8."},
+      {q:"A pipe fills a tank in 5 hours. A leak empties it in 10 hours. How long to fill with both open?",options:["5 hours","8 hours","10 hours","15 hours"],answer:2,explanation:"Net rate = 1/5−1/10 = 1/10 tank/hour; time = 10 hours. తెలుగు: లీక్ వేగాన్ని తీసివేయాలి."},
+      {q:"Two pipes fill a tank in 12 and 18 hours. Find time together.",options:["6 hours","7.2 hours","8 hours","9 hours"],answer:1,explanation:"Rate = 1/12+1/18 = 5/36; time = 36/5 = 7.2 hours. తెలుగు: మొత్తం సమయం 7.2 గంటలు."},
+      {q:"A pipe fills 3/5 of a tank in 6 hours. How long for the full tank?",options:["8 hours","9 hours","10 hours","12 hours"],answer:2,explanation:"Full time = 6 ÷ (3/5) = 10 hours. తెలుగు: 3/5 భాగానికి 6 గంటలు అయితే మొత్తం 10 గంటలు."},
+      {q:"A pipe empties a full tank in 8 hours. What fraction does it empty in 2 hours?",options:["1/8","1/4","1/3","1/2"],answer:1,explanation:"Emptied fraction = 2/8 = 1/4. తెలుగు: 2 గంటల్లో 1/4 భాగం ఖాళీ అవుతుంది."}
+    ],
+    "Time, Speed & Distance": [
+      {
+        "q": "A vehicle travels 150 km in 3 hours. Find its average speed.",
+        "options": [
+          "40 km/h",
+          "45 km/h",
+          "50 km/h",
+          "60 km/h"
+        ],
+        "answer": 2,
+        "explanation": "Formula: Speed = Distance ÷ Time.\nSpeed = 150 ÷ 3 = 50 km/h.\nతెలుగు: వేగం = దూరం/సమయం = 150/3 = 50 కి.మీ./గం."
+      },
+      {
+        "q": "Convert 72 km/h into metres per second.",
+        "options": [
+          "15 m/s",
+          "18 m/s",
+          "20 m/s",
+          "25 m/s"
+        ],
+        "answer": 2,
+        "explanation": "Formula: km/h to m/s: multiply by 5/18.\n72 × 5/18 = 4 × 5 = 20 m/s.\nతెలుగు: కి.మీ./గం నుంచి మీ./సెకనుకు మార్చడానికి 5/18తో గుణించాలి."
+      },
+      {
+        "q": "A 120 m train passes a pole in 6 seconds. Find its speed.",
+        "options": [
+          "15 m/s",
+          "20 m/s",
+          "25 m/s",
+          "30 m/s"
+        ],
+        "answer": 1,
+        "explanation": "Formula: Speed = Distance ÷ Time.\nDistance to pass a pole = train length = 120 m.\nSpeed = 120 ÷ 6 = 20 m/s = 72 km/h.\nతెలుగు: స్తంభాన్ని దాటే దూరం రైలు పొడవు 120 మీటర్లు. వేగం 20 మీ./సెకను."
+      }
+    ,
+      {q:"A car travels 150 km in 3 hours. Find its speed.",options:["40 km/h","45 km/h","50 km/h","60 km/h"],answer:2,explanation:"Speed = distance/time = 150/3 = 50 km/h. తెలుగు: వేగం = దూరం ÷ సమయం."},
+      {q:"A train moves at 60 km/h for 2.5 hours. Find distance.",options:["120 km","140 km","150 km","180 km"],answer:2,explanation:"Distance = speed×time = 60×2.5 = 150 km. తెలుగు: దూరం = వేగం × సమయం."},
+      {q:"Convert 72 km/h into m/s.",options:["15 m/s","18 m/s","20 m/s","25 m/s"],answer:2,explanation:"Multiply by 5/18: 72×5/18 = 20 m/s. తెలుగు: km/h నుంచి m/s కు 5/18తో గుణించాలి."},
+      {q:"A person covers 240 km at 40 km/h. Find time.",options:["4 hours","5 hours","6 hours","8 hours"],answer:2,explanation:"Time = distance/speed = 240/40 = 6 hours. తెలుగు: సమయం = దూరం ÷ వేగం."},
+      {q:"A 120 m train passes a pole in 6 seconds. Find speed.",options:["15 m/s","20 m/s","25 m/s","30 m/s"],answer:1,explanation:"Speed = 120/6 = 20 m/s. తెలుగు: స్తంభాన్ని దాటేటప్పుడు రైలు తన పొడవు దూరం ప్రయాణిస్తుంది."},
+      {q:"A man walks at 5 km/h. How far does he walk in 36 minutes?",options:["2 km","3 km","4 km","5 km"],answer:1,explanation:"36 minutes = 0.6 hour; distance = 5×0.6 = 3 km. తెలుగు: 36 నిమిషాలు = 0.6 గంట."},
+      {q:"Two cars move in opposite directions at 40 and 50 km/h. How far apart after 2 hours if they start together?",options:["90 km","160 km","180 km","200 km"],answer:2,explanation:"Relative speed = 40+50 = 90 km/h; distance apart = 90×2 = 180 km. తెలుగు: వ్యతిరేక దిశల్లో వేగాలు కలపాలి."}
+    ],
+    "Algebra": [
+      {
+        "q": "If 3x = 27, find x.",
+        "options": [
+          "6",
+          "7",
+          "8",
+          "9"
+        ],
+        "answer": 3,
+        "explanation": "Rule: Apply the same operation to both sides.\n3x = 27; divide both sides by 3.\nx = 27/3 = 9.\nతెలుగు: రెండు వైపులా 3తో భాగిస్తే x = 9."
+      },
+      {
+        "q": "Expand (a + b)².",
+        "options": [
+          "a² + b²",
+          "a² + 2ab + b²",
+          "a² − 2ab + b²",
+          "2a + 2b"
+        ],
+        "answer": 1,
+        "explanation": "Formula: (a + b)² = a² + 2ab + b².\nReason: (a+b)(a+b) = a² + ab + ab + b².\nCombine middle terms: a² + 2ab + b².\nతెలుగు: (a+b)ను అదే దానితో గుణిస్తే a² + 2ab + b² వస్తుంది."
+      },
+      {
+        "q": "If x + 5 = 2x − 3, find x.",
+        "options": [
+          "5",
+          "6",
+          "7",
+          "8"
+        ],
+        "answer": 3,
+        "explanation": "x + 5 = 2x − 3.\nSubtract x: 5 = x − 3.\nAdd 3: x = 8.\nCheck: 8 + 5 = 16 − 3 = 13.\nతెలుగు: xని ఒక వైపు ఉంచి స్థిర సంఖ్యలను మరో వైపు తీసుకెళ్తే x = 8."
+      }
+    ,
+      {q:"Solve: x + 7 = 19.",options:["10","11","12","13"],answer:2,explanation:"x = 19−7 = 12. తెలుగు: 7ను కుడివైపుకు తీసుకెళ్తే తీసివేత అవుతుంది."},
+      {q:"Solve: 3x = 27.",options:["6","8","9","12"],answer:2,explanation:"x = 27/3 = 9. తెలుగు: రెండు వైపులా 3తో భాగించాలి."},
+      {q:"If x = 4, find 2x² + 3.",options:["19","27","32","35"],answer:1,explanation:"2×4²+3 = 2×16+3 = 35. తెలుగు: సరైన విలువ 35."},
+      {q:"Factorise: x²−25.",options:["(x−5)²","(x+5)²","(x−5)(x+5)","x(x−25)"],answer:2,explanation:"Difference of squares: a²−b² = (a−b)(a+b). తెలుగు: x²−25 = (x−5)(x+5)."},
+      {q:"Solve: 2x + 5 = 17.",options:["5","6","7","8"],answer:1,explanation:"2x = 12; x = 6. తెలుగు: ముందుగా 5 తీసివేసి, తర్వాత 2తో భాగించాలి."},
+      {q:"Simplify: (a³ × a²) ÷ a.",options:["a²","a³","a⁴","a⁵"],answer:2,explanation:"Same base: a³×a² = a⁵; a⁵/a = a⁴. తెలుగు: గుణకారంలో ఘాతాలు కలపాలి; భాగహారంలో తీసివేయాలి."},
+      {q:"If x+y = 12 and x−y = 4, find x.",options:["4","6","8","10"],answer:2,explanation:"Add equations: 2x = 16; x = 8. తెలుగు: రెండు సమీకరణాలను కలిపితే 2x = 16."}
+    ],
+    "Geometry": [
+      {
+        "q": "The sum of the interior angles of a triangle is:",
+        "options": [
+          "90°",
+          "180°",
+          "270°",
+          "360°"
+        ],
+        "answer": 1,
+        "explanation": "Formula: Triangle angle sum = 180°.\nతెలుగు: ఏ త్రిభుజంలోనైనా మూడు అంతర్గత కోణాల మొత్తం 180°."
+      },
+      {
+        "q": "Each angle of an equilateral triangle is:",
+        "options": [
+          "45°",
+          "60°",
+          "90°",
+          "120°"
+        ],
+        "answer": 1,
+        "explanation": "An equilateral triangle has three equal angles.\nEach angle = 180° ÷ 3 = 60°.\nతెలుగు: మూడు కోణాలు సమానం. ఒక్కో కోణం 180°/3 = 60°."
+      },
+      {
+        "q": "The radius of a circle is 7 cm. Find its diameter.",
+        "options": [
+          "7 cm",
+          "14 cm",
+          "21 cm",
+          "49 cm"
+        ],
+        "answer": 1,
+        "explanation": "Formula: Diameter = 2 × Radius.\nD = 2 × 7 = 14 cm.\nతెలుగు: వ్యాసం = 2 × వ్యాసార్థం = 14 సెం.మీ."
+      }
+    ,
+      {q:"Find the sum of interior angles of a triangle.",options:["90°","180°","270°","360°"],answer:1,explanation:"Triangle angle sum = 180°. తెలుగు: త్రిభుజంలోని కోణాల మొత్తం 180°."},
+      {q:"Each angle of an equilateral triangle is:",options:["45°","60°","90°","120°"],answer:1,explanation:"All three angles equal; 180°/3 = 60°. తెలుగు: ప్రతి కోణం 60°."},
+      {q:"Find the complement of 35°.",options:["45°","55°","65°","145°"],answer:1,explanation:"Complement = 90°−35° = 55°. తెలుగు: పూరక కోణాల మొత్తం 90°."},
+      {q:"Find the supplement of 125°.",options:["45°","55°","65°","75°"],answer:1,explanation:"Supplement = 180°−125° = 55°. తెలుగు: సంపూరక కోణాల మొత్తం 180°."},
+      {q:"A triangle has angles 50° and 60°. Find the third angle.",options:["60°","70°","80°","90°"],answer:1,explanation:"Third angle = 180°−50°−60° = 70°. తెలుగు: మూడో కోణం 70°."},
+      {q:"How many sides does a hexagon have?",options:["5","6","7","8"],answer:1,explanation:"A hexagon has 6 sides. తెలుగు: షడ్భుజికి 6 భుజాలు ఉంటాయి."},
+      {q:"Find each exterior angle of a regular octagon.",options:["30°","40°","45°","60°"],answer:2,explanation:"Each exterior angle = 360°/8 = 45°. తెలుగు: సమ అష్టభుజి బాహ్య కోణం 45°."}
+    ],
+    "Mensuration": [
+      {
+        "q": "Find the area of a rectangle of length 12 cm and breadth 5 cm.",
+        "options": [
+          "17 cm²",
+          "34 cm²",
+          "60 cm²",
+          "120 cm²"
+        ],
+        "answer": 2,
+        "explanation": "Formula: Rectangle area = length × breadth.\nArea = 12 × 5 = 60 cm².\nతెలుగు: దీర్ఘచతురస్ర వైశాల్యం = పొడవు × వెడల్పు = 60 చ.సెం.మీ."
+      },
+      {
+        "q": "Find the circumference of a circle of radius 7 cm. Use π = 22/7.",
+        "options": [
+          "22 cm",
+          "44 cm",
+          "49 cm",
+          "154 cm"
+        ],
+        "answer": 1,
+        "explanation": "Formula: Circumference = 2πr.\n= 2 × 22/7 × 7 = 44 cm.\nతెలుగు: వృత్త పరిధి = 2πr = 44 సెం.మీ."
+      },
+      {
+        "q": "Find the volume of a cube with side 4 cm.",
+        "options": [
+          "16 cm³",
+          "32 cm³",
+          "48 cm³",
+          "64 cm³"
+        ],
+        "answer": 3,
+        "explanation": "Formula: Cube volume = side³.\nVolume = 4 × 4 × 4 = 64 cm³.\nతెలుగు: ఘనం ఘనపరిమాణం = భుజం³ = 4³ = 64 ఘ.సెం.మీ."
+      }
+    ,
+      {q:"Find the area of a rectangle of length 12 cm and breadth 5 cm.",options:["17 cm²","34 cm²","60 cm²","120 cm²"],answer:2,explanation:"Area = length×breadth = 12×5 = 60 cm². తెలుగు: వైశాల్యం = పొడవు × వెడల్పు."},
+      {q:"Find the perimeter of a square of side 8 cm.",options:["16 cm","24 cm","32 cm","64 cm"],answer:2,explanation:"Perimeter = 4×side = 4×8 = 32 cm. తెలుగు: చుట్టుకొలత = 4 × భుజం."},
+      {q:"Find the area of a triangle with base 10 cm and height 6 cm.",options:["16 cm²","30 cm²","60 cm²","36 cm²"],answer:1,explanation:"Area = 1/2×base×height = 1/2×10×6 = 30 cm². తెలుగు: త్రిభుజ వైశాల్యం = 1/2 × భూమి × ఎత్తు."},
+      {q:"Find the circumference of a circle of radius 7 cm. Use π = 22/7.",options:["22 cm","44 cm","49 cm","154 cm"],answer:1,explanation:"Circumference = 2πr = 2×22/7×7 = 44 cm. తెలుగు: వృత్త చుట్టుకొలత = 2πr."},
+      {q:"Find the volume of a cube of side 4 cm.",options:["16 cm³","32 cm³","48 cm³","64 cm³"],answer:3,explanation:"Volume = side³ = 4³ = 64 cm³. తెలుగు: ఘనం ఘనపరిమాణం = భుజం³."},
+      {q:"Find the area of a circle of radius 7 cm. Use π = 22/7.",options:["44 cm²","77 cm²","154 cm²","308 cm²"],answer:2,explanation:"Area = πr² = 22/7×7×7 = 154 cm². తెలుగు: వృత్త వైశాల్యం = πr²."},
+      {q:"Find the volume of a cuboid of dimensions 5 cm, 4 cm and 3 cm.",options:["12 cm³","20 cm³","60 cm³","120 cm³"],answer:2,explanation:"Volume = l×b×h = 5×4×3 = 60 cm³. తెలుగు: ఘనాభం = పొడవు × వెడల్పు × ఎత్తు."}
+    ],
+    "Trigonometry": [
+      {
+        "q": "What is sin 30°?",
+        "options": [
+          "0",
+          "1/2",
+          "√3/2",
+          "1"
+        ],
+        "answer": 1,
+        "explanation": "Standard value: sin 30° = 1/2.\nIn a right triangle, sin θ = Opposite side/Hypotenuse.\nతెలుగు: sin θ = ఎదురుభుజం/కర్ణం. sin 30° విలువ 1/2."
+      },
+      {
+        "q": "What is tan 45°?",
+        "options": [
+          "0",
+          "1/√3",
+          "1",
+          "√3"
+        ],
+        "answer": 2,
+        "explanation": "Formula: tan θ = sin θ/cos θ.\nAt 45°, sin 45° = cos 45°, so tan 45° = 1.\nతెలుగు: tan 45° = sin 45°/cos 45° = 1."
+      },
+      {
+        "q": "In a right triangle, opposite side = 3 and hypotenuse = 5. Find sin θ.",
+        "options": [
+          "3/5",
+          "4/5",
+          "3/4",
+          "5/3"
+        ],
+        "answer": 0,
+        "explanation": "Formula: sin θ = Opposite/Hypotenuse.\nsin θ = 3/5.\nతెలుగు: సైన్ = ఎదురుభుజం/కర్ణం = 3/5."
+      }
+    ,
+      {q:"Find sin 30°.",options:["0","1/2","√3/2","1"],answer:1,explanation:"Standard value: sin 30° = 1/2. తెలుగు: sin 30° విలువ 1/2."},
+      {q:"Find cos 60°.",options:["0","1/2","√3/2","1"],answer:1,explanation:"Standard value: cos 60° = 1/2. తెలుగు: cos 60° విలువ 1/2."},
+      {q:"Find tan 45°.",options:["0","1/√3","1","√3"],answer:2,explanation:"tan 45° = sin45°/cos45° = 1. తెలుగు: tan 45° విలువ 1."},
+      {q:"If sin θ = 3/5 for an acute angle, find cos θ.",options:["2/5","3/4","4/5","5/4"],answer:2,explanation:"Using sin²θ+cos²θ=1: cos θ = √(1−9/25)=4/5. తెలుగు: cos θ = 4/5."},
+      {q:"Find sec 60°.",options:["1/2","1","2","√3"],answer:2,explanation:"sec θ = 1/cos θ; sec60° = 1/(1/2) = 2. తెలుగు: sec 60° విలువ 2."},
+      {q:"Find cot 45°.",options:["0","1","√3","Undefined"],answer:1,explanation:"cot45° = 1/tan45° = 1. తెలుగు: cot 45° విలువ 1."},
+      {q:"If tan θ = 3/4 in a right triangle, find sin θ.",options:["3/5","4/5","3/4","4/3"],answer:0,explanation:"Opposite:adjacent = 3:4; hypotenuse = 5; sin θ = opposite/hypotenuse = 3/5. తెలుగు: 3-4-5 త్రిభుజం ఉపయోగించాలి."}
+    ],
+    "Statistics": [
+      {
+        "q": "Find the mode of 2, 3, 3, 4, 5.",
+        "options": [
+          "2",
+          "3",
+          "4",
+          "5"
+        ],
+        "answer": 1,
+        "explanation": "Concept: Mode is the value occurring most frequently.\n3 occurs twice; all others occur once.\nMode = 3.\nతెలుగు: ఎక్కువసార్లు వచ్చిన విలువ బాహుళకం. ఇక్కడ 3."
+      },
+      {
+        "q": "Find the median of 3, 7, 9, 11, 15.",
+        "options": [
+          "7",
+          "9",
+          "11",
+          "15"
+        ],
+        "answer": 1,
+        "explanation": "Rule: For ordered data with an odd count, median is the middle value.\nThere are 5 values; the 3rd value is 9.\nతెలుగు: ఐదు క్రమబద్ధ సంఖ్యల్లో మధ్యలో ఉన్న మూడో సంఖ్య 9."
+      },
+      {
+        "q": "Find the range of 12, 4, 19, 7, 10.",
+        "options": [
+          "12",
+          "15",
+          "19",
+          "23"
+        ],
+        "answer": 1,
+        "explanation": "Formula: Range = Maximum − Minimum.\nRange = 19 − 4 = 15.\nతెలుగు: గరిష్ఠ విలువ 19 నుంచి కనిష్ఠ విలువ 4 తీసేస్తే 15."
+      }
+    ,
+      {q:"Find the mean of 4, 6, 8, 10.",options:["6","7","8","9"],answer:1,explanation:"Mean = (4+6+8+10)/4 = 28/4 = 7. తెలుగు: మొత్తం 28; సంఖ్యలు 4."},
+      {q:"Find the median of 3, 7, 9, 11, 15.",options:["7","9","11","15"],answer:1,explanation:"Middle value of ordered data is 9. తెలుగు: మధ్య విలువ 9."},
+      {q:"Find the mode of 2, 3, 3, 4, 5.",options:["2","3","4","5"],answer:1,explanation:"Mode is the most frequent value; 3 occurs twice. తెలుగు: ఎక్కువసార్లు వచ్చిన సంఖ్య 3."},
+      {q:"Find the range of 12, 5, 18, 9.",options:["9","12","13","18"],answer:2,explanation:"Range = maximum−minimum = 18−5 = 13. తెలుగు: గరిష్ఠం నుంచి కనిష్ఠం తీసివేయాలి."},
+      {q:"The mean of 5 numbers is 8. Find their total.",options:["13","35","40","45"],answer:2,explanation:"Total = mean×number of values = 8×5 = 40. తెలుగు: మొత్తం = సగటు × సంఖ్యల సంఖ్య."},
+      {q:"Find the median of 2, 4, 6, 8.",options:["4","5","6","7"],answer:1,explanation:"Median = average of middle two values = (4+6)/2 = 5. తెలుగు: మధ్య రెండు విలువల సగటు."},
+      {q:"In a data set, every value occurs once except 7, which occurs four times. Find the mode.",options:["4","7","Cannot be determined","None"],answer:1,explanation:"Mode is the most frequent value; 7 occurs four times. తెలుగు: మోడ్ 7."}
+    ],
+    "Data Interpretation": [
+      {
+        "q": "A table shows sales of 120 units on Monday and 150 on Tuesday. What is the percentage increase?",
+        "options": [
+          "20%",
+          "25%",
+          "30%",
+          "35%"
+        ],
+        "answer": 1,
+        "explanation": "Formula: Percentage increase = Increase/Original × 100.\nIncrease = 150 − 120 = 30.\nPercentage = 30/120 × 100 = 25%.\nతెలుగు: పెరుగుదల 30. అసలు 120పై శాతం = 25%."
+      },
+      {
+        "q": "A pie chart has 25% of 800 students in one group. How many students are in that group?",
+        "options": [
+          "150",
+          "180",
+          "200",
+          "250"
+        ],
+        "answer": 2,
+        "explanation": "Formula: Group value = Percentage × Total/100.\n= 25 × 800/100 = 200 students.\nShortcut: 25% is one-fourth; 800 ÷ 4 = 200.\nతెలుగు: 25% అంటే నాలుగో వంతు. 800/4 = 200 మంది."
+      },
+      {
+        "q": "A bar graph gives values 40, 50, 30 and 60. What is their average?",
+        "options": [
+          "40",
+          "45",
+          "50",
+          "55"
+        ],
+        "answer": 1,
+        "explanation": "Formula: Average = Sum ÷ Count.\nSum = 40 + 50 + 30 + 60 = 180.\nAverage = 180 ÷ 4 = 45.\nతెలుగు: మొత్తం 180; నాలుగు విలువల సగటు 45."
+      }
+    ,
+      {q:"A shop sold 20 pens on Monday and 30 on Tuesday. What is the percentage increase?",options:["25%","40%","50%","60%"],answer:2,explanation:"Increase = 10; percentage = 10/20×100 = 50%. తెలుగు: అసలు సంఖ్య 20 ఆధారంగా శాతం లెక్కించాలి."},
+      {q:"A table shows sales of 120 units in January and 150 in February. Find the increase.",options:["20","25","30","35"],answer:2,explanation:"Increase = 150−120 = 30 units. తెలుగు: పెరుగుదల 30 యూనిట్లు."},
+      {q:"Total students are 200; 30% are girls. How many girls?",options:["50","60","70","80"],answer:1,explanation:"Girls = 30/100×200 = 60. తెలుగు: 200లో 30% = 60."},
+      {q:"A company produces 400 units; 25% are defective. Find good units.",options:["100","200","300","350"],answer:2,explanation:"Defective = 25% of 400 = 100; good units = 400−100 = 300. తెలుగు: మంచి యూనిట్లు 300."},
+      {q:"A student scores 72 out of 90. Find percentage.",options:["70%","75%","80%","85%"],answer:2,explanation:"Percentage = 72/90×100 = 80%. తెలుగు: శాతం 80%."},
+      {q:"A pie chart represents 40% of 500 people in category A. Find the number in A.",options:["100","150","200","250"],answer:2,explanation:"A = 40/100×500 = 200. తెలుగు: 500లో 40% = 200."},
+      {q:"Sales were ₹8,000 in week 1 and ₹10,000 in week 2. Find percentage increase.",options:["20%","25%","30%","40%"],answer:1,explanation:"Increase = ₹2,000; increase% = 2000/8000×100 = 25%. తెలుగు: అమ్మకాలు 25% పెరిగాయి."}
+    ]
+
+  };
+  const subjectTopicBank = {
+    'Reasoning: Series': [
+      {q:'Find the next number: 2, 4, 6, 8, ?',options:['9','10','12','14'],answer:1,explanation:'Add 2 each time.'},
+      {q:'Find the next number: 5, 10, 15, 20, ?',options:['22','24','25','30'],answer:2,explanation:'Add 5 each time.'},
+      {q:'Find the next number: 3, 6, 12, 24, ?',options:['36','42','48','52'],answer:2,explanation:'Multiply by 2 each time.'}
+    ,
+    {"q":"Find the next number: 2, 4, 6, 8, ?","options":["9","10","11","12"],"answer":1,"explanation":"Add 2 each time."},
+    {"q":"Find the next number: 5, 10, 20, 40, ?","options":["45","60","80","100"],"answer":2,"explanation":"Multiply by 2 each time."},
+    {"q":"Find the next number: 1, 4, 9, 16, ?","options":["20","24","25","36"],"answer":2,"explanation":"These are squares: 1², 2², 3², 4², 5²."},
+    {"q":"Find the next number: 15, 12, 9, 6, ?","options":["4","3","2","1"],"answer":1,"explanation":"Subtract 3 each time."},
+    {"q":"Find the next letter: A, C, E, G, ?","options":["H","I","J","K"],"answer":1,"explanation":"Skip one letter each time."},
+    {"q":"Find the next number: 3, 6, 12, 24, ?","options":["36","42","48","54"],"answer":2,"explanation":"Multiply by 2 each time."},
+    {"q":"Find the next number: 2, 5, 8, 11, ?","options":["12","13","14","15"],"answer":2,"explanation":"Add 3 each time."}
+  ],
+    'Reasoning: Coding-Decoding': [{q:'If CAT becomes DBU, DOG becomes?',options:['EPH','EOG','DPH','FQI'],answer:0,explanation:'Each letter moves forward by one.'},{q:'If BAT becomes CBU, HEN becomes?',options:['IFO','IFM','GDM','JFO'],answer:0,explanation:'Each letter moves forward by one.'},{q:'If A=1, B=2, what is CAB?',options:['312','213','321','123'],answer:0,explanation:'C=3, A=1, B=2.'},
+    {"q":"If SUN is coded as TVO, how is MOON coded?","options":["NPPO","NQPO","MPPO","OPPO"],"answer":0,"explanation":"Each letter moves forward by one."},
+    {"q":"If PEN is coded as QFO, how is BOX coded?","options":["CPY","COY","CQY","BPY"],"answer":0,"explanation":"Each letter moves forward by one."},
+    {"q":"If CAT is coded as 3-1-20, how is DOG coded?","options":["4-15-7","4-14-7","5-15-7","4-15-8"],"answer":0,"explanation":"Use each letter’s alphabet position."},
+    {"q":"If RED is coded as SFE, how is BLUE coded?","options":["CMVF","CLVF","CMUE","BMVF"],"answer":0,"explanation":"Each letter moves forward by one."},
+    {"q":"If A=1, B=2, what is BAD?","options":["214","241","124","412"],"answer":0,"explanation":"B=2, A=1, D=4."},
+    {"q":"If FISH is coded as GJTI, how is BIRD coded?","options":["CJSE","CJRD","BJSE","DKTF"],"answer":0,"explanation":"Each letter moves forward by one."},
+    {"q":"If 1=A, 2=B, 3=C, what is 3-1-2?","options":["ABC","CAB","BAC","CBA"],"answer":1,"explanation":"3=C, 1=A, 2=B."}
+  ],
+    'Reasoning: Classification': [{q:'Choose the odd one out.',options:['Apple','Mango','Carrot','Banana'],answer:2,explanation:'Carrot is a vegetable; the others are fruits.'},{q:'Choose the odd one out.',options:['Square','Triangle','Circle','Rose'],answer:3,explanation:'Rose is a flower; the others are shapes.'},{q:'Choose the odd one out.',options:['Dog','Cat','Cow','Sparrow'],answer:3,explanation:'Sparrow is a bird; the others are mammals.'},
+    {"q":"Choose the odd one out.","options":["January","March","May","Monday"],"answer":3,"explanation":"Monday is a day; the others are months."},
+    {"q":"Choose the odd one out.","options":["8","27","64","100"],"answer":3,"explanation":"8, 27 and 64 are cubes; 100 is not a perfect cube."},
+    {"q":"Choose the odd one out.","options":["Copper","Iron","Silver","Plastic"],"answer":3,"explanation":"Plastic is not a metal."},
+    {"q":"Choose the odd one out.","options":["Cricket","Hockey","Football","Carrot"],"answer":3,"explanation":"Carrot is a vegetable; the others are sports."},
+    {"q":"Choose the odd one out.","options":["2","3","5","9"],"answer":3,"explanation":"9 is not a prime number."},
+    {"q":"Choose the odd one out.","options":["Triangle","Square","Rectangle","Cylinder"],"answer":3,"explanation":"Cylinder is a 3D solid; the others are plane shapes."},
+    {"q":"Choose the odd one out.","options":["Eagle","Parrot","Crow","Tiger"],"answer":3,"explanation":"Tiger is a mammal; the others are birds."}
+  ],
+    'Reasoning: Blood Relations': [{q:'Your mother’s brother is your:',options:['Paternal uncle','Maternal uncle','Cousin','Nephew'],answer:1,explanation:'He is your maternal uncle.'},{q:'Your father’s sister is your:',options:['Aunt','Niece','Cousin','Grandmother'],answer:0,explanation:'She is your aunt.'},{q:'Your sister’s son is your:',options:['Uncle','Nephew','Cousin','Brother'],answer:1,explanation:'He is your nephew.'},
+    {"q":"Your mother’s mother is your:","options":["Aunt","Maternal grandmother","Niece","Sister"],"answer":1,"explanation":"Your mother’s mother is your maternal grandmother."},
+    {"q":"Your father’s brother is your:","options":["Maternal uncle","Paternal uncle","Nephew","Grandfather"],"answer":1,"explanation":"Your father’s brother is your paternal uncle."},
+    {"q":"Your brother’s daughter is your:","options":["Nephew","Cousin","Niece","Aunt"],"answer":2,"explanation":"A brother’s daughter is a niece."},
+    {"q":"Your mother’s sister is your:","options":["Aunt","Niece","Grandmother","Cousin"],"answer":0,"explanation":"Your mother’s sister is your aunt."},
+    {"q":"Your son’s son is your:","options":["Nephew","Grandson","Brother","Uncle"],"answer":1,"explanation":"Your son’s son is your grandson."},
+    {"q":"Your father’s father is your:","options":["Maternal grandfather","Paternal grandfather","Uncle","Cousin"],"answer":1,"explanation":"Your father’s father is your paternal grandfather."},
+    {"q":"Your sister’s daughter is your:","options":["Niece","Nephew","Aunt","Grandmother"],"answer":0,"explanation":"Your sister’s daughter is your niece."}
+  ],
+    'Reasoning: Direction Sense': [{q:'Facing north, you turn right. Which way now?',options:['West','South','East','North'],answer:2,explanation:'Right from north is east.'},{q:'Facing east, you turn left. Which way now?',options:['North','South','West','East'],answer:0,explanation:'Left from east is north.'},{q:'Facing south, you turn right. Which way now?',options:['East','West','North','South'],answer:1,explanation:'Right from south is west.'},
+    {"q":"Facing north, you turn left. Which direction now?","options":["East","West","South","North"],"answer":1,"explanation":"Left from north is west."},
+    {"q":"Facing west, you turn right. Which direction now?","options":["North","South","East","West"],"answer":0,"explanation":"Right from west is north."},
+    {"q":"Facing south, you turn left. Which direction now?","options":["East","West","North","South"],"answer":0,"explanation":"Left from south is east."},
+    {"q":"You walk 5 m north, then 5 m south. Where are you from the start?","options":["5 m north","5 m south","At the starting point","10 m north"],"answer":2,"explanation":"The opposite movements cancel each other."},
+    {"q":"Facing east, you turn right. Which direction now?","options":["North","South","West","East"],"answer":1,"explanation":"Right from east is south."},
+    {"q":"Facing north, you turn around. Which direction now?","options":["East","West","South","North"],"answer":2,"explanation":"The opposite direction to north is south."},
+    {"q":"You walk east and then turn left. Which direction are you facing?","options":["North","South","East","West"],"answer":0,"explanation":"Left from east is north."}
+  ],
+    'Reasoning: Ranking & Order': [{q:'Ravi is 5th from the top in a class of 20. Position from bottom?',options:['14th','15th','16th','17th'],answer:2,explanation:'20 - 5 + 1 = 16.'},{q:'Maya is 3rd from the left in a row of 10. Position from right?',options:['7th','8th','9th','6th'],answer:1,explanation:'10 - 3 + 1 = 8.'},{q:'A person is 7th from front and 4th from back. Total people?',options:['9','10','11','12'],answer:1,explanation:'7 + 4 - 1 = 10.'},
+    {"q":"Ravi is 8th from the top in a class of 25. Position from the bottom?","options":["17th","18th","19th","20th"],"answer":1,"explanation":"25 - 8 + 1 = 18, so the answer is 18th."},
+    {"q":"Asha is 4th from the left in a row of 12. Position from the right?","options":["8th","9th","10th","7th"],"answer":1,"explanation":"12 - 4 + 1 = 9."},
+    {"q":"A boy is 6th from the front and 5th from the back. Total people?","options":["9","10","11","12"],"answer":1,"explanation":"6 + 5 - 1 = 10."},
+    {"q":"Mina ranks 2nd in a class of 18. How many students rank below her?","options":["15","16","17","18"],"answer":1,"explanation":"18 - 2 = 16 students rank below her."},
+    {"q":"Raj is 10th from the top and 15th from the bottom. Total students?","options":["23","24","25","26"],"answer":1,"explanation":"10 + 15 - 1 = 24."},
+    {"q":"In a row of 20, Sam is 7th from the right. Position from the left?","options":["12th","13th","14th","15th"],"answer":2,"explanation":"20 - 7 + 1 = 14."},
+    {"q":"There are 30 students. Kiran is 12th from the top. How many are below Kiran?","options":["17","18","19","20"],"answer":1,"explanation":"30 - 12 = 18 students are below Kiran."}
+  ],
+    'Reasoning: Syllogism': [{q:'All cats are animals. All animals need food. What follows?',options:['All cats need food','No cats need food','All food is cats','None'],answer:0,explanation:'The conclusion follows from both statements.'},{q:'All roses are flowers. Which must be true?',options:['All flowers are roses','All roses are flowers','No rose is a flower','All flowers are red'],answer:1,explanation:'This repeats the given statement.'},{q:'Some pens are blue. Which is definitely true?',options:['All pens are blue','Some pens are blue','No pens are blue','All blue things are pens'],answer:1,explanation:'This is stated directly.'},
+    {"q":"All dogs are animals. All animals need food. What follows?","options":["All dogs need food","No dogs need food","All animals are dogs","None"],"answer":0,"explanation":"The conclusion follows from both statements."},
+    {"q":"All pens are stationery. Some stationery is costly. Must all pens be costly?","options":["Yes","No, not necessarily","All stationery is pens","None"],"answer":1,"explanation":"The statements do not establish that pens are costly."},
+    {"q":"No fish is a bird. All sparrows are birds. What follows?","options":["All fish are sparrows","No sparrow is a fish","Some fish are birds","None"],"answer":1,"explanation":"Sparrows are birds, and no fish is a bird."},
+    {"q":"All roses are flowers. All flowers are plants. What follows?","options":["All roses are plants","All plants are roses","No roses are plants","None"],"answer":0,"explanation":"Roses belong to the group of flowers, which are plants."},
+    {"q":"Some books are novels. Which must be true?","options":["All books are novels","Some books are novels","No books are novels","All novels are books"],"answer":1,"explanation":"This repeats the given statement."},
+    {"q":"All cars are vehicles. No vehicle is a tree. What follows?","options":["Some cars are trees","No cars are trees","All trees are cars","None"],"answer":1,"explanation":"Cars are vehicles, and vehicles are not trees."},
+    {"q":"Some students are athletes. All athletes are fit. What follows?","options":["Some students are fit","All students are athletes","No athletes are fit","None"],"answer":0,"explanation":"The students who are athletes are fit."}
+  ],
+    'English: Synonyms & Antonyms': [{q:'Synonym of Rapid:',options:['Slow','Fast','Weak','Late'],answer:1,explanation:'Rapid means fast.'},{q:'Antonym of Ancient:',options:['Old','Historic','Modern','Past'],answer:2,explanation:'Modern is the opposite of ancient.'},{q:'Synonym of Brave:',options:['Courageous','Afraid','Lazy','Quiet'],answer:0,explanation:'Brave means courageous.'}],
+    'English: Spelling': [{q:'Choose the correct spelling.',options:['Accomodation','Accommodation','Acommodation','Accommadation'],answer:1,explanation:'Accommodation is correct.'},{q:'Choose the correct spelling.',options:['Seperate','Separate','Seperete','Separrate'],answer:1,explanation:'Separate is correct.'},{q:'Choose the correct spelling.',options:['Necessary','Neccessary','Necesary','Necessery'],answer:0,explanation:'Necessary is correct.'}],
+    'English: Grammar': [{q:'Choose the correct sentence.',options:['She go to school.','She goes to school.','She going school.','She gone to school.'],answer:1,explanation:'Use goes with she in the simple present.'},{q:'He is ___ honest man.',options:['a','an','the','no article'],answer:1,explanation:'Honest starts with a vowel sound.'},{q:'Identify the noun: “Birds fly high.”',options:['Fly','High','Birds','The'],answer:2,explanation:'Birds is a noun.'}],
+    'English: Tenses': [{q:'She ___ to school every day.',options:['go','goes','went','going'],answer:1,explanation:'Simple present with she uses goes.'},{q:'They ___ cricket yesterday.',options:['play','plays','played','playing'],answer:2,explanation:'Yesterday indicates past tense.'},{q:'I ___ my homework now.',options:['do','did','am doing','done'],answer:2,explanation:'Now indicates present continuous.'}],
+    'English: Subject-Verb Agreement': [{q:'Each of the boys ___ present.',options:['are','were','is','be'],answer:2,explanation:'Each takes a singular verb.'},{q:'The news ___ true.',options:['are','is','were','have'],answer:1,explanation:'News takes a singular verb.'},{q:'Neither Ravi nor his friends ___ here.',options:['is','was','are','has'],answer:2,explanation:'The verb agrees with the nearer subject friends.'}],
+    'English: Articles': [{q:'She bought ___ umbrella.',options:['a','an','the','no article'],answer:1,explanation:'Umbrella begins with a vowel sound.'},{q:'He is ___ university student.',options:['a','an','the','no article'],answer:0,explanation:'University begins with a “you” sound.'},{q:'The sun rises in ___ east.',options:['a','an','the','no article'],answer:2,explanation:'Use the in this expression.'}],
+    'English: Prepositions': [{q:'The book is ___ the table.',options:['on','at','by','into'],answer:0,explanation:'On indicates a surface.'},{q:'She has lived here ___ 2020.',options:['for','since','from','by'],answer:1,explanation:'Since is used with a starting point.'},{q:'He is good ___ mathematics.',options:['in','on','at','with'],answer:2,explanation:'The usual phrase is good at.'}],
+    'English: Vocabulary': [{q:'Benevolent means:',options:['Kind','Cruel','Careless','Angry'],answer:0,explanation:'Benevolent means kind.'},{q:'Fragile means:',options:['Strong','Easily broken','Heavy','Bright'],answer:1,explanation:'Fragile means easily broken.'},{q:'Brief means:',options:['Short','Long','Loud','Difficult'],answer:0,explanation:'Brief means short.'}],
+    'General Knowledge: Indian History': [{q:'Who founded the Mughal Empire in India?',options:['Akbar','Babur','Humayun','Shah Jahan'],answer:1,explanation:'Babur founded the Mughal Empire in India.'},{q:'Quit India Movement began in:',options:['1930','1942','1947','1919'],answer:1,explanation:'It began in 1942.'},{q:'Who is called the Iron Man of India?',options:['Nehru','Sardar Patel','Subhas Bose','Ambedkar'],answer:1,explanation:'Sardar Vallabhbhai Patel is known by this title.'}],
+    'General Knowledge: Indian Geography': [{q:'Largest Indian state by area?',options:['Uttar Pradesh','Madhya Pradesh','Rajasthan','Maharashtra'],answer:2,explanation:'Rajasthan is the largest by area.'},{q:'Which ocean lies south of India?',options:['Atlantic','Pacific','Indian Ocean','Arctic'],answer:2,explanation:'The Indian Ocean lies south of India.'},{q:'Which is the longest river flowing entirely within India?',options:['Ganga','Godavari','Narmada','Krishna'],answer:1,explanation:'Godavari is the longest river flowing entirely within India.'}],
+    'General Knowledge: Indian Polity': [{q:'When did the Constitution of India come into effect?',options:['15 August 1947','26 January 1950','26 November 1949','2 October 1950'],answer:1,explanation:'It came into effect on 26 January 1950.'},{q:'Who is the constitutional head of India?',options:['Prime Minister','President','Chief Justice','Governor'],answer:1,explanation:'The President is the constitutional head of the Union.'},{q:'Fundamental Rights are in which part?',options:['Part I','Part II','Part III','Part IV'],answer:2,explanation:'Fundamental Rights are in Part III.'}],
+    'General Knowledge: General Science': [{q:'Which planet is called the Red Planet?',options:['Venus','Mars','Jupiter','Mercury'],answer:1,explanation:'Mars is known as the Red Planet.'},{q:'Chemical formula of water?',options:['CO2','O2','H2O','NaCl'],answer:2,explanation:'Water is H2O.'},{q:'Which organ pumps blood?',options:['Lungs','Brain','Heart','Kidney'],answer:2,explanation:'The heart pumps blood.'}],
+    'General Knowledge: Indian Economy': [{q:'Currency of India?',options:['Rupee','Taka','Riyal','Yen'],answer:0,explanation:'India uses the Indian rupee.'},{q:'Which institution issues most Indian currency notes?',options:['SBI','RBI','SEBI','NITI Aayog'],answer:1,explanation:'The RBI issues most banknotes.'},{q:'GDP stands for:',options:['Gross Domestic Product','General Development Plan','Global Domestic Price','Gross Demand Product'],answer:0,explanation:'GDP means Gross Domestic Product.'}],
+    'General Knowledge: Static GK': [{q:'National animal of India?',options:['Lion','Tiger','Elephant','Leopard'],answer:1,explanation:'The tiger is India’s national animal.'},{q:'National flower of India?',options:['Rose','Lotus','Lily','Jasmine'],answer:1,explanation:'The lotus is India’s national flower.'},{q:'National anthem of India?',options:['Vande Mataram','Jana Gana Mana','Saare Jahan Se Achha','Ae Mere Watan'],answer:1,explanation:'Jana Gana Mana is the national anthem.'}],
+    'General Knowledge: Important Days': [{q:'India’s Independence Day is:',options:['26 January','15 August','2 October','14 November'],answer:1,explanation:'Independence Day is 15 August.'},{q:'World Environment Day is:',options:['5 June','22 April','1 May','10 December'],answer:0,explanation:'It is observed on 5 June.'},{q:'Constitution Day in India is:',options:['26 January','15 August','26 November','2 October'],answer:2,explanation:'It is observed on 26 November.'}],
+    'General Knowledge: Books & Authors': [{q:'Who wrote The Discovery of India?',options:['M. K. Gandhi','Jawaharlal Nehru','Rabindranath Tagore','R. K. Narayan'],answer:1,explanation:'Jawaharlal Nehru wrote it.'},{q:'Who wrote Gitanjali?',options:['Sarojini Naidu','Rabindranath Tagore','Bankim Chandra Chatterjee','Premchand'],answer:1,explanation:'Rabindranath Tagore wrote Gitanjali.'},{q:'Wings of Fire is associated with which author?',options:['A. P. J. Abdul Kalam','Vikram Seth','R. K. Narayan','Chetan Bhagat'],answer:0,explanation:'It is the autobiography of A. P. J. Abdul Kalam, co-authored with Arun Tiwari.'}]
+  };
+
+  // ENGLISH_GK_10Q_EXTENSION
+  const englishGkExtra = {
+    'English: Synonyms & Antonyms': [
+      ['Antonym of “Expand”:', ['Increase','Extend','Contract','Enlarge'], 2, 'Contract means to become smaller.'],
+      ['Synonym of “Assist”:', ['Help','Hinder','Refuse','Stop'], 0, 'Assist means help.'],
+      ['Antonym of “Victory”:', ['Success','Defeat','Triumph','Win'], 1, 'Defeat is the opposite of victory.'],
+      ['Synonym of “Abundant”:', ['Rare','Plentiful','Empty','Tiny'], 1, 'Abundant means plentiful.'],
+      ['Antonym of “Optimistic”:', ['Hopeful','Positive','Cheerful','Pessimistic'], 3, 'Pessimistic is the opposite of optimistic.'],
+      ['Synonym of “Diligent”:', ['Lazy','Careless','Hardworking','Weak'], 2, 'Diligent means hardworking.'],
+      ['Antonym of “Permanent”:', ['Lasting','Fixed','Temporary','Stable'], 2, 'Temporary means not permanent.']
+    ],
+    'English: Spelling': [
+      ['Choose the correct spelling:', ['Definately','Definitely','Definatly','Definetely'], 1, 'Definitely is the correct spelling.'],
+      ['Choose the correct spelling:', ['Occasion','Ocassion','Occassion','Ocaasion'], 0, 'Occasion has one c after o and double s.'],
+      ['Choose the correct spelling:', ['Privilege','Privelege','Priviledge','Privilage'], 0, 'Privilege is correct.'],
+      ['Choose the correct spelling:', ['Government','Goverment','Governmant','Govarnment'], 0, 'Government is correct.'],
+      ['Choose the correct spelling:', ['Receive','Recieve','Receeve','Receve'], 0, 'Receive follows “i before e” exception after c.'],
+      ['Choose the correct spelling:', ['Environment','Enviroment','Environmant','Envirnoment'], 0, 'Environment is correct.'],
+      ['Choose the correct spelling:', ['Separate','Seperate','Seperete','Separrate'], 0, 'Separate is correct.']
+    ],
+    'English: Grammar': [
+      ['Choose the correct sentence:', ['They was late.','They were late.','They is late.','They be late.'], 1, 'They takes were in the past tense.'],
+      ['Identify the adjective: “It is a beautiful day.”', ['It','Is','Beautiful','Day'], 2, 'Beautiful describes the noun day.'],
+      ['Choose the correct pronoun: “Ravi and ___ went home.”', ['me','I','mine','my'], 1, 'I is the subject pronoun.'],
+      ['What is the plural of “child”?', ['Childs','Childes','Children','Childrens'], 2, 'Children is the plural form.'],
+      ['Choose the correct sentence:', ['She has finished her work.','She have finished her work.','She finishing her work.','She finish her work yesterday.'], 0, 'She takes has in the present perfect.'],
+      ['Identify the adverb: “He ran quickly.”', ['He','Ran','Quickly','None'], 2, 'Quickly describes how he ran.'],
+      ['Choose the correct comparative form of “good”:', ['Gooder','More good','Best','Better'], 3, 'Better is the comparative form of good.']
+    ],
+    'English: Tenses': [
+      ['He ___ here since morning.', ['is','was','has been','will'], 2, 'Since morning calls for present perfect continuous or present perfect context; has been is correct here.'],
+      ['By next year, she ___ her course.', ['completes','completed','will have completed','has complete'], 2, 'Future perfect describes completion before a future time.'],
+      ['When I arrived, they ___ dinner.', ['have','had','were having','will have'], 2, 'Past continuous describes an action in progress at that time.'],
+      ['Water ___ at 100°C at standard pressure.', ['boil','boils','boiled','boiling'], 1, 'General facts use the simple present.'],
+      ['I ___ him last week.', ['meet','meets','met','meeting'], 2, 'Last week indicates the simple past.'],
+      ['Look! The baby ___.', ['cries','cried','is crying','cry'], 2, 'Look indicates an action happening now.'],
+      ['She usually ___ tea in the morning.', ['drink','drinks','drank','drinking'], 1, 'A habitual action uses simple present; she takes drinks.']
+    ],
+    'English: Subject-Verb Agreement': [
+      ['One of my friends ___ in Delhi.', ['live','lives','are living','were'], 1, 'The subject one is singular.'],
+      ['The players ___ ready for the match.', ['is','was','are','has'], 2, 'Players is plural, so use are.'],
+      ['Mathematics ___ my favourite subject.', ['are','is','were','have'], 1, 'Names of academic subjects ending in -s usually take a singular verb.'],
+      ['Neither the teacher nor the students ___ absent.', ['is','was','are','has'], 2, 'The verb agrees with the nearer plural subject students.'],
+      ['A pair of shoes ___ on the floor.', ['are','were','is','have'], 2, 'The head subject pair is singular.'],
+      ['Everyone ___ responsible for the task.', ['are','is','were','have'], 1, 'Everyone takes a singular verb.'],
+      ['The quality of these mangoes ___ good.', ['are','were','is','have'], 2, 'The subject quality is singular.']
+    ],
+    'English: Articles': [
+      ['He waited for ___ hour.', ['a','an','the','no article'], 1, 'Hour begins with a vowel sound.'],
+      ['She plays ___ piano well.', ['a','an','the','no article'], 2, 'The is commonly used with musical instruments.'],
+      ['Mount Everest is ___ highest peak in the world.', ['a','an','the','no article'], 2, 'Use the with superlative adjectives.'],
+      ['I saw ___ one-eyed man.', ['a','an','the','no article'], 0, 'One begins with a “w” sound, so use a.'],
+      ['He is ___ European citizen.', ['a','an','the','no article'], 0, 'European begins with a “you” sound.'],
+      ['The Ganga is ___ sacred river.', ['a','an','the','no article'], 0, 'A is used for a singular countable noun introduced generally.'],
+      ['She is ___ MLA.', ['a','an','the','no article'], 1, 'M is pronounced “em”, beginning with a vowel sound.']
+    ],
+    'English: Prepositions': [
+      ['The train arrived ___ time.', ['at','on','in','by'], 1, 'On time means punctual.'],
+      ['He has been ill ___ Monday.', ['for','since','during','from'], 1, 'Since marks a starting point.'],
+      ['The cat jumped ___ the wall.', ['over','between','among','beside'], 0, 'Over indicates movement across or above.'],
+      ['She is interested ___ music.', ['on','at','in','for'], 2, 'The correct phrase is interested in.'],
+      ['Divide the sweets ___ the two children.', ['among','between','inside','across'], 1, 'Between is used for two people or things.'],
+      ['The meeting starts ___ 10 a.m.', ['in','on','at','by'], 2, 'At is used for a specific time.'],
+      ['He walked ___ the room quietly.', ['into','onto','between','during'], 0, 'Into indicates movement to the inside.']
+    ],
+    'English: Vocabulary': [
+      ['“Reluctant” means:', ['Unwilling','Excited','Certain','Carefree'], 0, 'Reluctant means unwilling or hesitant.'],
+      ['“Enormous” means:', ['Tiny','Huge','Narrow','Weak'], 1, 'Enormous means very large.'],
+      ['“Candid” means:', ['Honest','Secretive','Angry','Confused'], 0, 'Candid means truthful and frank.'],
+      ['“Obsolete” means:', ['Modern','Useful','Outdated','Popular'], 2, 'Obsolete means no longer in use.'],
+      ['“Inevitable” means:', ['Avoidable','Uncertain','Unavoidable','Optional'], 2, 'Inevitable means certain to happen.'],
+      ['“Mitigate” means:', ['Worsen','Reduce','Ignore','Repeat'], 1, 'Mitigate means to make less severe.'],
+      ['“Prudent” means:', ['Careless','Wise','Impatient','Rude'], 1, 'Prudent means wise and careful.']
+    ],
+    'General Knowledge: Indian History': [
+      ['Who was the first Mughal emperor of India?', ['Akbar','Babur','Humayun','Aurangzeb'], 1, 'Babur established Mughal rule in India in 1526.'],
+      ['The Battle of Plassey was fought in:', ['1757','1764','1857','1942'], 0, 'The Battle of Plassey took place in 1757.'],
+      ['Who founded the Maurya Empire?', ['Ashoka','Chandragupta Maurya','Harsha','Kanishka'], 1, 'Chandragupta Maurya founded the Maurya Empire.'],
+      ['Who gave the slogan “Do or Die”?', ['Bhagat Singh','Mahatma Gandhi','Sardar Patel','Bal Gangadhar Tilak'], 1, 'Gandhi gave this slogan during the Quit India Movement.'],
+      ['The Jallianwala Bagh massacre occurred in:', ['1905','1919','1927','1942'], 1, 'It occurred in Amritsar in 1919.'],
+      ['Who was the first woman ruler of the Delhi Sultanate?', ['Nur Jahan','Razia Sultan','Rani Durgavati','Chand Bibi'], 1, 'Razia Sultan ruled the Delhi Sultanate in the 13th century.'],
+      ['Who founded the Indian National Congress in 1885 with other leaders?', ['A. O. Hume','Lord Curzon','Lord Mountbatten','Robert Clive'], 0, 'A. O. Hume played a leading role in its founding.']
+    ],
+    'General Knowledge: Indian Geography': [
+      ['Which is the highest mountain peak located entirely in India?', ['Nanda Devi','K2','Anamudi','Guru Shikhar'], 0, 'Nanda Devi is the highest peak located entirely within India.'],
+      ['Which Indian state has the longest coastline?', ['Tamil Nadu','Gujarat','Kerala','Odisha'], 1, 'Gujarat has the longest coastline among Indian states.'],
+      ['The Thar Desert is mainly located in:', ['Rajasthan','Assam','Bihar','Kerala'], 0, 'The Thar Desert is mainly in Rajasthan.'],
+      ['Which river is known as the “Sorrow of Bihar”?', ['Yamuna','Kosi','Tapti','Mahanadi'], 1, 'The Kosi has historically caused severe flooding in Bihar.'],
+      ['Which soil is best known for cotton cultivation?', ['Alluvial','Black','Laterite','Desert'], 1, 'Black soil retains moisture and is suitable for cotton.'],
+      ['The Western Ghats run roughly parallel to India’s:', ['East coast','West coast','Northern border','Desert border'], 1, 'The Western Ghats run along the western side of India.'],
+      ['Which is the largest brackish-water lagoon in India?', ['Dal Lake','Chilika Lake','Wular Lake','Sambhar Lake'], 1, 'Chilika Lake is a large brackish-water lagoon in Odisha.']
+    ],
+    'General Knowledge: Indian Polity': [
+      ['How many Fundamental Duties are currently listed in the Constitution?', ['10','11','12','9'], 1, 'There are 11 Fundamental Duties.'],
+      ['Who is the Chairman of the Rajya Sabha?', ['President','Vice-President','Prime Minister','Speaker of Lok Sabha'], 1, 'India’s Vice-President is ex officio Chairman of the Rajya Sabha.'],
+      ['Which Article deals with equality before law?', ['Article 14','Article 19','Article 21','Article 32'], 0, 'Article 14 guarantees equality before law and equal protection of laws.'],
+      ['What is the minimum age to become President of India?', ['25 years','30 years','35 years','40 years'], 2, 'A presidential candidate must be at least 35.'],
+      ['A Money Bill can be introduced only in the:', ['Rajya Sabha','Lok Sabha','Supreme Court','State Legislative Council'], 1, 'A Money Bill can be introduced only in the Lok Sabha.'],
+      ['Who appoints the Governor of an Indian state?', ['Chief Minister','President','Chief Justice','State Assembly'], 1, 'The President appoints state Governors.'],
+      ['Which body conducts elections to Parliament and state legislatures?', ['UPSC','Election Commission of India','Finance Commission','NITI Aayog'], 1, 'The Election Commission of India supervises these elections.']
+    ],
+    'General Knowledge: General Science': [
+      ['What is the SI unit of force?', ['Joule','Watt','Newton','Pascal'], 2, 'Force is measured in newtons.'],
+      ['Which gas do plants absorb during photosynthesis?', ['Oxygen','Carbon dioxide','Nitrogen','Hydrogen'], 1, 'Plants absorb carbon dioxide for photosynthesis.'],
+      ['Which vitamin is produced in skin with sunlight exposure?', ['Vitamin A','Vitamin B12','Vitamin C','Vitamin D'], 3, 'Sunlight helps the skin produce vitamin D.'],
+      ['What is the boiling point of water at standard atmospheric pressure?', ['0°C','50°C','100°C','150°C'], 2, 'Water boils at 100°C at standard atmospheric pressure.'],
+      ['Which part of the cell contains most genetic material?', ['Nucleus','Cell wall','Ribosome','Cytoplasm only'], 0, 'The nucleus contains most of a cell’s DNA.'],
+      ['Which blood cells help fight infections?', ['Red blood cells','White blood cells','Platelets','Plasma only'], 1, 'White blood cells help defend the body against infection.'],
+      ['Which instrument measures temperature?', ['Barometer','Thermometer','Ammeter','Hygrometer'], 1, 'A thermometer measures temperature.']
+    ],
+    'General Knowledge: Indian Economy': [
+      ['What does RBI stand for?', ['Reserve Bank of India','Rural Bank of India','Revenue Board of India','Regional Banking Institute'], 0, 'RBI stands for Reserve Bank of India.'],
+      ['Which tax is levied on the supply of goods and services in India?', ['GST','TDS only','Custom duty only','Road tax'], 0, 'GST is the Goods and Services Tax.'],
+      ['What is inflation?', ['A fall in prices','A general rise in prices','A rise in rainfall','A fall in population'], 1, 'Inflation is a general increase in the price level.'],
+      ['Which institution replaced the Planning Commission?', ['SEBI','NITI Aayog','NABARD','CAG'], 1, 'NITI Aayog replaced the Planning Commission in 2015.'],
+      ['Which sector includes farming and fishing?', ['Primary','Secondary','Tertiary','Quaternary only'], 0, 'Farming and fishing belong to the primary sector.'],
+      ['What does ATM commonly stand for in banking?', ['Automated Teller Machine','Automatic Transfer Method','Account Tracking Mode','Any Time Money'], 0, 'ATM stands for Automated Teller Machine.'],
+      ['Which organisation regulates the securities market in India?', ['RBI','SEBI','IRDAI','FSSAI'], 1, 'SEBI regulates India’s securities market.']
+    ],
+    'General Knowledge: Static GK': [
+      ['What is the national bird of India?', ['Peacock','Parrot','Eagle','Swan'], 0, 'The Indian peacock is the national bird.'],
+      ['What is the national aquatic animal of India?', ['Blue whale','Ganges river dolphin','Crocodile','Sea turtle'], 1, 'The Ganges river dolphin is India’s national aquatic animal.'],
+      ['Which is the largest planet in the Solar System?', ['Earth','Saturn','Jupiter','Neptune'], 2, 'Jupiter is the largest planet.'],
+      ['How many colours are traditionally listed in the Indian national flag?', ['Two','Three','Four','Five'], 1, 'The flag has three horizontal colour bands.'],
+      ['Which is the smallest continent by land area?', ['Europe','Australia','South America','Antarctica'], 1, 'Australia is the smallest continent by land area.'],
+      ['What is the currency of the United Kingdom?', ['Euro','Pound sterling','Dollar','Franc'], 1, 'The UK uses the pound sterling.'],
+      ['Which planet is famous for its prominent rings?', ['Mars','Venus','Saturn','Mercury'], 2, 'Saturn is known for its prominent ring system.']
+    ],
+    'General Knowledge: Important Days': [
+      ['World Health Day is observed on:', ['7 April','5 June','1 December','10 October'], 0, 'World Health Day is observed on 7 April.'],
+      ['International Yoga Day is observed on:', ['21 June','11 July','24 October','8 March'], 0, 'International Yoga Day is observed on 21 June.'],
+      ['National Science Day in India is:', ['28 February','15 August','5 September','14 November'], 0, 'National Science Day is observed on 28 February.'],
+      ['World AIDS Day is observed on:', ['1 December','7 April','22 March','16 September'], 0, 'World AIDS Day is observed on 1 December.'],
+      ['Teachers’ Day in India is celebrated on:', ['5 September','14 November','2 October','12 January'], 0, 'India celebrates Teachers’ Day on 5 September.'],
+      ['International Women’s Day is observed on:', ['8 March','21 June','1 May','10 December'], 0, 'International Women’s Day is observed on 8 March.'],
+      ['World Water Day is observed on:', ['22 March','22 April','5 June','16 October'], 0, 'World Water Day is observed on 22 March.']
+    ],
+    'General Knowledge: Books & Authors': [
+      ['Who wrote “The Guide”?', ['R. K. Narayan','Mulk Raj Anand','Khushwant Singh','Vikram Seth'], 0, 'R. K. Narayan wrote The Guide.'],
+      ['Who wrote “Anandamath”?', ['Bankim Chandra Chatterjee','Rabindranath Tagore','Premchand','Sarojini Naidu'], 0, 'Bankim Chandra Chatterjee wrote Anandamath.'],
+      ['Who wrote “The God of Small Things”?', ['Arundhati Roy','Jhumpa Lahiri','Kiran Desai','Anita Desai'], 0, 'Arundhati Roy wrote this novel.'],
+      ['Who wrote “Malgudi Days”?', ['R. K. Narayan','Ruskin Bond','Amitav Ghosh','Vikram Seth'], 0, 'Malgudi Days is by R. K. Narayan.'],
+      ['Who wrote “The Jungle Book”?', ['Rudyard Kipling','Charles Dickens','Mark Twain','Jules Verne'], 0, 'Rudyard Kipling wrote The Jungle Book.'],
+      ['Who wrote “A Brief History of Time”?', ['Stephen Hawking','Isaac Newton','Carl Sagan','Albert Einstein'], 0, 'Stephen Hawking wrote A Brief History of Time.'],
+      ['Who wrote “India Wins Freedom”?', ['Maulana Abul Kalam Azad','Jawaharlal Nehru','Sardar Patel','Rajendra Prasad'], 0, 'India Wins Freedom is associated with Maulana Abul Kalam Azad.']
     ]
   };
-  const quantQuestions = quantBank[quantTopic] || [];
+
+  for (const [topic, rows] of Object.entries(englishGkExtra)) {
+    if (!subjectTopicBank[topic]) {
+      throw new Error('Missing topic key: ' + topic);
+    }
+    if (subjectTopicBank[topic].length !== 3) {
+      throw new Error('Expected 3 existing questions for ' + topic + ', found ' + subjectTopicBank[topic].length);
+    }
+    subjectTopicBank[topic].push(...rows.map(([q, options, answer, explanation]) => ({
+      q, options, answer, explanation
+    })));
+  }
+
+  const quantQuestions = (subjectTopicBank[quantTopic] && subjectTopicBank[quantTopic].length > 0)
+    ? subjectTopicBank[quantTopic]
+    : (quantBank[quantTopic] || []);
+  const allSubjectsMockQuestions = [
+    ...(questionBank['Mathematics'] || []),
+    ...(questionBank['Reasoning'] || []),
+    ...(questionBank['English'] || []),
+    ...(questionBank['General Knowledge'] || [])
+  ];
+
+  const startAllSubjectsMock = () => {
+    if (!allSubjectsMockQuestions.length) {
+      console.log('All Subjects Mock has no questions available.');
+      return;
+    }
+    setCurrentSubject('All Subjects Mock');
+    setQuantTopic('');
+    setQuestion(0);
+    setAnswers({});
+    setScore(null);
+    setTimeLeft(1800);
+    setIsTestPaused(false);
+    setPage('Mock Tests');
+  };
+
+  const questions = currentSubject === 'All Subjects Mock'
+    ? allSubjectsMockQuestions
+    : subjectTopicBank[quantTopic] && subjectTopicBank[quantTopic].length > 0
+    ? subjectTopicBank[quantTopic]
+    : (quantTopic && quantBank[quantTopic] && quantBank[quantTopic].length > 0
+      ? quantBank[quantTopic]
+      : (currentSubject === 'Number System'
+        ? (quantBank['Number System'] || questionBank['Mathematics'])
+        : (questionBank[currentSubject] || [])));
 
 
   const subjects = [
@@ -1294,14 +2293,92 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
     ['General Knowledge', 'History, geography and science', '🌍'],
   ];
 
-  const startTest = (subject = 'Mathematics') => {
+  const startTest = (subject = 'Mathematics', topic = '') => {
     setCurrentSubject(subject);
+    setQuantTopic(topic);
     setQuestion(0);
     setAnswers({});
     setScore(null);
     setTimeLeft(900);
-  setIsTestPaused(false);
+    setIsTestPaused(false);
     setPage('Mock Tests');
+  };
+
+  const deleteTestResult = (index) => {
+    const removeResult = () => {
+      setResults(old => old.filter((_, i) => i !== index));
+    };
+
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' &&
+          window.confirm('Are you sure you want to delete this test result?')) {
+        removeResult();
+      }
+    } else {
+      Alert.alert('Delete Result', 'ఈ test result‌ను delete చేయాలా?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: removeResult }
+      ]);
+    }
+  };
+
+  const retryTestResult = (r) => {
+    if (r?.type === 'all-subjects-mock' || r?.subject === 'All Subjects Mock') {
+      startAllSubjectsMock();
+      return;
+    }
+    if (r?.type === 'practice') {
+      setQuantTopic(r.topic || '');
+      setQuantQuestion(0);
+      setQuantAnswers({});
+      setQuantFinished(false);
+      setQuantResultSaved(false);
+      setPage('Quant Questions');
+      return;
+    }
+
+    if (r?.topic &&
+        ['Reasoning', 'English', 'General Knowledge'].includes(r.subject)) {
+      setQuantTopic(r.topic);
+      setQuantQuestion(0);
+      setQuantAnswers({});
+      setQuantFinished(false);
+      setQuantResultSaved(false);
+      setPage('Quant Questions');
+      return;
+    }
+
+    startTest(r?.subject || 'Mathematics', r?.topic || '');
+  };
+
+  const finishQuantPractice = () => {
+    if (!quantResultSaved) {
+      const total = quantQuestions.length;
+      const score = quantQuestions.reduce(
+        (n, q, i) => n + (
+          quantAnswers[i] !== undefined &&
+          Number(quantAnswers[i]) === Number(q.answer) ? 1 : 0
+        ), 0
+      );
+      const answered = Object.keys(quantAnswers).length;
+      const topicName = quantTopic || 'Practice';
+      const subject = /^(Reasoning|English|General Knowledge): /.test(topicName)
+        ? topicName.split(':')[0]
+        : 'Mathematics';
+
+      setResults(old => [{
+        subject,
+        topic: topicName,
+        type: 'practice',
+        score,
+        total,
+        incorrect: answered - score,
+        unanswered: Math.max(0, total - answered),
+        date: new Date().toLocaleDateString()
+      }, ...old]);
+      setQuantResultSaved(true);
+    }
+    setQuantFinished(true);
   };
 
   const submitTest = () => {
@@ -1312,6 +2389,8 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
       k => answers[k] !== questions[Number(k)].answer
     ).length;
     const testResult = {
+      ...(currentSubject === 'All Subjects Mock' ? { type: 'all-subjects-mock' } : {}),
+
       subject: currentSubject,
       score: result,
       total: questions.length,
@@ -1333,10 +2412,29 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
     return () => clearTimeout(timer);
   }, [page, score, timeLeft, isTestPaused]);
 
-  const button = (label, action, primary = false) => (
-    <TouchableOpacity onPress={action}
-      style={[styles.button, primary && styles.primaryButton]}>
-      <Text style={[styles.buttonText, primary && styles.primaryText]}>
+  const button = (label, action, primary = false, textColor = null) => (
+    <TouchableOpacity
+      onPress={action}
+      style={[styles.button, primary && styles.primaryButton, {overflow:'hidden', position:'relative'}]}
+      activeOpacity={0.82}
+    >
+      {Platform.OS === 'web' && (
+        <View
+          pointerEvents="none"
+          style={{
+            position:'absolute', top:0, bottom:0, left:0, right:0,
+            borderRadius:11,
+            backgroundImage:'linear-gradient(105deg, #173B83 0%, #2457D6 35%, #7045E8 65%, #08A6C9 100%)',
+            backgroundSize:'250% 100%',
+            animation:'veerButtonColorFlow 5s ease-in-out infinite'
+          }}
+        />
+      )}
+      <Text style={[
+        styles.buttonText,
+        primary && styles.primaryText,
+        {color: textColor || '#FFFFFF', zIndex:1},
+      ]}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -2134,7 +3232,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               borderWidth:2,borderColor:darkMode?'#5B6594':'#C9B6FF',
               alignItems:'center',justifyContent:'center',marginRight:12
             }}>
-              <Feather name="book-open" size={27} color={darkMode?'#D8CCFF':'#6741A5'} />
+              <Image source={require("./assets/images/book1.png")} style={{width:38,height:38,resizeMode:"contain"}} />
             </View>
             <View style={{flex:1}}>
               <Text style={{fontSize:10,fontWeight:'900',color:darkMode?'#C5B3FF':'#7952C7',letterSpacing:1.4}}>{t('WELCOME TO', 'స్వాగతం')}</Text>
@@ -2161,7 +3259,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 const destination = ['Mock Tests','Previous Year Papers'].includes(name)
                   ? 'Mock Test Folders'
                   : ['My Purchases','Paid Courses','Free Courses'].includes(name)
-                    ? 'Courses' : name;
+                    ? (name === 'Paid Courses' ? 'Paid Courses' : 'Courses') : name;
                 const active = page===name || page===destination;
                 return (
                   <TouchableOpacity key={name}
@@ -2464,14 +3562,14 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
   <Text style={[styles.sectionTitle,{color:mainText}]}>{t('Explore STUDY WITH VEER','STUDY WITH VEER ను అన్వేషించండి')}</Text>
   <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',paddingHorizontal:16}}>
     {[
-      ['My Purchases','🛍️','Courses'],
-      ['Paid Courses','🎓','Courses'],
-      ['Current Affairs','📰','Current Affairs 2026'],
-      ['Previous Year Papers','📚','Previous Year Papers'],
-      ['Mock Tests','📝','Mock Test Folders'],
-      ['My Progress','📊','My Progress'],
-      ['Free Courses','📖','Free Courses'],
-      ['Free Ebooks','📚','Free Ebooks']
+      ['My Purchases','shopping-cart','Courses','#7C3AED'],
+      ['Paid Courses','shield','Paid Courses','#D97706'],
+      ['Current Affairs','activity','Current Affairs 2026','#0D9488'],
+      ['Previous Year Papers','file-text','Previous Year Papers','#EA580C'],
+      ['Mock Tests','target','Mock Test Folders','#7C3AED'],
+      ['My Progress','trending-up','My Progress','#16A34A'],
+      ['Free Courses','book-open','Free Courses','#2563EB'],
+      ['Free Ebooks','bookmark','Free Ebooks','#DB2777']
     ].map(([title, icon, destination]) => (
       <TouchableOpacity key={title} onPress={() => setPage(destination)}
         style={{
@@ -2510,8 +3608,8 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           justifyContent:'center',
           elevation:darkMode?0:3
         }}>
-        <Text style={{fontSize:28,marginBottom:8}}>{icon}</Text>
-        <Text style={{fontSize:14,fontWeight:'800',color:darkMode?'#BFDBFE':'#173B83'}}>{t(title,({'My Purchases':'నా కొనుగోళ్లు','Paid Courses':'పెయిడ్ కోర్సులు','Current Affairs':'కరెంట్ అఫైర్స్','Previous Year Papers':'గత సంవత్సరాల ప్రశ్నపత్రాలు','Mock Tests':'మాక్ టెస్టులు','My Progress':'నా ప్రగతి','Free Courses':'ఉచిత కోర్సులు'})[title] || title)}</Text>
+        <Feather name={icon} size={28} color={darkMode?'#BFDBFE':(title==='My Purchases'?'#7C3AED':title==='Paid Courses'?'#D97706':title==='Current Affairs'?'#0D9488':title==='Previous Year Papers'?'#EA580C':title==='Mock Tests'?'#7C3AED':title==='My Progress'?'#16A34A':title==='Free Courses'?'#2563EB':'#DB2777')} style={{marginBottom:8}} />
+        <Text style={{fontSize:18,fontWeight:'800',color:darkMode?'#BFDBFE':'#173B83'}}>{t(title,({'My Purchases':'నా కొనుగోళ్లు','Paid Courses':'పెయిడ్ కోర్సులు','Current Affairs':'కరెంట్ అఫైర్స్','Previous Year Papers':'గత సంవత్సరాల ప్రశ్నపత్రాలు','Mock Tests':'మాక్ టెస్టులు','My Progress':'నా ప్రగతి','Free Courses':'ఉచిత కోర్సులు'})[title] || title)}</Text>
         <Text style={{fontSize:12,color:mutedText,marginTop:5}}>{t('Explore  ›','చూడండి  ›')}</Text>
       </TouchableOpacity>
     ))}
@@ -2532,32 +3630,129 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 </View>}
 
 {page === 'Mock Test Folders' && <>
-          <View style={{padding:18}}>
-            <Text style={styles.pageTitle}>{t('Mock Test Folders','మాక్ టెస్ట్ విభాగాలు')}</Text>
-            <Text style={[styles.muted,{color:mutedText}]}>{t('Choose a subject to start your practice test.','ప్రాక్టీస్ టెస్ట్ ప్రారంభించడానికి ఒక విషయాన్ని ఎంచుకోండి.')}</Text>
-            <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',alignItems:'stretch'}}>
-            {[
-              ['Mathematics','01','Arithmetic, Percentage, Algebra'],
-              ['Reasoning','02','Series, Analogy, Coding-Decoding'],
-              ['English','03','Grammar, Vocabulary, Spelling'],
-              ['General Knowledge','04','History, Geography, Polity, Science']
-            ].map(([subject, icon, description]) => (
-              <TouchableOpacity
-                key={subject}
-                onPress={() => startTest(subject)}
-                style={{width:'48%',alignSelf:'flex-start',marginTop:14,backgroundColor:darkMode?'#1E293B':'#FFFFFF',borderRadius:18,padding:14,borderWidth:1,borderColor:darkMode?'#334155':'#DCCBFF'}}>
-                <View style={{width:44,height:44,borderRadius:12,backgroundColor:darkMode?"#352653":"#F0E8FF",alignItems:"center",justifyContent:"center",marginBottom:12}}><Text style={{fontSize:18,fontWeight:"900",color:"#7952C7"}}>{icon}</Text></View>
-                <Text style={[styles.subjectTitle,{color:darkMode?'#FFFFFF':'#173B83'}]}>{t(subject + ' Mock Tests', subject==='Mathematics'?'గణిత మాక్ టెస్టులు':subject==='Reasoning'?'రీజనింగ్ మాక్ టెస్టులు':subject==='English'?'ఇంగ్లీష్ మాక్ టెస్టులు':'జనరల్ నాలెడ్జ్ మాక్ టెస్టులు')}</Text>
-                <Text style={[styles.muted,{color:mutedText}]}>{description}</Text>
-                <View style={{marginTop:12,backgroundColor:darkMode?'#352653':'#E9DEFF',padding:11,borderRadius:10}}>
-                  <Text style={{color:darkMode?'#FFFFFF':'#5B36A5',fontWeight:'800',textAlign:'center'}}>{t('Start Test →','పరీక్ష ప్రారంభించండి →')}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-            </View>
+  <View style={{padding:18}}>
+    <Text style={styles.pageTitle}>{t('Mock Test Folders','మాక్ టెస్ట్ విభాగాలు')}</Text>
+    <Text style={[styles.muted,{color:mutedText}]}>
+      {t('Choose a folder to continue.','కొనసాగించడానికి ఫోల్డర్ ఎంచుకోండి.')}
+    </Text>
 
-            <TouchableOpacity onPress={() => setPage('Home')} style={{paddingVertical:16,paddingHorizontal:18,marginTop:4,marginBottom:8,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center',minHeight:58}}>
-              <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:17}}>{'🏠  ← Back to Home'}</Text>
+    <TouchableOpacity
+      onPress={() => setPage('SSC Subject Folders')}
+      style={{marginTop:18,backgroundColor:darkMode?'#1E293B':'#FFFFFF',borderRadius:18,padding:18,borderWidth:1,borderColor:darkMode?'#334155':'#DCCBFF',flexDirection:'row',alignItems:'center'}}>
+      <Image source={require("./assets/images/ssc-previous.png")} style={{width:64,height:64,resizeMode:'contain',marginRight:14}} />
+      <View style={{flex:1}}>
+        <Text style={{fontSize:18,fontWeight:'900',color:darkMode?'#FFFFFF':'#173B83'}}>SSC Mock Tests</Text>
+        <Text style={[styles.muted,{color:mutedText,marginTop:5}]}>Mathematics • Reasoning • English • General Knowledge</Text>
+        <Text style={{color:'#7952C7',fontWeight:'800',marginTop:10}}>{t('Open Folder →','ఫోల్డర్ తెరవండి →')}</Text>
+      </View>
+    </TouchableOpacity>
+
+    <TouchableOpacity onPress={() => setPage('Home')} style={{paddingVertical:16,paddingHorizontal:18,marginTop:18,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center',minHeight:58}}>
+      <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:17}}>🏠  ← Back to Home</Text>
+    </TouchableOpacity>
+  </View>
+</>}
+
+{page === 'SSC Subject Folders' && <>
+  <View style={{padding:18}}>
+    <Text style={styles.pageTitle}>{t('SSC Mock Tests','ఎస్‌ఎస్‌సి మాక్ టెస్టులు')}</Text>
+    <Text style={[styles.muted,{color:mutedText}]}>{t('Choose a subject to start your practice test.','ప్రాక్టీస్ టెస్ట్ కోసం ఒక సబ్జెక్ట్ ఎంచుకోండి.')}</Text>
+    <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',alignItems:'stretch'}}>
+      {[
+        ['Mathematics','01','Arithmetic, Percentage, Algebra'],
+        ['Reasoning','02','Series, Analogy, Coding-Decoding'],
+        ['English','03','Grammar, Vocabulary, Spelling'],
+        ['General Knowledge','04','History, Geography, Polity, Science']
+      ].map(([subject, icon, description]) => (
+        <TouchableOpacity
+          key={subject}
+          onPress={() => {
+            if (subject === 'Mathematics') {
+              setCurrentSubject('Mathematics');
+              setPage('Mathematics Mock Topic Folders');
+            } else {
+              setCurrentSubject(subject);
+              setPage('Subject Topic Folders');
+            }
+          }}
+          style={{width:'48%',minHeight:250,alignSelf:'stretch',marginTop:14,backgroundColor:darkMode?'#1E293B':'#FFFFFF',borderRadius:18,padding:14,borderWidth:1,borderColor:darkMode?'#334155':'#DCCBFF',justifyContent:'space-between'}}>
+          <View style={{width:44,height:44,borderRadius:12,backgroundColor:darkMode?'#352653':'#F0E8FF',alignItems:'center',justifyContent:'center',marginBottom:12,overflow:'hidden'}}>
+            <Image source={require("./assets/images/ssc-previous.png")} style={{width:'100%',height:'100%',resizeMode:'contain'}} />
+          </View>
+          <Text style={[styles.subjectTitle,{color:darkMode?'#FFFFFF':'#173B83'}]}>{t(subject === 'Mathematics' ? 'SSC Mathematics' : subject === 'Reasoning' ? 'SSC Reasoning' : subject === 'English' ? 'SSC English' : 'SSC General Knowledge',subject==='Mathematics'?'గణిత మాక్ టెస్టులు':subject==='Reasoning'?'SSC రీజనింగ్':subject==='English'?'SSC ఇంగ్లీష్':'SSC జనరల్ నాలెడ్జ్')}</Text>
+          <Text style={[styles.muted,{color:mutedText}]}>{description}</Text>
+          <View style={{marginTop:12,backgroundColor:darkMode?'#352653':'#E9DEFF',padding:11,borderRadius:10}}>
+            <Text style={{color:darkMode?'#FFFFFF':'#5B36A5',fontWeight:'800',textAlign:'center'}}>{t('Open →','పరీక్ష ప్రారంభించండి →')}</Text>
+          </View>
+        </TouchableOpacity>
+      ))}
+    </View>
+    <TouchableOpacity onPress={() => setPage('Mock Test Folders')} style={{paddingVertical:16,paddingHorizontal:18,marginTop:18,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center',minHeight:58}}>
+      <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:17}}>← Back to Folders</Text>
+    </TouchableOpacity>
+  </View>
+</>}
+
+        {page === 'Mathematics Mock Topic Folders' && <>
+          <View style={{padding:18}}>
+            <Text style={styles.pageTitle}>Mathematics Topic Folders</Text>
+            <Text style={[styles.muted,{color:mutedText,marginTop:5}]}>
+              Choose a topic, then tap Open to start your mock test.
+            </Text>
+            <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>
+              {quantTopics.map((topic,index) => (
+                <View key={topic} style={{width:'48%',marginTop:14,padding:14,borderRadius:16,backgroundColor:darkMode?'#1E293B':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#334155':'#DCCBFF'}}>
+                  <Text style={{fontSize:18,fontWeight:'900',color:mainText,marginBottom:10}}>📁 {String(index+1).padStart(2,'0')}</Text>
+                  <Text style={{fontSize:14,fontWeight:'900',color:mainText,minHeight:38}}>{topic}</Text>
+                  <Text style={{fontSize:11,color:mutedText,marginTop:5}}>
+                    Topic-wise practice
+                  </Text>
+                  <TouchableOpacity onPress={() => startTest('Mathematics',topic)} style={{marginTop:12,backgroundColor:'#2457D6',paddingVertical:11,borderRadius:10,alignItems:'center'}}>
+                    <Text style={{color:'#FFFFFF',fontWeight:'900'}}>Start Test →</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+            <TouchableOpacity onPress={() => setPage('SSC Subject Folders')} style={{paddingVertical:16,marginTop:20,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center'}}>
+              <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>← Back to SSC Mock Tests</Text>
+            </TouchableOpacity>
+          </View>
+        </>}
+
+        {page === 'Subject Topic Folders' && <>
+          <View style={{padding:18}}>
+            <Text style={styles.pageTitle}>{currentSubject} Topic Folders</Text>
+            <Text style={[styles.muted,{color:mutedText,marginTop:5}]}>Choose a topic, then tap Open to start your mock test.</Text>
+            <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>
+              {(currentSubject === 'Reasoning'
+                ? ['Analogy','Series','Coding-Decoding','Classification','Blood Relations','Direction Sense','Ranking & Order','Syllogism']
+                : currentSubject === 'English'
+                  ? ['Synonyms & Antonyms','Spelling','Grammar','Tenses','Subject-Verb Agreement','Articles','Prepositions','Vocabulary']
+                  : ['Indian History','Indian Geography','Indian Polity','General Science','Indian Economy','Static GK','Important Days','Books & Authors']
+              ).map((topic,index) => (
+                <View key={topic} style={{width:'48%',marginTop:14,padding:14,borderRadius:16,backgroundColor:darkMode?'#1E293B':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#334155':'#DCCBFF'}}>
+                  <Text style={{fontSize:18,fontWeight:'900',color:mainText,marginBottom:10}}>📁 {String(index+1).padStart(2,'0')}</Text>
+                  <Text style={{fontSize:14,fontWeight:'900',color:mainText,minHeight:38}}>{topic}</Text>
+                  <Text style={{fontSize:11,color:mutedText,marginTop:5}}>Topic-wise practice</Text>
+                  <TouchableOpacity onPress={() => {
+                    const topicKey = currentSubject + ': ' + topic;
+                    if (['Reasoning', 'English', 'General Knowledge'].includes(currentSubject)) {
+                      setQuantTopic(topicKey);
+                      setQuantQuestion(0);
+                      setQuantAnswers({});
+                      setQuantFinished(false);
+                      setPage('Quant Questions');
+                    } else {
+                      startTest(currentSubject, topicKey);
+                    }
+                  }} style={{marginTop:12,backgroundColor:'#2457D6',paddingVertical:11,borderRadius:10,alignItems:'center'}}>
+                    <Text style={{color:'#FFFFFF',fontWeight:'900'}}>Open →</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+            <TouchableOpacity onPress={() => setPage('SSC Subject Folders')} style={{paddingVertical:16,marginTop:20,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center'}}>
+              <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>← Back to SSC Mock Tests</Text>
             </TouchableOpacity>
           </View>
         </>}
@@ -2619,9 +3814,8 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
       <TouchableOpacity key={folder.title}
         onPress={() => folder.title === 'SSC PureMaths' ? setPage('Free Ebooks PureMaths') : folder.title === 'SSC Quantitative Aptitude' ? setPage('Free Ebooks Quantitative') : folder.title === 'SSC English' ? setPage('Free Ebooks SSC English') : folder.title === 'SSC General Science And Technology' ? setPage('Free Ebooks SSC Science') : folder.title === 'SSC Reasoning' ? setPage('Free Ebooks Reasoning') : Linking.openURL(String.fromCharCode(104,116,116,112,115,58,47,47,100,114,105,118,101,46,103,111,111,103,108,101,46,99,111,109,47,102,105,108,101,47,100,47,49,56,85,51,105,65,55,107,71,72,95,65,75,78,109,76,51,109,83,97,51,114,80,51,86,78,98,53,114,105,121,85,76,47,118,105,101,119,63,117,115,112,61,100,114,105,118,101,115,100,107))}
         style={{flexDirection:'row',alignItems:'center',backgroundColor:folder.pale,borderRadius:21,padding:13,marginBottom:14,borderWidth:1,borderColor:folder.color+'55',borderLeftWidth:5,borderLeftColor:folder.color,elevation:4,shadowColor:folder.color,shadowOffset:{width:0,height:3},shadowOpacity:darkMode?0.15:0.08,shadowRadius:7,minHeight:108}}>
-        <View style={{width:66,height:70,borderRadius:17,backgroundColor:folder.color+'20',alignItems:'center',justifyContent:'center',marginRight:13}}>
-          <Text style={{fontSize:34}}>{folder.icon}</Text>
-          <Text style={{fontSize:10,fontWeight:'900',color:folder.color}}>PDF</Text>
+        <View style={{width:100,height:100,borderRadius:17,backgroundColor:folder.color+'20',alignItems:'center',justifyContent:'center',marginRight:13,overflow:'hidden'}}>
+          <Image source={require('./assets/images/ssc-previous.png')} style={{width:'100%',height:'100%',resizeMode:'contain'}} />
         </View>
         <View style={{flex:1}}>
           <Text style={{fontSize:16,fontWeight:'900',color:darkMode?'#FFFFFF':'#12366F',lineHeight:22}}>{folder.title}</Text>
@@ -2805,7 +3999,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           {['SSC Papers','RRB Papers','TGPSC Papers'].includes(page) && <>
             <View style={{padding:18}}>
   <Text style={styles.pageTitle}>{page}</Text>
-  <Text style={[styles.muted,{color:mutedText}]}>Choose your exam.</Text>
+  <Text style={[styles.muted,{color:'#000000'}]}>Choose your exam.</Text>
   <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',marginTop:12}}>
     {(page === 'SSC Papers' ? ['SSC GD','SSC CGL','SSC CHSL','SSC MTS','SSC JE','SSC CPO'] : page === 'RRB Papers' ? ['RRB NTPC','RRB Group D','RRB ALP','RRB Technician'] : ['TGPSC Group 1','TGPSC Group 2','TGPSC Group 3','TGPSC Group 4']).map(exam => (
       <TouchableOpacity key={exam} onPress={() => {
@@ -2926,32 +4120,112 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           </View>)}
         </>}
 
-        {(page === 'Courses' || page === 'SSC Courses' || page === 'TGPSC Courses' || page === 'RRB Courses' || page.startsWith('SSC Exam:')) && <>
+        {(page === 'Courses' || page === 'Paid Courses' || page === 'SSC Courses' || page === 'TGPSC Courses' || page === 'RRB Courses' || page.startsWith('SSC Exam:') || page.startsWith('RRB Exam:')) && <>
 
 
-            <Text style={{fontSize:28,fontWeight:'900',color:darkMode?'#6EE7B7':'#087F67',marginTop:12,marginBottom:4,marginLeft:10}}>
-              {page === 'Courses' ? t('Choose Your Exam','మీ పరీక్షను ఎంచుకోండి') : page.startsWith('SSC Exam:') ? page.replace('SSC Exam: ','') : page === 'SSC Courses' ? t('SSC Exams','SSC పరీక్షలు') : page === 'TGPSC Courses' ? t('TGPSC Exams','TGPSC పరీక్షలు') : t('RRB Exams','RRB పరీక్షలు')}
-            </Text>
-            <Text style={{fontSize:13,color:'#718096',marginTop:6,marginLeft:10}}>
+            <View style={{alignSelf:'center',width:'95%',marginTop:12,marginBottom:4,backgroundColor:darkMode?'#253D70':'#2457D6',borderRadius:16,paddingVertical:13,paddingHorizontal:12,alignItems:'center',justifyContent:'center',elevation:3}}>
+              <Text style={{fontSize:22,fontWeight:'900',color:'#FFFFFF',textAlign:'center'}}>
+                {(page === 'Courses' || page === 'Paid Courses') ? t('Choose Your Exam','మీ పరీక్షను ఎంచుకోండి') : page.startsWith('SSC Exam:') ? page.replace('SSC Exam: ','') : page === 'SSC Courses' ? t('SSC Exams','SSC పరీక్షలు') : page === 'TGPSC Courses' ? t('TGPSC Exams','TGPSC పరీక్షలు') : t('RRB Exams','RRB పరీక్షలు')}
+              </Text>
+            </View>
+            <Text style={{fontSize:13,fontWeight:'700',color:darkMode?'#CBD5E1':'#52627A',marginTop:8,marginBottom:4,textAlign:'center',alignSelf:'center',width:'95%'}}>
               {t('STUDY WITH VEER • Prepare Smart. Achieve More.','STUDY WITH VEER • తెలివిగా సిద్ధం అవ్వండి. మరింత సాధించండి.')}
             </Text>
 
-            {page === 'Courses' && [
-              {title:'SSC Exams',desc:'CGL, CHSL, MTS, GD and CPO',image:require('./assets/images/SSC.png'),target:'SSC Courses'},
-              {title:'TGPSC Exams',desc:'Group 1, Group 2, Group 3 and Group 4',image:require('./assets/images/TGPSC.png'),target:'TGPSC Courses'},
-              {title:'RRB Exams',desc:'NTPC, Group D, ALP and Technician',image:require('./assets/images/RRB.png'),target:'RRB Courses'}
-            ].map(exam => (
-              <TouchableOpacity key={exam.title}
-                onPress={() => setPage(exam.target)}
-                style={{backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:20,padding:screenWidth<360?12:16,marginTop:14,borderWidth:2,borderColor:darkMode?'#4B7890':'#72CDB1',flexDirection:'row',alignItems:'center',minHeight:112,elevation:7,shadowColor:darkMode?'#000000':'#087F67',shadowOffset:{width:0,height:5},shadowOpacity:darkMode?0.28:0.14,shadowRadius:8}}>
-                <Image source={exam.image} style={{width:screenWidth<360?76:92,height:76,borderRadius:12,marginRight:12}} resizeMode="cover" />
-                <View style={{flex:1}}>
-                  <Text style={{fontSize:screenWidth<360?16:18,fontWeight:'900',color:darkMode?'#FFFFFF':'#123B32',flexShrink:1}}>{exam.title}</Text>
-                  <Text style={{fontSize:13,color:darkMode?'#D2DCE8':'#46566B',marginTop:6,lineHeight:18}}>{t(exam.desc, ({'CGL, CHSL, MTS, GD and CPO':'CGL, CHSL, MTS, GD మరియు CPO','Group 1, Group 2, Group 3 and Group 4':'గ్రూప్ 1, గ్రూప్ 2, గ్రూప్ 3 మరియు గ్రూప్ 4','NTPC, Group D, ALP and Technician':'NTPC, గ్రూప్ D, ALP మరియు టెక్నీషియన్'})[exam.desc] || exam.desc)}</Text>
+
+            {page === 'Courses' && (() => {
+              const packOwned = !!unlockedCourses['ssc-all-subjects-pack'];
+              const subjects = [
+                {id:'ssc-mathematics',title:'SSC Mathematics',desc:'Arithmetic and topic-wise practice',image:require('./assets/images/ssc-mathematics.jpeg'),target:'Quant Practice',color:'#7C3AED'},
+                {id:'ssc-reasoning-masterclass',title:'SSC Reasoning',desc:'Verbal and non-verbal reasoning',image:require('./assets/images/ssc-reasoning.jpeg'),target:'Master Reasoning Syllabus',color:'#2563EB'},
+                {id:'ssc-general-awareness',title:'SSC General Awareness',desc:'History, geography, polity and science',image:require('./assets/images/ssc-general-awareness.jpeg'),target:'SSC General Awareness Syllabus',color:'#059669'},
+                {id:'ssc-english-foundation',title:'SSC English',desc:'Grammar and vocabulary',image:require('./assets/images/ssc-english.jpeg'),target:'SSC English Folders',color:'#D97706'}
+              ].filter(course => packOwned || !!unlockedCourses[course.id]);
+
+              return subjects.length ? (
+                <View style={{paddingHorizontal:10,width:'100%',alignSelf:'stretch',flexDirection:'column'}}>
+                  {subjects.map(course => (
+                    <TouchableOpacity key={course.id} onPress={() => setPage(course.target)}
+                      style={{width:'100%',alignSelf:'stretch',backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:16,padding:16,marginTop:14,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#E0E7F2',elevation:3}}>
+                      <View style={{width:'100%',height:230,borderRadius:12,backgroundColor:darkMode?course.color+'33':'#F0F4FF',marginBottom:14,overflow:'hidden',alignSelf:'stretch'}}>
+                        <Image source={course.image} style={{width:'100%',height:'100%'}} resizeMode="contain" />
+                      </View>
+                      <Text style={{fontSize:22,fontWeight:'900',lineHeight:29,minHeight:32,color:'#000000'}}>{course.title}</Text>
+                      <Text style={{fontSize:16,fontWeight:'600',lineHeight:23,minHeight:30,color:darkMode?'#B4C1D6':'#68758B',marginTop:5}}>{course.desc}</Text>
+                      <View style={{marginTop:12,backgroundColor:'#078653',paddingVertical:12,borderRadius:12,alignItems:'center',width:'100%',borderWidth:1,borderColor:'#16A36A'}}>
+                        <Text style={{color:'#FFFFFF',fontSize:15,fontWeight:'900',letterSpacing:0.5}}>✓ PURCHASED</Text>
+                      </View>
+                      {(() => {
+                        const purchase = unlockedCourses[course.id] && typeof unlockedCourses[course.id] === 'object'
+                          ? unlockedCourses[course.id]
+                          : unlockedCourses['ssc-all-subjects-pack'] && typeof unlockedCourses['ssc-all-subjects-pack'] === 'object'
+                            ? unlockedCourses['ssc-all-subjects-pack']
+                            : null;
+                        const purchasedAt = purchase && (purchase.purchaseDate || purchase.unlockedAt);
+                        const expiry = purchase && purchase.expiresAt
+                          ? new Date(purchase.expiresAt)
+                          : purchasedAt
+                            ? (() => {
+                                const d = new Date(purchasedAt);
+                                d.setMonth(d.getMonth() + (Number(purchase.validityMonths) || 6));
+                                return d;
+                              })()
+                            : null;
+                        const validExpiry = expiry && !Number.isNaN(expiry.getTime()) ? expiry : null;
+                        const daysLeft = validExpiry ? Math.max(0, Math.ceil((validExpiry.getTime() - Date.now()) / 86400000)) : null;
+                        const isActive = !!validExpiry && validExpiry.getTime() > Date.now();
+                        const formatDate = value => {
+                          if (!value) return 'N/A';
+                          const d = new Date(value);
+                          return Number.isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString();
+                        };
+                        return (
+                          <View style={{marginTop:12,padding:14,borderRadius:14,backgroundColor:darkMode?'#172554':'#F3EEFF',borderWidth:1,borderColor:darkMode?'#3B4F85':'#D8CCFF'}}>
+                            <Text style={{fontSize:16,lineHeight:24,fontWeight:'700',color:darkMode?'#E0E7FF':'#334155'}}>Purchased: {formatDate(purchasedAt)}</Text>
+                            <Text style={{fontSize:16,lineHeight:24,fontWeight:'700',color:darkMode?'#E0E7FF':'#334155'}}>Valid until: {validExpiry ? formatDate(validExpiry) : 'N/A'}</Text>
+                            <Text style={{fontSize:16,lineHeight:24,fontWeight:'800',color:isActive?'#078653':'#DC2626'}}>
+                              Status: {validExpiry ? (isActive ? 'ACTIVE' : 'EXPIRED') : 'VALIDITY NOT AVAILABLE'}
+                            </Text>
+                            <Text style={{fontSize:16,lineHeight:24,fontWeight:'800',color:isActive?'#078653':'#DC2626'}}>
+                              {daysLeft === null ? 'Remaining days: N/A' : isActive ? 'Days remaining: ' + daysLeft : 'Course expired'}
+                            </Text>
+                          </View>
+                        );
+                      })()}
+                      <View style={{backgroundColor:darkMode?'#3B82F6':'#2457D6',paddingVertical:15,borderRadius:12,alignItems:'center',marginTop:14,width:'100%',borderWidth:1,borderColor:darkMode?'#60A5FA':'#1D4ED8',elevation:3}}>
+                        <Text style={{color:'#FFFFFF',fontWeight:'800'}}>Continue Learning →</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-                <View style={{width:38,height:38,borderRadius:19,backgroundColor:darkMode?'#145B50':'#0D987A',alignItems:'center',justifyContent:'center',marginLeft:8,elevation:4}}><Text style={{fontSize:27,fontWeight:'900',color:'#FFFFFF'}}>›</Text></View>
-              </TouchableOpacity>
-            ))}
+              ) : (
+                <View style={{margin:16,padding:20,borderRadius:16,backgroundColor:darkMode?'#17243B':'#FFFFFF',alignItems:'center'}}>
+                  <Text style={{fontSize:17,fontWeight:'900',color:darkMode?'#F3F6FC':'#173B83',textAlign:'center'}}>No purchased courses yet</Text>
+                  <Text style={{fontSize:13,color:darkMode?'#B4C1D6':'#68758B',marginTop:8,textAlign:'center'}}>Your purchased subjects will appear here.</Text>
+                </View>
+              );
+            })()}
+
+
+          {page === 'Paid Courses' && (
+            <View style={{paddingHorizontal:10,flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>
+              {[
+                {title:'SSC Exams',image:require('./assets/images/SSC.png'),target:'SSC Courses',accent:'#2563EB',tint:'#E8F0FF'},
+                {title:'TGPSC Exams',image:require('./assets/images/TGPSC.png'),target:'TGPSC Courses',accent:'#7C3AED',tint:'#F0EAFE'},
+                {title:'RRB Exams',image:require('./assets/images/RRB.png'),target:'RRB Courses',accent:'#059669',tint:'#DDF8EE'}
+              ].map(exam => (
+                <TouchableOpacity key={exam.title} onPress={() => setPage(exam.target)}
+                  style={{width:'48.5%',backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:18,padding:12,marginTop:14,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#E0E7F2',elevation:3}}>
+                  <View style={{height:90,borderRadius:13,backgroundColor:darkMode?exam.accent+'33':exam.tint,alignItems:'center',justifyContent:'center',marginBottom:10}}>
+                    <Image source={exam.image} style={{width:'100%',height:'100%'}} resizeMode="contain" />
+                  </View>
+                  <Text style={{fontSize:15,fontWeight:'900',textAlign:'center',color:'#000000'}}>{exam.title}</Text>
+                  <Text style={{fontSize:12,textAlign:'center',marginTop:8,color:darkMode?'#B4C1D6':'#68758B'}}>Explore Exams →</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
 
           <View style={{padding:18}}>
             {page === 'SSC Courses' && <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>
@@ -2974,7 +4248,9 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                       'SSC CPO':require('./assets/images/ssc-cpo.jpeg')
                     })[exam.title]} style={{width:'100%',height:'100%',borderRadius:10}} resizeMode="contain" />
                   </View>
-                  <Text style={{fontSize:15,fontWeight:'900',color:darkMode?'#F3F6FC':'#17233B',textAlign:'center'}}>{exam.title}</Text>
+                  <View style={{backgroundColor:darkMode?exam.accent:'#2457D6',borderRadius:12,paddingVertical:11,paddingHorizontal:5,alignItems:'center',justifyContent:'center',marginTop:2}}>
+                    <Text style={{fontSize:14,fontWeight:'900',color:'#FFFFFF',textAlign:'center'}}>{exam.title}</Text>
+                  </View>
                   <Text style={{fontSize:12,color:darkMode?'#B4C1D6':'#68758B',textAlign:'center',marginTop:7}}>Open Folder →</Text>
                 </TouchableOpacity>
               ))}
@@ -2985,18 +4261,23 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               {id:'ssc-reasoning-masterclass',title:'SSC Reasoning Masterclass',desc:'Verbal and non-verbal reasoning',price:'₹49',icon:'🧠',accent:'#2563EB',tint:'#E8F0FF'},
               {id:'ssc-general-awareness',title:'SSC General Awareness',desc:'History, geography, polity and science',price:'₹49',icon:'🌍',accent:'#059669',tint:'#DDF8EE'},
               {id:'ssc-english-foundation',title:'SSC English Foundation',desc:'Grammar and vocabulary',price:'₹49',icon:'📚',accent:'#D97706',tint:'#FFF0D8'}
-            ].map(course => (
+            ].map(course => {
+              const courseUnlocked = !!(
+                unlockedCourses[course.id] ||
+                unlockedCourses['ssc-all-subjects-pack']
+              );
+              return (
               <View key={course.title} style={{width:'48.2%',backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:18,padding:screenWidth < 360 ? 7 : 11,marginTop:14,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#E0E7F2',elevation:3}}>
                 <View style={{height:125,borderRadius:13,backgroundColor:darkMode?course.accent+'33':course.tint,alignItems:'center',justifyContent:'center',marginBottom:10,overflow:'hidden'}}>
     <Image
       source={
         course.title === 'SSC Mathematics'
-          ? require('./assets/images/ssc-mathematics.png')
+          ? require('./assets/images/ssc-mathematics.jpeg')
           : course.id === 'ssc-reasoning-masterclass'
-          ? require('./assets/images/ssc-reasoning.png')
+          ? require('./assets/images/ssc-reasoning.jpeg')
           : course.id === 'ssc-general-awareness'
-          ? require('./assets/images/ssc-general-awareness.png')
-          : require('./assets/images/ssc-english.png')
+          ? require('./assets/images/ssc-general-awareness.jpeg')
+          : require('./assets/images/ssc-english.jpeg')
       }
       style={{width:'100%',height:'100%'}}
       resizeMode="cover"
@@ -3005,12 +4286,12 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
       <Text style={{fontSize:9,fontWeight:'900',color:'#35245C'}}>{course.price==='FREE'?'FREE':'PREMIUM'}</Text>
     </View>
   </View>
-  <Text style={{fontSize:14,fontWeight:'900',lineHeight:19,minHeight:38,color:darkMode?'#F3F6FC':'#17233B'}}>{course.title}</Text>
+  <Text style={{fontSize:14,fontWeight:'900',lineHeight:19,minHeight:38,color:'#000000'}}>{course.title}</Text>
                 <Text style={{fontSize:11,lineHeight:16,minHeight:48,color:darkMode?'#B4C1D6':'#68758B',marginTop:5}}>{t(course.desc, ({'Arithmetic, algebra and topic-wise practice':'అంకగణితం, బీజగణితం మరియు అంశాల వారీగా సాధన','Verbal and non-verbal reasoning':'వెర్బల్ మరియు నాన్-వెర్బల్ రీజనింగ్','History, geography, polity and science':'చరిత్ర, భూగోళశాస్త్రం, రాజ్యాంగం మరియు సైన్స్','Grammar and vocabulary':'వ్యాకరణం మరియు పదజాలం'})[course.desc] || course.desc)}</Text>
-                {!(course.id && unlockedCourses[course.id]) && (
+                {!(course.id && courseUnlocked) && (
                   <Text style={{fontSize:16,fontWeight:'900',marginTop:7,color:course.price==='FREE'?'#10B981':(darkMode?'#F6C453':'#B77908')}}>{course.price}</Text>
                 )}
-                {course.id && unlockedCourses[course.id] && (
+                {course.id && courseUnlocked && (
                   <View style={{marginTop:8,marginBottom:2,height:25,borderRadius:7,backgroundColor:'#078653',overflow:'hidden',justifyContent:'center',alignItems:'center'}}>
                     <Text numberOfLines={1} style={{color:'#FFFFFF',fontSize:10,fontWeight:'900'}}>
                       {'✓ PURCHASED'}
@@ -3031,11 +4312,12 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                   }}
                   style={{backgroundColor:course.price==='FREE'?'#0D9668':(darkMode?'#2563EB':'#2457D6'),paddingVertical:11,paddingHorizontal:4,borderRadius:10,alignItems:'center',marginTop:10,minHeight:40,justifyContent:'center'}}>
                   <Text style={{color:'#FFFFFF',fontWeight:'800'}}>
-                    {course.price === 'FREE' ? t('Start Learning →','నేర్చుకోవడం ప్రారంభించండి →') : unlockedCourses[course.id] ? t('Continue Learning →','నేర్చుకోవడం కొనసాగించండి →') : t('Buy Course – ₹49 →','కోర్సు కొనండి – ₹49 →')}
+                    {course.price === 'FREE' ? t('Start Learning →','నేర్చుకోవడం ప్రారంభించండి →') : courseUnlocked ? t('Continue Learning →','నేర్చుకోవడం కొనసాగించండి →') : t('Buy Course – ₹49 →','కోర్సు కొనండి – ₹49 →')}
                   </Text>
                 </TouchableOpacity>
               </View>
-            ))}
+            );
+            })}
 
             <View style={{width:'48.2%',backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:18,padding:screenWidth < 360 ? 7 : 11,marginTop:14,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#E0E7F2',elevation:3}}>
               <View style={{height:125,borderRadius:13,backgroundColor:darkMode?'#47356B':'#F0EAFE',alignItems:'center',justifyContent:'center',marginBottom:10,overflow:'hidden'}}>
@@ -3044,7 +4326,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                   <Text style={{fontSize:9,fontWeight:'900',color:'#35245C'}}>ALL-IN-ONE</Text>
                 </View>
               </View>
-              <Text style={{fontSize:14,fontWeight:'900',lineHeight:19,minHeight:38,color:darkMode?'#F3F6FC':'#17233B'}}>SSC All Subjects Pack</Text>
+              <Text style={{fontSize:14,fontWeight:'900',lineHeight:19,minHeight:38,color:'#000000'}}>SSC All Subjects Pack</Text>
               <Text style={{fontSize:11,lineHeight:16,minHeight:48,color:darkMode?'#B4C1D6':'#68758B',marginTop:5}}>Mathematics, Reasoning, General Awareness and English</Text>
               {unlockedCourses['ssc-all-subjects-pack'] ? (
                 <View style={{marginTop:8,marginBottom:2,height:25,borderRadius:7,backgroundColor:'#078653',justifyContent:'center',alignItems:'center'}}>
@@ -3105,7 +4387,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                   <Image source={require('./assets/images/tgpsc-all-exams.jpeg')} style={{width:'100%',height:'100%'}} resizeMode="cover" />
 
                 </View>
-                <Text style={{fontSize:15,fontWeight:'900',color:darkMode?'#F3F6FC':'#17233B',minHeight:38}}>{exam.title}</Text>
+                <Text style={{fontSize:15,fontWeight:'900',color:'#000000',minHeight:38}}>{exam.title}</Text>
                 <Text style={{fontSize:11,lineHeight:16,minHeight:48,color:darkMode?'#B4C1D6':'#68758B',marginTop:5}}>{t('Telangana history, polity, economy and general studies','తెలంగాణ చరిత్ర, రాజ్యాంగం, ఆర్థిక వ్యవస్థ మరియు జనరల్ స్టడీస్')}</Text>
                 <Text style={{fontSize:16,fontWeight:'900',color:darkMode?'#F6C453':'#B77908',marginTop:7}}>₹49</Text>
                 <TouchableOpacity onPress={() => Alert.alert(exam.title + ' course content will be added next.')} style={{backgroundColor:darkMode?'#2563EB':'#2457D6',paddingVertical:11,paddingHorizontal:4,borderRadius:10,alignItems:'center',marginTop:10,minHeight:40,justifyContent:'center'}}>
@@ -3117,33 +4399,105 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
           {page === 'RRB Courses' && <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>
             {[
-              {title:'RRB NTPC',icon:'🚆',accent:'#2563EB',tint:'#E8F0FF'},
-              {title:'RRB Group D',icon:'🚉',accent:'#7C3AED',tint:'#F0EAFE'},
-              {title:'RRB ALP',icon:'🚄',accent:'#059669',tint:'#DDF8EE'},
-              {title:'RRB Technician',icon:'⚙️',accent:'#D97706',tint:'#FFF0D8'}
+              {title:'RRB NTPC',accent:'#2563EB',tint:'#E8F0FF'},
+              {title:'RRB Group D',accent:'#7C3AED',tint:'#F0EAFE'},
+              {title:'RRB ALP',accent:'#059669',tint:'#DDF8EE'},
+              {title:'RRB Technician',accent:'#D97706',tint:'#FFF0D8'}
             ].map(exam => (
-              <View key={exam.title} style={{width:'48.2%',backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:18,padding:screenWidth < 360 ? 7 : 11,marginTop:14,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#E0E7F2',elevation:3}}>
+              <TouchableOpacity key={exam.title} onPress={() => setPage('RRB Exam: ' + exam.title)} style={{width:'48.2%',backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:18,padding:screenWidth < 360 ? 7 : 11,marginTop:14,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#E0E7F2',elevation:3}}>
                 <View style={{height:76,borderRadius:13,backgroundColor:darkMode?exam.accent+'33':exam.tint,alignItems:'center',justifyContent:'center',marginBottom:10,overflow:'hidden'}}>
                   <Image source={require('./assets/images/rrb-all-exams.jpeg')} style={{width:'100%',height:'100%'}} resizeMode="cover" />
-
                 </View>
-                <Text style={{fontSize:15,fontWeight:'900',color:darkMode?'#F3F6FC':'#17233B',minHeight:38}}>{exam.title}</Text>
-                <Text style={{fontSize:11,lineHeight:16,minHeight:48,color:darkMode?'#B4C1D6':'#68758B',marginTop:5}}>{t('Mathematics, reasoning, general science and awareness','గణితం, రీజనింగ్, జనరల్ సైన్స్ మరియు జనరల్ అవేర్‌నెస్')}</Text>
-                <Text style={{fontSize:16,fontWeight:'900',color:darkMode?'#F6C453':'#B77908',marginTop:7}}>₹49</Text>
-                <TouchableOpacity onPress={() => Alert.alert(exam.title + ' course content will be added next.')} style={{backgroundColor:darkMode?'#2563EB':'#2457D6',paddingVertical:11,paddingHorizontal:4,borderRadius:10,alignItems:'center',marginTop:10,minHeight:40,justifyContent:'center'}}>
-                  <Text style={{color:'#FFFFFF',fontSize:12,fontWeight:'800',textAlign:'center'}}>Explore Course →</Text>
+                <Text style={{fontSize:15,fontWeight:'900',color:mainText,minHeight:38}}>{exam.title}</Text>
+                <Text style={{fontSize:11,lineHeight:16,minHeight:42,color:mutedText,marginTop:5}}>Mathematics, Reasoning, General Science and Awareness</Text>
+                <Text style={{fontSize:12,fontWeight:'800',color:'#0D9668',marginTop:7}}>4 Subjects + All-in-One</Text>
+                <View style={{backgroundColor:darkMode?'#2563EB':'#2457D6',paddingVertical:11,borderRadius:10,alignItems:'center',marginTop:10}}>
+                  <Text style={{color:'#FFFFFF',fontSize:12,fontWeight:'800'}}>Explore Courses →</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>}
+
+          {page.startsWith('RRB Exam:') && (() => {
+            const examTitle = page.replace('RRB Exam: ', '');
+            const examKey = examTitle === 'RRB NTPC' ? 'rrb-ntpc' : examTitle === 'RRB Group D' ? 'rrb-group-d' : examTitle === 'RRB ALP' ? 'rrb-alp' : 'rrb-technician';
+            const packId = examKey + '-all-subjects-pack';
+            const subjects = [
+              {suffix:'mathematics',title:'Mathematics',icon:'🧮',image:require('./assets/images/rrb mathematics.png'),accent:'#2563EB',tint:'#E8F0FF'},
+              {suffix:'reasoning',title:'Reasoning',icon:'🧠',image:require('./assets/images/rrb reasoning.png'),accent:'#7C3AED',tint:'#F0EAFE'},
+              {suffix:'general-science',title:'General Science',icon:'🔬',image:require('./assets/images/General Science.png'),accent:'#059669',tint:'#DDF8EE'},
+              {suffix:'general-awareness',title:'General Awareness',icon:'🌍',image:require('./assets/images/rrb general awareness.png'),accent:'#D97706',tint:'#FFF0D8'}
+            ];
+            const packOwned = !!unlockedCourses[packId];
+            const startCheckout = async (courseId) => {
+              let checkoutWindow = null;
+              try {
+                if (unlockedCourses[courseId] || (courseId !== packId && packOwned)) {
+                  Alert.alert('Purchased', 'Purchase verified. Study material PDF mapping will be connected separately.');
+                  return;
+                }
+                if (Platform.OS === 'web') checkoutWindow = window.open('about:blank', '_blank');
+                const user = auth.currentUser;
+                if (!user) throw new Error('Please log in before purchasing.');
+                const token = await user.getIdToken();
+                const response = await fetch('https://' + 'study-with-veer-payment-backend.onrender.com/create-checkout-session', {
+                  method:'POST',
+                  headers:{'Content-Type':'application/json','Authorization':'Bearer ' + token},
+                  body:JSON.stringify({courseId})
+                });
+                const data = await response.json();
+                if (!response.ok || !data.sessionToken) throw new Error(data.error || 'Could not start checkout.');
+                const checkoutUrl = 'https://' + 'study-with-veer-payment-backend.onrender.com/checkout.html#session=' + encodeURIComponent(data.sessionToken);
+                if (Platform.OS === 'web') {
+                  if (checkoutWindow && !checkoutWindow.closed) checkoutWindow.location.href = checkoutUrl;
+                  else window.location.href = checkoutUrl;
+                } else {
+                  await Linking.openURL(checkoutUrl);
+                }
+              } catch (e) {
+                if (checkoutWindow && !checkoutWindow.closed) checkoutWindow.close();
+                if (Platform.OS === 'web') window.alert('Checkout error: ' + (e.message || String(e)));
+                else Alert.alert('Checkout error', e.message || 'Could not open checkout.');
+              }
+            };
+            return <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>
+              {subjects.map(subject => {
+                const courseId = examKey + '-' + subject.suffix;
+                const owned = !!(unlockedCourses[courseId] || packOwned);
+                return <View key={courseId} style={{width:'48.2%',backgroundColor:cardBg,borderRadius:16,padding:10,marginTop:14,borderWidth:1,borderColor:subject.accent+'66',overflow:'hidden',elevation:3}}>
+                  <View style={{height:112,borderRadius:12,backgroundColor:subject.tint,overflow:'hidden',marginBottom:9}}>
+                    <Image source={subject.image} style={{width:'100%',height:'100%'}} resizeMode="cover" />
+                  </View>
+                  <View style={{alignSelf:'flex-start',backgroundColor:subject.tint,borderRadius:8,paddingHorizontal:8,paddingVertical:4}}>
+                    <Text style={{fontSize:11,fontWeight:'900',color:subject.accent}}>{subject.icon} RRB SUBJECT</Text>
+                  </View>
+                  <Text style={{fontSize:14,fontWeight:'900',color:mainText,marginTop:8,minHeight:34}}>{subject.title}</Text>
+                  <Text style={{fontSize:12,color:mutedText,marginTop:6}}> {owned ? 'Purchased' : 'Course access: ₹49'} </Text>
+                  <TouchableOpacity onPress={() => owned ? Alert.alert('Study material', 'PDF files for this subject still need to be connected.') : startCheckout(courseId)} style={{backgroundColor:owned?'#078653':'#2457D6',padding:10,borderRadius:9,alignItems:'center',marginTop:10}}>
+                    <Text style={{color:'#FFFFFF',fontSize:11,fontWeight:'800'}}>{owned ? '✓ PURCHASED' : 'Buy – ₹49'}</Text>
+                  </TouchableOpacity>
+                </View>;
+              })}
+              <View style={{width:'100%',backgroundColor:cardBg,borderRadius:18,padding:14,marginTop:16,borderWidth:1,borderColor:'#D9A323',overflow:'hidden',elevation:3}}>
+                <Image source={require('./assets/images/All in one rrb.png')} style={{width:'100%',height:155,borderRadius:13,marginBottom:12}} resizeMode="cover" />
+                <Text style={{fontSize:18,fontWeight:'900',color:mainText}}>⭐ {examTitle} All-in-One Pack</Text>
+                <Text style={{fontSize:12,color:mutedText,marginTop:6}}>Mathematics + Reasoning + General Science + General Awareness</Text>
+                <Text style={{fontSize:20,fontWeight:'900',color:darkMode?'#F6C453':'#B77908',marginTop:8}}>₹149</Text>
+                <TouchableOpacity onPress={() => startCheckout(packId)} style={{backgroundColor:packOwned?'#078653':'#2457D6',padding:12,borderRadius:10,alignItems:'center',marginTop:10}}>
+                  <Text style={{color:'#FFFFFF',fontWeight:'900'}}>{packOwned ? '✓ PACK PURCHASED' : 'Buy All-in-One Pack – ₹149'}</Text>
                 </TouchableOpacity>
               </View>
-            ))}
+            </View>;
+          })()}
+
           </View>}            <TouchableOpacity
-              onPress={() => setPage(page.startsWith('SSC Exam:') ? 'SSC Courses' : page === 'Courses' ? 'Home' : 'Courses')}
+              onPress={() => setPage(page.startsWith('SSC Exam:') ? 'SSC Courses' : page.startsWith('RRB Exam:') ? 'RRB Courses' : page === 'RRB Courses' ? 'Paid Courses' : (page === 'Courses' || page === 'Paid Courses') ? 'Home' : 'Paid Courses')}
               style={{width:'100%',alignSelf:'stretch',paddingVertical:17,paddingHorizontal:12,marginTop:24,marginBottom:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center',minHeight:58}}>
               <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>
                 ← {page === 'Courses' ? t('Back to Home','హోమ్‌కు తిరిగి వెళ్లండి') : page.startsWith('SSC Exam:') ? t('Back to SSC Folders','SSC ఫోల్డర్లకు తిరిగి వెళ్లండి') : t('All Exam Categories','అన్ని పరీక్షల విభాగాలు')}
               </Text>
             </TouchableOpacity>
 
-          </View>
         </>}
 
         {page === 'Free Courses' && <>
@@ -3600,13 +4954,13 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>
             {[
               {title:'Analogy',desc:'Word, Number and Figure Analogy',icon:'🔗',color:'#6344E8'},
-              {title:'Number Series',desc:'Patterns and Missing Numbers',icon:'🔢',color:'#2563EB'},
-              {title:'Coding-Decoding',desc:'Letter and Number Codes',icon:'🔐',color:'#0891B2'},
               {title:'Blood Relations',desc:'Family Relationships',icon:'👨‍👩‍👧',color:'#DB2777'},
-              {title:'Direction Sense',desc:'Directions and Distance',icon:'🧭',color:'#059669'},
-              {title:'Classification',desc:'Find the Odd One Out',icon:'🧩',color:'#D97706'},
-              {title:'Syllogism',desc:'Logical Statements',icon:'💡',color:'#7C3AED'},
-              {title:'Non-Verbal Reasoning',desc:'Figures, Mirror and Patterns',icon:'🔷',color:'#DC2626'}
+              {title:'Calendar',desc:'Days, Dates and Calendar Questions',icon:'📅',color:'#2563EB'},
+              {title:'Coding and Decoding',desc:'Letter and Number Codes',icon:'🔐',color:'#0891B2'},
+              {title:'Dice',desc:'Dice and Cube Questions',icon:'🎲',color:'#D97706'},
+              {title:'Directions',desc:'Directions and Distance',icon:'🧭',color:'#059669'},
+              {title:'Seating Arrangement',desc:'Linear and Circular Seating',icon:'🪑',color:'#DB2777'},
+              {title:'Venn Diagram',desc:'Groups and Relationships',icon:'⭕',color:'#2563EB'}
             ].map((folder,index) => {
               const unlocked = !!(unlockedCourses['ssc-reasoning-masterclass'] || unlockedCourses['ssc-all-subjects-pack']);
               return (
@@ -3630,6 +4984,12 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               );
             })}
             </View>
+            <TouchableOpacity
+              onPress={() => setPage('SSC Courses')}
+              style={{width:'100%',marginTop:8,marginBottom:4,paddingVertical:16,paddingHorizontal:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center'}}
+            >
+              <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>← Back to SSC Folder</Text>
+            </TouchableOpacity>
           </View>
         </>}
 
@@ -3640,97 +5000,59 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'900'}}>← Back to Reasoning Syllabus</Text>
             </TouchableOpacity>
             {(unlockedCourses['ssc-reasoning-masterclass'] || unlockedCourses['ssc-all-subjects-pack']) ? <>
-              <Text style={{fontSize:24,fontWeight:'900',color:mainText}}>{page.replace('Master Reasoning Topic: ','')}</Text>
               {(() => {
-        const topic = page.replace('Master Reasoning Topic: ', '');
-        const lessons = {
-          'Analogy': {
-            meaning: 'Analogy identifies a similar relationship between two pairs.',
-            telugu: 'రెండు పదాల మధ్య ఉన్న సంబంధాన్ని గుర్తించి, అదే సంబంధం ఉన్న మరో పదాన్ని ఎంచుకోవాలి.',
-            example: 'Bird : Nest :: Bee : Hive',
-            question: 'Cat : Kitten :: Dog : ?',
-            answer: 'Puppy'
-          },
-          'Number Series': {
-            meaning: 'Find the pattern and identify the next number.',
-            telugu: 'సంఖ్యల మధ్య ఉన్న నియమాన్ని గుర్తించి తర్వాతి సంఖ్యను కనుక్కోవాలి.',
-            example: '2, 4, 8, 16, 32 (multiply by 2)',
-            question: '3, 6, 12, 24, ?',
-            answer: '48'
-          },
-          'Coding-Decoding': {
-            meaning: 'Letters or words are changed using a fixed rule.',
-            telugu: 'అక్షరాలను ఒక నిర్దిష్ట నియమం ప్రకారం మార్చి కోడ్ ఇస్తారు.',
-            example: 'CAT → DBU (each letter moves one step forward)',
-            question: 'If CAT is coded as DBU, how is BAT coded?',
-            answer: 'CBU'
-          },
-          'Blood Relations': {
-            meaning: 'Use family relationships to identify the correct relation.',
-            telugu: 'కుటుంబ సంబంధాలను అర్థం చేసుకొని సరైన బంధుత్వాన్ని గుర్తించాలి.',
-            example: 'Mother’s brother = Maternal uncle',
-            question: 'What is your father’s sister called?',
-            answer: 'Aunt (పిన్ని / అత్త)'
-          },
-          'Direction Sense': {
-            meaning: 'Track directions using North, South, East and West.',
-            telugu: 'ఉత్తరం, దక్షిణం, తూర్పు, పడమర దిశలను ఉపయోగించి కదలికను గుర్తించాలి.',
-            example: 'Facing North, a right turn points East.',
-            question: 'You face East and turn left. Which direction are you facing?',
-            answer: 'North (ఉత్తరం)'
-          },
-          'Classification': {
-            meaning: 'Choose the item that does not belong to the group.',
-            telugu: 'ఇతర వాటితో పోలిస్తే భిన్నంగా ఉన్న పదం లేదా సంఖ్యను గుర్తించాలి.',
-            example: 'Apple, Mango, Banana, Carrot → Carrot is different.',
-            question: 'Which number is different: 2, 4, 6, 9?',
-            answer: '9 (the others are even)'
-          },
-          'Syllogism': {
-            meaning: 'Use the given statements to decide what must be true.',
-            telugu: 'ఇచ్చిన వాక్యాల ఆధారంగా ఖచ్చితంగా సరైన నిర్ణయాన్ని ఎంచుకోవాలి.',
-            example: 'All roses are flowers. All flowers are plants. Therefore, all roses are plants.',
-            question: 'All cats are animals. All animals are living beings. Are all cats living beings?',
-            answer: 'Yes (అవును)'
-          },
-          'Non-Verbal Reasoning': {
-            meaning: 'Solve questions using shapes, figures and visual patterns.',
-            telugu: 'ఆకారాలు, చిత్రాలు, వాటి క్రమాన్ని గమనించి సమాధానం కనుక్కోవాలి.',
-            example: 'Circle, Triangle, Square, Circle, Triangle, Square...',
-            question: 'What comes next: Circle, Triangle, Square, Circle, Triangle, ?',
-            answer: 'Square (చతురస్రం)'
-          }
-        };
-        const lesson = lessons[topic];
-        return (
-          <View style={{marginTop:16,padding:16,borderRadius:16,backgroundColor:cardBg,borderWidth:1,borderColor:'#D9E2F2'}}>
-            {lesson ? <>
-              <Text style={{fontSize:20,fontWeight:'900',color:mainText}}>Lesson Notes</Text>
-              <Text style={{fontSize:15,fontWeight:'700',color:mainText,marginTop:14}}>English</Text>
-              <Text style={{fontSize:14,color:mutedText,marginTop:5,lineHeight:22}}>{lesson.meaning}</Text>
-              <Text style={{fontSize:15,fontWeight:'700',color:mainText,marginTop:14}}>తెలుగు వివరణ</Text>
-              <Text style={{fontSize:14,color:mutedText,marginTop:5,lineHeight:24}}>{lesson.telugu}</Text>
-              <Text style={{fontSize:16,fontWeight:'800',color:mainText,marginTop:18}}>Example</Text>
-              <Text style={{fontSize:14,color:mutedText,marginTop:6,lineHeight:22}}>{lesson.example}</Text>
-              <View style={{marginTop:18,padding:12,borderRadius:12,backgroundColor:darkMode?'#1E293B':'#EEF4FF'}}>
-                <Text style={{fontSize:16,fontWeight:'900',color:mainText}}>Practice Question</Text>
-                <Text style={{fontSize:14,color:mainText,marginTop:8,lineHeight:22}}>{lesson.question}</Text>
-                <Text style={{fontSize:14,fontWeight:'800',color:darkMode?'#86EFAC':'#167447',marginTop:12}}>Answer: {lesson.answer}</Text>
-              </View>
-            </> : <Text style={{fontSize:14,color:mutedText}}>Lesson content is being prepared for this topic.</Text>}
-          </View>
-        );
-      })()}
+                const topic = page.replace('Master Reasoning Topic: ', '');
+                const endpoint = ARTICLES_API + '/reasoning/topic-pdf-url?topic=' + encodeURIComponent(topic);
+                return <>
+                  <Text style={{fontSize:24,fontWeight:'900',color:mainText}}>{topic}</Text>
+                  <Text style={{fontSize:14,color:mutedText,marginTop:8,marginBottom:18}}>SSC Reasoning Study PDF</Text>
+                  <TouchableOpacity
+                    onPress={async () => {
+                      let pdfWindow = null;
+                      try {
+                        if (Platform.OS === 'web') pdfWindow = window.open('about:blank', '_blank');
+                        const user = auth.currentUser;
+                        if (!user) throw new Error('Please log in again.');
+                        const token = await user.getIdToken();
+                        const response = await fetch(endpoint, {headers:{Authorization:'Bearer ' + token}});
+                        const data = await response.json();
+                        if (!response.ok || !data.url) throw new Error(data.error || 'Could not open this PDF.');
+                        if (Platform.OS === 'web') {
+                          if (pdfWindow && !pdfWindow.closed) pdfWindow.location.href = data.url;
+                          else window.location.href = data.url;
+                        } else {
+                          await Linking.openURL(data.url);
+                        }
+                      } catch (e) {
+                        if (pdfWindow && !pdfWindow.closed) pdfWindow.close();
+                        const message = e.message || 'Could not open this PDF.';
+                        if (Platform.OS === 'web') window.alert('PDF error: ' + message);
+                        else Alert.alert('PDF error', message);
+                      }
+                    }}
+                    style={{backgroundColor:'#087F67',paddingVertical:16,paddingHorizontal:12,borderRadius:14,alignItems:'center',marginBottom:12}}>
+                    <Text style={{color:'#FFFFFF',fontSize:16,fontWeight:'900'}}>📖 View PDF</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    disabled={pdfDownloadBusy}
+                    onPress={() => downloadStudyPdfForOffline(endpoint, 'Reasoning-' + topic.replace(/[^a-zA-Z0-9_-]/g, '-') + '.pdf')}
+                    style={{backgroundColor:pdfDownloadBusy?'#94A3B8':'#2457D6',paddingVertical:16,paddingHorizontal:12,borderRadius:14,alignItems:'center'}}>
+                    <Text style={{color:'#FFFFFF',fontSize:15,fontWeight:'900'}}>
+                      {pdfDownloadBusy ? '⏳ Downloading...' : '📥 Download Offline'}
+                    </Text>
+                  </TouchableOpacity>
+                </>;
+              })()}
             </> : <>
-
+              <Text style={{fontSize:22,fontWeight:'900',color:mainText,textAlign:'center'}}>🔒 SSC Reasoning Locked</Text>
+              <Text style={{fontSize:15,color:mutedText,textAlign:'center',marginTop:10}}>Purchase SSC Reasoning for ₹49, or unlock with the All Subjects Pack, to access topic PDFs.</Text>
               <TouchableOpacity onPress={() => setPage('Courses')} style={{marginTop:20,padding:14,backgroundColor:'#2457D6',borderRadius:12,alignItems:'center'}}>
                 <Text style={{color:'#FFFFFF',fontWeight:'900'}}>View Courses</Text>
               </TouchableOpacity>
             </>}
             <TouchableOpacity
               onPress={() => setPage('Courses')}
-              style={{width:'100%',alignSelf:'stretch',marginTop:24,marginBottom:12,paddingVertical:17,paddingHorizontal:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center'}}
-            >
+              style={{width:'100%',alignSelf:'stretch',marginTop:24,marginBottom:12,paddingVertical:17,paddingHorizontal:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center'}}>
               <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>← Back to Courses</Text>
             </TouchableOpacity>
           </View>
@@ -3777,72 +5099,123 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
         {page === 'Quant Practice' && (unlockedCourses['ssc-mathematics'] || unlockedCourses['ssc-all-subjects-pack']) && <>
           <View style={{padding:18}}>
-
-            <Text style={{fontSize:25,fontWeight:'900',color:'#087F67',marginTop:8}}>
+            <Text style={{fontSize:25,fontWeight:'900',color:mainText,marginTop:8}}>
               SSC Mathematics
             </Text>
-            <Text style={{fontSize:13,color:'#718096',marginTop:6}}>
-              Quantitative Aptitude • Topic-wise Practice
+            <Text style={{fontSize:14,color:mutedText,marginTop:8,lineHeight:22}}>
+              Topic-wise Study Notes • View PDFs or download for offline study.
             </Text>
             <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>
-            {[
-              'Number System','Simplification','Percentage',
-              'Ratio & Proportion','Average','Profit & Loss',
-              'Discount','Simple Interest','Compound Interest',
-              'Time & Work','Pipes & Cisterns','Time, Speed & Distance',
-              'Algebra','Geometry','Mensuration','Trigonometry',
-              'Statistics','Data Interpretation'
-            ].map((topic, index) => (
-              <TouchableOpacity key={topic}
-                onPress={() => {
-                  if (quantBank[topic] && quantBank[topic].length > 0) {
-                    setQuantTopic(topic);
-                    setQuantQuestion(0);
-                    setQuantAnswers({});
-                    setQuantFinished(false);
-                    setPage('Quant Questions');
-                  } else {
-                    alert(topic + ': Questions will be added soon.');
+              {[
+                'Percentage',
+                'Ratio & Proportion',
+                'Average',
+                'Profit & Loss',
+                'Discount',
+                'Simple Interest',
+                'Time & Work',
+                'Pipes & Cisterns',
+                'Partnership',
+                'Boats & Streams',
+                'Ages',
+                'Chain Rule',
+                'Problems on Trains'
+              ].map((topic,index) => (
+                <TouchableOpacity key={topic}
+                  onPress={() => setPage('SSC Mathematics Topic: '+topic)}
+                  style={{width:'48.2%',minHeight:112,backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:15,padding:12,marginTop:12,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5',justifyContent:'space-between'}}>
+                  <View style={{width:32,height:32,borderRadius:9,backgroundColor:darkMode?'#173D35':'#E3F4EE',alignItems:'center',justifyContent:'center'}}>
+                    <Text style={{fontWeight:'900',color:darkMode?'#6EE7B7':'#087F67'}}>{index+1}</Text>
+                  </View>
+                  <Text style={{fontSize:14,fontWeight:'800',color:mainText,marginTop:12}}>{topic}</Text>
+                  <Text style={{fontSize:12,color:darkMode?'#6EE7B7':'#087F67',marginTop:6}}>📄 Open Study PDF →</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity onPress={() => setPage('Courses')}
+              style={{marginTop:24,paddingVertical:16,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center'}}>
+              <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>← Back to Courses</Text>
+            </TouchableOpacity>
+          </View>
+        </>}
+
+        {page.startsWith('SSC Mathematics Topic: ') && (unlockedCourses['ssc-mathematics'] || unlockedCourses['ssc-all-subjects-pack']) && <>
+          <View style={{padding:22}}>
+            <Text style={[styles.pageTitle,{color:mainText}]}>
+              {page.replace('SSC Mathematics Topic: ', '')}
+            </Text>
+            <Text style={{color:mutedText,marginTop:8,lineHeight:22}}>
+              Open or download your Mathematics study PDF from Supabase.
+            </Text>
+            <View style={{flexDirection:'row',gap:10,marginTop:24,alignItems:'stretch'}}>
+              <TouchableOpacity
+                disabled={pdfDownloadBusy}
+                onPress={async () => {
+                  const topic = page.replace('SSC Mathematics Topic: ', '');
+                  const endpoint = ARTICLES_API + '/mathematics/topic-pdf-url?topic=' + encodeURIComponent(topic);
+                  const tab = Platform.OS === 'web' ? window.open('about:blank', '_blank') : null;
+                  try {
+                    const user = auth.currentUser;
+                    if (!user) throw new Error('Please log in again.');
+                    const token = await user.getIdToken();
+                    const response = await fetch(endpoint, {
+                      headers: {Authorization:'Bearer '+token}
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.url) throw new Error(data.error || 'Could not open this PDF.');
+                    if (Platform.OS === 'web') {
+                      if (tab) tab.location.href = data.url;
+                      else window.open(data.url, '_blank', 'noopener,noreferrer');
+                    } else {
+                      await Linking.openURL(data.url);
+                    }
+                  } catch (error) {
+                    if (tab) tab.close();
+                    Alert.alert('Could not open PDF', error.message || 'Please try again.');
                   }
                 }}
-                style={{width:'48.2%',minHeight:130,backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:15,padding:12,marginTop:12,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5',alignItems:'flex-start',justifyContent:'space-between'}}>
-                <View style={{width:36,height:36,borderRadius:10,
-                  backgroundColor:'#E3F4EE',alignItems:'center',
-                  justifyContent:'center',marginRight:12}}>
-                  <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'900'}}>{index+1}</Text>
-                </View>
-                <View style={{width:'100%',marginTop:10}}>
-                  <Text style={{fontSize:14,fontWeight:'800',color:darkMode?'#F3F6FC':'#173B35'}}>
-                    {topic}
-                  </Text>
-                  <Text style={{fontSize:11,color:mutedText,marginTop:5}}>
-                    10 MCQs • Answers & explanations
-                  </Text>
-                </View>
-                <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontSize:16,alignSelf:'flex-end'}}>Open →</Text>
+                style={{flex:1,backgroundColor:'#087F67',paddingVertical:16,paddingHorizontal:6,borderRadius:14,alignItems:'center'}}>
+                <Text style={{color:'#FFFFFF',fontSize:15,fontWeight:'900'}}>📖 View PDF</Text>
               </TouchableOpacity>
-            ))}
+              <TouchableOpacity
+                disabled={pdfDownloadBusy}
+                onPress={async () => {
+                  const topic = page.replace('SSC Mathematics Topic: ', '');
+                  const endpoint = ARTICLES_API + '/mathematics/topic-pdf-url?topic=' + encodeURIComponent(topic);
+                  const fileName = 'Mathematics-' + topic.replace(/[^a-zA-Z0-9_-]/g, '-') + '.pdf';
+                  await downloadStudyPdfForOffline(endpoint, fileName);
+                }}
+                style={{flex:1,backgroundColor:pdfDownloadBusy?'#94A3B8':'#2457D6',paddingVertical:16,paddingHorizontal:6,borderRadius:14,alignItems:'center'}}>
+                <Text style={{color:'#FFFFFF',fontSize:14,fontWeight:'900'}}>
+                  {pdfDownloadBusy ? '⏳ Downloading...' : '📥 Download Offline'}
+                </Text>
+              </TouchableOpacity>
             </View>
-                      <TouchableOpacity onPress={() => setPage('Courses')}
-              style={{width:'100%',alignSelf:'stretch',marginTop:24,marginBottom:12,paddingVertical:17,paddingHorizontal:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center'}}>
-              <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>{t('← Back to Courses','← కోర్సులకు తిరిగి వెళ్లండి')}</Text>
+            <TouchableOpacity onPress={() => setPage('Quant Practice')}
+              style={{padding:16,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',marginTop:16}}>
+              <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>← Back to Mathematics Topics</Text>
             </TouchableOpacity>
-</View>
+          </View>
         </>}
 
         {page === 'Quant Questions' && <>
           <View style={{padding:18}}>
-            <TouchableOpacity
-              onPress={() => setPage('Quant Practice')}
+            {!quantFinished && <TouchableOpacity
+              onPress={() => setPage(/^(Reasoning|English|General Knowledge): /.test(quantTopic) ? 'Subject Topic Folders' : 'Quant Practice')}
               style={{alignSelf:'flex-start',paddingVertical:10,paddingHorizontal:14,marginBottom:12,borderRadius:12,backgroundColor:darkMode?'#17243B':'#E9DEFF',borderWidth:1,borderColor:darkMode?'#2B3D5C':'#D7C8FF'}}>
               <Text style={{fontSize:14,fontWeight:'900',color:darkMode?'#FFFFFF':'#173B83'}}>
-                ← Back to Mathematics
+                {/^(Reasoning|English|General Knowledge): /.test(quantTopic) ? '← Back to Topics' : '← Back to Mathematics'}
               </Text>
-            </TouchableOpacity>
+            </TouchableOpacity>}
 
             <Text style={{fontSize:24,fontWeight:'900',color:'#087F67',marginTop:8}}>
               {quantTopic}
             </Text>
+            {quantTopic === 'Number System' && <TouchableOpacity
+              onPress={() => startTest('Number System')}
+              style={{backgroundColor:'#2457D6',paddingVertical:15,paddingHorizontal:18,borderRadius:12,marginTop:16,alignItems:'center'}}>
+              <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>▶ Start Mock Test</Text>
+            </TouchableOpacity>}
 
             {quantFinished ? <>
               <View style={{backgroundColor:'#FFFFFF',borderRadius:16,padding:20,marginTop:18,borderWidth:1,borderColor:'#DCEAE4'}}>
@@ -3850,31 +5223,40 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                   Practice Completed!
                 </Text>
                 <Text style={{fontSize:38,fontWeight:'900',color:'#087F67',textAlign:'center',marginTop:16}}>
-                  {quantQuestions.reduce((n,q,i) => n + (quantAnswers[i] === q.answer ? 1 : 0), 0)} / {quantQuestions.length}
+                  {quantQuestions.reduce((n,q,i) => n + (quantAnswers[i] !== undefined && Number(quantAnswers[i]) === Number(q.answer) ? 1 : 0), 0)} / {quantQuestions.length}
                 </Text>
                 <Text style={{fontSize:14,color:'#718096',textAlign:'center',marginTop:6}}>
                   Correct Answers
                 </Text>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setQuantQuestion(0);
+                    setQuantFinished(false);
+                  }}
+                  style={{backgroundColor:'#2457D6',padding:14,borderRadius:12,marginTop:12}}>
+                  <Text style={{color:'#FFFFFF',fontWeight:'900',textAlign:'center'}}>
+                    Review Previous Questions
+                  </Text>
+                </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => {
                     setQuantQuestion(0);
                     setQuantAnswers({});
                     setQuantFinished(false);
+                    setQuantResultSaved(false);
                   }}
                   style={{backgroundColor:'#087F67',padding:14,borderRadius:12,marginTop:20}}>
-                  <Text style={{color:'#35245C',fontWeight:'900',textAlign:'center'}}>
+                  <Text style={{color:'#FFFFFF',fontWeight:'900',textAlign:'center'}}>
                     {t('Retry Practice','మళ్లీ సాధన చేయండి')}
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setPage('Quant Practice')}
-                  style={{width:'100%',paddingVertical:16,paddingHorizontal:12,marginTop:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center',minHeight:54}}>
-                  <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16,textAlign:'center'}}>
-                    ← Back to Topics
-                  </Text>
-                </TouchableOpacity>
+
               </View>
             </> : quantQuestions[quantQuestion] ? <>
+              <View style={{flexDirection:screenWidth >= 760 ? 'row' : 'column',gap:16,alignItems:'stretch'}}>
+                <View style={{flex:1,minWidth:0}}>
+
               <Text style={{fontSize:13,color:'#718096',marginTop:12}}>
                 Question {quantQuestion + 1} of {quantQuestions.length}
               </Text>
@@ -3917,29 +5299,85 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                   <Text style={{fontSize:15,fontWeight:'900',color:quantAnswers[quantQuestion] === quantQuestions[quantQuestion].answer ? '#087F67' : '#B45309',marginTop:18}}>
                     {quantAnswers[quantQuestion] === quantQuestions[quantQuestion].answer ? 'Correct Answer!' : 'Incorrect Answer'}
                   </Text>
-                  <Text style={{fontSize:14,color:'#425466',lineHeight:22,marginTop:6}}>
-                    {quantQuestions[quantQuestion].explanation}
-                  </Text>
+                  <View style={{marginTop:12,padding:14,borderRadius:12,backgroundColor:'#F3F7FC',borderWidth:1,borderColor:'#DCE5F0'}}>
+                    <Text style={{fontSize:16,fontWeight:'900',color:'#173B83',marginBottom:10}}>
+                      📘 Step-by-Step Explanation
+                    </Text>
+                    <Text style={{fontSize:14,fontWeight:'800',color:'#2457D6',marginBottom:5}}>
+                      Concept / ప్రాథమిక భావన
+                    </Text>
+                    <Text style={{fontSize:14,color:'#26364A',lineHeight:24}}>
+                      {quantQuestions[quantQuestion].explanation.split('\\n')[0]}
+                    </Text>
+                    {quantQuestions[quantQuestion].explanation.split('\\n').length > 1 && <>
+                      <Text style={{fontSize:14,fontWeight:'800',color:'#2457D6',marginTop:12,marginBottom:5}}>
+                        Calculation / లెక్కింపు
+                      </Text>
+                      <Text style={{fontSize:14,color:'#26364A',lineHeight:25}}>
+                        {quantQuestions[quantQuestion].explanation.split('\\n').slice(1).join('\\n')}
+                      </Text>
+                    </>}
+                    <View style={{marginTop:12,padding:10,borderRadius:9,backgroundColor:'#E3F4EE'}}>
+                      <Text style={{fontSize:13,fontWeight:'800',color:'#087F67'}}>
+                        ✓ Correct option: {['A','B','C','D'][quantQuestions[quantQuestion].answer]}. {quantQuestions[quantQuestion].options[quantQuestions[quantQuestion].answer]}
+                      </Text>
+                    </View>
+                  </View>
 
                   <TouchableOpacity
                     onPress={() => {
                       if (quantQuestion + 1 < quantQuestions.length) {
                         setQuantQuestion(n => n + 1);
                       } else {
-                        setQuantFinished(true);
+                        finishQuantPractice();
                       }
                     }}
                     style={{backgroundColor:'#087F67',padding:14,borderRadius:12,marginTop:18}}>
-                    <Text style={{color:'#35245C',fontWeight:'900',textAlign:'center'}}>
+                    <Text style={{color:'#FFFFFF',fontWeight:'900',textAlign:'center'}}>
                       {quantQuestion + 1 < quantQuestions.length ? t('Next Question →','తదుపరి ప్రశ్న →') : t('View Final Score','తుది స్కోరు చూడండి')}
                     </Text>
                   </TouchableOpacity>
                 </>}
               </View>
+                </View>
+                <View style={{width:screenWidth >= 760 ? 260 : '100%',backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:16,padding:14,borderWidth:1,borderColor:darkMode?'#334155':'#DCE5F0',marginTop:screenWidth >= 760 ? 0 : 16}}>
+                  <Text style={{fontSize:18,fontWeight:'900',color:darkMode?'#FFFFFF':'#173B83',marginBottom:8}}>Question Palette</Text>
+                  <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'flex-start',gap:8}}>
+                    {quantQuestions.map((q,i) => {
+                      const answered = quantAnswers[i] !== undefined;
+                      const current = quantQuestion === i;
+                      return <TouchableOpacity key={i} onPress={() => setQuantQuestion(i)}
+                        style={{width:40,height:40,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:answered?'#079669':(darkMode?'#1E293B':'#FFFFFF'),borderWidth:current?3:1,borderColor:current?'#2563EB':answered?'#079669':(darkMode?'#64748B':'#D5DEE9')}}>
+                        <Text style={{fontSize:14,fontWeight:'900',color:answered?'#FFFFFF':(darkMode?'#FFFFFF':'#172B4D')}}>{i+1}</Text>
+                      </TouchableOpacity>;
+                    })}
+                  </View>
+                  <View style={{marginTop:14,gap:7}}>
+                    <Text style={{fontSize:12,color:darkMode?'#CBD5E1':'#64748B'}}>🟢 Answered   ⚪ Not attempted</Text>
+                    <Text style={{fontSize:12,color:darkMode?'#CBD5E1':'#64748B'}}>🔵 Blue border = Current</Text>
+                    <Text style={{fontSize:12,fontWeight:'800',color:darkMode?'#FFFFFF':'#173B83'}}>Answered: {Object.keys(quantAnswers).length} / {quantQuestions.length}</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={{flexDirection:'row',gap:10,marginTop:18}}>
+                <TouchableOpacity disabled={quantQuestion===0} onPress={() => setQuantQuestion(n => Math.max(0,n-1))}
+                  style={{flex:1,paddingVertical:14,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:quantQuestion===0?'#CBD5E1':'#FFFFFF',borderWidth:1,borderColor:'#C9D6E5'}}>
+                  <Text style={{fontWeight:'900',color:'#173B83'}}>← Previous</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => {
+                  if (quantQuestion < quantQuestions.length - 1) {
+                    setQuantQuestion(quantQuestion + 1);
+                  } else {
+                    finishQuantPractice();
+                  }
+                }} style={{flex:2,paddingVertical:14,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:'#079669'}}>
+                  <Text style={{fontWeight:'900',color:'#FFFFFF'}}>{quantQuestion < quantQuestions.length - 1 ? 'Save & Next →' : 'Finish Practice'}</Text>
+                </TouchableOpacity>
+              </View>
             </> : null}
 
             <TouchableOpacity
-              onPress={() => setPage('Quant Practice')}
+              onPress={() => setPage(/^(Reasoning|English|General Knowledge): /.test(quantTopic) ? 'Subject Topic Folders' : 'Quant Practice')}
               style={{width:'100%',alignSelf:'stretch',paddingVertical:16,paddingHorizontal:12,marginTop:24,marginBottom:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center',minHeight:58}}>
               <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>
                 ← {t('Back to Topics','అంశాలకు తిరిగి వెళ్లండి')}
@@ -3973,15 +5411,40 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         </View>}
 
         {page === 'Mock Tests' && <>
-          <Text style={styles.pageTitle}>{currentSubject} Test</Text>
-          {score === null && <Text style={styles.subjectTitle}>Time Left: {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, "0")}</Text>}
-          {score === null && <View style={styles.navRow}>
-            {button(isTestPaused ? 'Resume Test' : 'Pause Test', () => setIsTestPaused(p => !p), true)}
-            {button('Cancel Test', () => setShowCancelTestConfirm(true))}
+          <Text style={styles.pageTitle}>{currentSubject}{quantTopic ? ` - ${quantTopic}` : ''} Test</Text>
+          {score === null && <View style={{backgroundColor:darkMode?'#17243B':'#E9DEFF',padding:16,borderRadius:14,marginVertical:12,borderWidth:1,borderColor:darkMode?'#475569':'#C4AEFF'}}>
+            <Text style={{fontSize:22,fontWeight:'900',textAlign:'center',color:darkMode?'#FFFFFF':'#173B83'}}>
+              Time Left: {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, "0")}
+            </Text>
+            <View style={{flexDirection:'row',gap:10,marginTop:12}}>
+              <View style={{flex:1}}>
+                {button(isTestPaused ? 'Resume Test' : 'Pause Test', () => setIsTestPaused(p => !p), true)}
+              </View>
+              <View style={{flex:1}}>
+                {button('Cancel Test', () => setShowCancelTestConfirm(true))}
+              </View>
+            </View>
           </View>}
           {score === null ? <>
             <View style={styles.progressLine}><View style={[styles.progressFill,{width:((question+1)/questions.length*100)+'%'}]} /></View>
             <Text style={[styles.muted,{color:mutedText}]}>Question {question+1} of {questions.length}</Text>
+
+            {['Mathematics','Reasoning','English','General Awareness','General Knowledge'].includes(currentSubject) && <View style={{backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:14,padding:14,marginTop:14,marginBottom:14,borderWidth:1,borderColor:darkMode?'#334155':'#DCE5F0'}}>
+              <Text style={{fontSize:17,fontWeight:'900',color:darkMode?'#FFFFFF':'#173B83',marginBottom:10}}>Question Palette</Text>
+              <View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}>
+                {questions.map((item,i) => {
+                  const answered = answers[i] !== undefined;
+                  const current = question === i;
+                  return <TouchableOpacity key={i} onPress={() => setQuestion(i)}
+                    style={{width:42,height:42,borderRadius:9,alignItems:'center',justifyContent:'center',backgroundColor:answered?'#079669':(darkMode?'#1E293B':'#FFFFFF'),borderWidth:current?3:1,borderColor:current?'#2563EB':answered?'#079669':(darkMode?'#64748B':'#D5DEE9')}}>
+                    <Text style={{fontSize:14,fontWeight:'900',color:answered?'#FFFFFF':(darkMode?'#FFFFFF':'#172B4D')}}>{i+1}</Text>
+                  </TouchableOpacity>;
+                })}
+              </View>
+              <Text style={{fontSize:12,color:mutedText,marginTop:10}}>Green = Answered · Blue border = Current · White = Not attempted</Text>
+              <Text style={{fontSize:12,fontWeight:'800',color:darkMode?'#FFFFFF':'#173B83',marginTop:5}}>Answered: {Object.keys(answers).length} / {questions.length}</Text>
+            </View>}
+
             <View style={styles.questionCard}>
               <Text style={styles.questionText}>{questions[question].q}</Text>
               {questions[question].options.map((opt, i) =>
@@ -4012,28 +5475,37 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             <View style={styles.navRow}>
               {button('← Previous', () => setQuestion(Math.max(0,question-1)))}
               {question < questions.length-1
-                ? button('Next →', () => setQuestion(Math.min(questions.length-1,question+1)), true)
+                ? button(['Mathematics','Reasoning','English','General Awareness','General Knowledge'].includes(currentSubject) ? 'Save & Next →' : 'Next →', () => setQuestion(Math.min(questions.length-1,question+1)), true, '#FFFFFF')
                 : Object.keys(answers).length === questions.length
-                  ? button('Submit Test', () => Alert.alert(
-                    'Submit Test?',
-                    'Test submit cheyyala? Submit chesaka answers marchaleru.',
-                    [
-                      {text:'Continue Test', style:'cancel'},
-                      {text:'Submit', onPress:submitTest}
-                    ]
-                  ), true)
+                  ? button('Submit Test', submitTest, true)
                   : <Text style={{color:'#D97706',fontWeight:'800',marginTop:12,textAlign:'center'}}>Answer all questions to submit ({Object.keys(answers).length}/{questions.length})</Text>}
             </View>
           </> : <View>
-            <View style={styles.questionCard}>
-              <Text style={styles.resultEmoji}>🏆</Text>
-              <Text style={styles.resultTitle}>Test Completed!</Text>
-              <Text style={styles.score}>{score} / {questions.length}</Text>
-              <Text style={[styles.muted,{color:mutedText}]}>Accuracy: {Math.round(score/questions.length*100)}%</Text>
-              <Text style={styles.subjectTitle}>Net Marks: {score * 2 - Object.keys(answers).filter(k => answers[k] !== questions[Number(k)].answer).length * 0.5} / {questions.length * 2}</Text>
-              <Text style={[styles.muted,{color:mutedText}]}>Correct: {score}  |  Incorrect: {Object.keys(answers).filter(k => answers[k] !== questions[Number(k)].answer).length}  |  Unanswered: {questions.length-Object.keys(answers).length}</Text>
-              {button('Try Again', startTest, true)}
-              {button('View My Progress', () => setPage('My Progress'))}
+            <View style={{backgroundColor:'#FFFFFF',borderRadius:16,padding:20,marginTop:18,borderWidth:1,borderColor:'#DCEAE4'}}>
+              <Text style={{fontSize:22,fontWeight:'900',color:'#173B35',textAlign:'center'}}>
+                {['Number System','Reasoning'].includes(currentSubject) ? 'Practice Completed!' : 'Test Completed!'}
+              </Text>
+              <Text style={{fontSize:38,fontWeight:'900',color:'#087F67',textAlign:'center',marginTop:16}}>
+                {score} / {questions.length}
+              </Text>
+              <Text style={{fontSize:14,color:'#718096',textAlign:'center',marginTop:6}}>Correct Answers</Text>
+              <Text style={{fontSize:13,color:'#718096',textAlign:'center',marginTop:8}}>
+                Accuracy: {Math.round(score/questions.length*100)}%
+              </Text>
+              {['Number System','Reasoning'].includes(currentSubject)
+                ? <>
+                    <TouchableOpacity onPress={() => { setQuestion(0); setScore(null); }} style={{backgroundColor:'#173B83',padding:14,borderRadius:12,marginTop:18}}>
+                      <Text style={{color:'#FFFFFF',fontWeight:'800',textAlign:'center'}}>Review Previous Questions</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => startTest(currentSubject, quantTopic)} style={{backgroundColor:'#087F67',padding:14,borderRadius:12,marginTop:10}}>
+                      <Text style={{color:'#FFFFFF',fontWeight:'800',textAlign:'center'}}>Retry Practice</Text>
+                    </TouchableOpacity>
+                  </>
+                : <>
+                    <Text style={[styles.muted,{color:mutedText}]}>Net Marks: {score * 2 - Object.keys(answers).filter(k => answers[k] !== questions[Number(k)].answer).length * 0.5} / {questions.length * 2}</Text>
+                    {button('Try Again', () => startTest(currentSubject, quantTopic), true, '#FFFFFF')}
+                    {button('View My Progress', () => setPage('My Progress'))}
+                  </>}
             </View>
             <Text style={[styles.sectionTitle,{color:mainText}]}>Answer Review</Text>
             {questions.map((item, qi) => (
@@ -4066,13 +5538,21 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             <Text style={styles.premiumSubtitle}>Every test takes you closer to success.</Text>
           </View>
 
+          <View style={{backgroundColor:cardBg,borderRadius:18,padding:16,marginBottom:20,borderWidth:1,borderColor:darkMode?'#334155':'#DCE5F5'}}>
+            <Text style={{color:mainText,fontSize:18,fontWeight:'800'}}>📝 All Subjects Mock</Text>
+            <Text style={{color:mutedText,marginTop:6,marginBottom:12}}>Mathematics • Reasoning • English • General Knowledge</Text>
+            <TouchableOpacity onPress={startAllSubjectsMock} style={{backgroundColor:'#173B83',paddingVertical:14,borderRadius:12,alignItems:'center'}}>
+              <Text style={{color:'#FFFFFF',fontWeight:'800'}}>Start All Subjects Mock</Text>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.premiumScoreCard}>
             <Text style={styles.premiumCardLabel}>OVERALL ACCURACY</Text>
             <Text style={styles.premiumBigScore}>
-              {results.length ? Math.round(results.reduce((a, r) => a + r.score, 0) / results.reduce((a, r) => a + r.total, 0) * 100) : 0}%
+              {(() => { const correct = results.reduce((n,r) => n + Number(r.score || 0), 0); const answered = results.reduce((n,r) => n + Math.max(0, Number(r.total || 0) - Number(r.unanswered || 0)), 0); return answered ? Math.round(correct / answered * 100) : 0; })()}%
             </Text>
             <View style={styles.premiumTrack}>
-              <View style={[styles.premiumFill, {width: (results.length ? Math.round(results.reduce((a, r) => a + r.score, 0) / results.reduce((a, r) => a + r.total, 0) * 100) : 0) + '%'}]} />
+              <View style={[styles.premiumFill, {width: (() => { const correct = results.reduce((n,r) => n + Number(r.score || 0), 0); const answered = results.reduce((n,r) => n + Math.max(0, Number(r.total || 0) - Number(r.unanswered || 0)), 0); return answered ? Math.round(correct / answered * 100) : 0; })() + '%'}]} />
             </View>
             <Text style={styles.premiumCardFoot}>
               {results.length ? 'Keep practising to improve your score!' : 'Complete your first mock test to see your progress.'}
@@ -4084,20 +5564,64 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           <View style={styles.premiumStatsRow}>
             <View style={styles.premiumStat}>
               <Text style={styles.premiumStatIcon}>🏆</Text>
-              <Text style={styles.premiumStatNum}>{results.length}</Text>
-              <Text style={styles.premiumStatLabel}>Tests Done</Text>
+              <Text style={styles.premiumStatNum}>{results.reduce((n,r) => n + Math.max(0, Number(r.total || 0) - Number(r.unanswered || 0)), 0)}</Text>
+              <Text style={styles.premiumStatLabel}>Questions Answered</Text>
             </View>
             <View style={styles.premiumStat}>
               <Text style={styles.premiumStatIcon}>✓</Text>
-              <Text style={styles.premiumStatNum}>{results.reduce((a, r) => a + r.score, 0)}</Text>
-              <Text style={styles.premiumStatLabel}>Correct</Text>
+              <Text style={styles.premiumStatNum}>{results.reduce((n,r) => n + Number(r.score || 0), 0)}</Text>
+              <Text style={styles.premiumStatLabel}>Correct Answers</Text>
             </View>
             <View style={styles.premiumStat}>
               <Text style={styles.premiumStatIcon}>📚</Text>
-              <Text style={styles.premiumStatNum}>{results.reduce((a, r) => a + r.total, 0)}</Text>
-              <Text style={styles.premiumStatLabel}>Questions</Text>
+              <Text style={styles.premiumStatNum}>{(() => { const correct = results.reduce((n,r) => n + Number(r.score || 0), 0); const answered = results.reduce((n,r) => n + Math.max(0, Number(r.total || 0) - Number(r.unanswered || 0)), 0); return answered ? Math.round(correct / answered * 100) : 0; })()}%</Text>
+              <Text style={styles.premiumStatLabel}>Accuracy</Text>
             </View>
           </View>
+
+          <Text style={[styles.sectionTitle,{color:mainText}]}>Subject-wise Progress</Text>
+          {['Mathematics','Reasoning','English','General Knowledge'].map(subject => {
+            const group = results.filter(r => {
+              const name = String(r.subject || '');
+              return subject === 'Mathematics'
+                ? name === 'Mathematics' || name === 'Number System'
+                : name === subject || name.startsWith(subject + ':');
+            });
+            const correct = group.reduce((n,r) => n + Number(r.score || 0), 0);
+            const answered = group.reduce((n,r) => n + Math.max(0, Number(r.total || 0) - Number(r.unanswered || 0)), 0);
+            const accuracy = answered ? Math.round(correct / answered * 100) : 0;
+            return <View key={subject} style={{backgroundColor:cardBg,borderRadius:14,padding:14,marginBottom:10,borderWidth:1,borderColor:'#DCCBFF'}}>
+              <View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center'}}>
+                <Text style={{fontWeight:'800',color:mainText}}>{subject}</Text>
+                <Text style={{fontWeight:'900',color:'#2457D6'}}>{accuracy}%</Text>
+              </View>
+              <View style={{height:8,backgroundColor:'#E9E4F5',borderRadius:8,overflow:'hidden',marginTop:10}}>
+                <View style={{height:8,width:accuracy+'%',backgroundColor:'#7453C8',borderRadius:8}} />
+              </View>
+              <Text style={{fontSize:12,color:mutedText,marginTop:6}}>{correct} correct · {answered} answered</Text>
+            </View>;
+          })}
+
+          <Text style={[styles.sectionTitle,{color:mainText,marginTop:12}]}>Topic-wise Progress</Text>
+          {results.filter(r => r.topic).length === 0
+            ? <Text style={{color:mutedText,marginBottom:16}}>Complete a topic practice to see topic-wise progress here.</Text>
+            : results.filter(r => r.topic).map((r,i) => {
+                const answered = Math.max(0, Number(r.total || 0) - Number(r.unanswered || 0));
+                const accuracy = answered ? Math.round(Number(r.score || 0) / answered * 100) : 0;
+                return <View key={String(r.topic)+String(r.date)+i} style={{backgroundColor:cardBg,borderRadius:14,padding:14,marginBottom:10,borderWidth:1,borderColor:'#DCCBFF'}}>
+                  <View style={{flexDirection:'row',justifyContent:'space-between',gap:8}}>
+                    <View style={{flex:1}}>
+                      <Text style={{fontWeight:'800',color:mainText}}>{r.topic}</Text>
+                      <Text style={{fontSize:12,color:mutedText,marginTop:4}}>{r.subject} · {answered}/{r.total} answered</Text>
+                    </View>
+                    <Text style={{fontSize:12,fontWeight:'800',color:'#7453C8'}}>{accuracy}%</Text>
+                  </View>
+                  <View style={{height:7,backgroundColor:'#E9E4F5',borderRadius:7,overflow:'hidden',marginTop:10}}>
+                    <View style={{height:7,width:accuracy+'%',backgroundColor:'#7453C8'}} />
+                  </View>
+                  <Text style={{fontSize:11,color:mutedText,marginTop:6}}>In Progress · {r.date}</Text>
+                </View>;
+              })}
 
           <View style={styles.premiumHistoryHeader}>
             <Text style={[styles.sectionTitle,{color:mainText}]}>Recent Test Results</Text>
@@ -4110,16 +5634,26 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 <Text style={styles.premiumEmptyTitle}>Your journey starts here</Text>
                 <Text style={styles.premiumSubtitle}>Take a mock test and your results will appear here.</Text>
               </View>
-            : results.map((r, i) => <View key={i} style={styles.premiumResultRow}>
-                <View style={styles.premiumResultIcon}>
-                  <Text style={styles.premiumResultIconText}>{String(results.length-i).padStart(2,'0')}</Text>
+            : results.map((r, i) => <View key={i} style={{backgroundColor:cardBg,borderRadius:14,padding:12,marginBottom:10,borderWidth:1,borderColor:'#DCCBFF'}}>
+                <View style={styles.premiumResultRow}>
+                  <View style={styles.premiumResultIcon}>
+                    <Text style={styles.premiumResultIconText}>{String(results.length-i).padStart(2,'0')}</Text>
+                  </View>
+                  <View style={{flex:1}}>
+                    <Text style={styles.subjectTitle}>{r.topic || r.subject}</Text>
+                    <Text style={[styles.muted,{color:mutedText}]}>{r.date} · {r.score} correct · {r.incorrect} incorrect · {r.unanswered} unanswered</Text>
+                  </View>
+                  <View style={styles.premiumResultBadge}>
+                    <Text style={styles.premiumResultScore}>{r.score}/{r.total}</Text>
+                  </View>
                 </View>
-                <View style={{flex:1}}>
-                  <Text style={styles.subjectTitle}>{r.subject}</Text>
-                  <Text style={[styles.muted,{color:mutedText}]}>{r.date} · {r.score} correct · {r.incorrect} incorrect · {r.unanswered} unanswered</Text>
-                </View>
-                <View style={styles.premiumResultBadge}>
-                  <Text style={styles.premiumResultScore}>{r.score}/{r.total}</Text>
+                <View style={{flexDirection:'row',gap:10,marginTop:12}}>
+                  <TouchableOpacity onPress={() => retryTestResult(r)} style={{flex:1,backgroundColor:'#2457D6',paddingVertical:10,borderRadius:10,alignItems:'center'}}>
+                    <Text style={{color:'#FFFFFF',fontWeight:'800'}}>↻ Retry</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => deleteTestResult(i)} style={{flex:1,backgroundColor:'#FDE8E8',paddingVertical:10,borderRadius:10,alignItems:'center',borderWidth:1,borderColor:'#F5B7B7'}}>
+                    <Text style={{color:'#B42318',fontWeight:'800'}}>Delete</Text>
+                  </TouchableOpacity>
                 </View>
               </View>)}
 
