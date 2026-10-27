@@ -4430,13 +4430,11 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             ];
             const packOwned = !!unlockedCourses[packId];
             const startCheckout = async (courseId) => {
-              let checkoutWindow = null;
               try {
                 if (unlockedCourses[courseId] || (courseId !== packId && packOwned)) {
                   Alert.alert('Purchased', 'Purchase verified. Study material PDF mapping will be connected separately.');
                   return;
                 }
-                if (Platform.OS === 'web') checkoutWindow = window.open('about:blank', '_blank');
                 const user = auth.currentUser;
                 if (!user) throw new Error('Please log in before purchasing.');
                 const token = await user.getIdToken();
@@ -4449,13 +4447,11 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 if (!response.ok || !data.sessionToken) throw new Error(data.error || 'Could not start checkout.');
                 const checkoutUrl = 'https://' + 'study-with-veer-payment-backend.onrender.com/checkout.html#session=' + encodeURIComponent(data.sessionToken);
                 if (Platform.OS === 'web') {
-                  if (checkoutWindow && !checkoutWindow.closed) checkoutWindow.location.href = checkoutUrl;
-                  else window.location.href = checkoutUrl;
+                  window.location.href = checkoutUrl;
                 } else {
                   await Linking.openURL(checkoutUrl);
                 }
               } catch (e) {
-                if (checkoutWindow && !checkoutWindow.closed) checkoutWindow.close();
                 if (Platform.OS === 'web') window.alert('Checkout error: ' + (e.message || String(e)));
                 else Alert.alert('Checkout error', e.message || 'Could not open checkout.');
               }

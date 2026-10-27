@@ -43,6 +43,41 @@ function readUnlocks() { try { return JSON.parse(fs.readFileSync(unlockFile, 'ut
 function saveUnlocks(data) { fs.writeFileSync(unlockFile, JSON.stringify(data, null, 2)); }
 
 async function hasActiveCoursePurchase(userId, courseId) {
+  const packSubjects = {
+    'ssc-all-subjects-pack': [
+      'ssc-mathematics',
+      'ssc-reasoning-masterclass',
+      'ssc-general-awareness',
+      'ssc-english-foundation'
+    ],
+    'rrb-ntpc-all-subjects-pack': [
+      'rrb-ntpc-mathematics',
+      'rrb-ntpc-reasoning',
+      'rrb-ntpc-general-science',
+      'rrb-ntpc-general-awareness'
+    ],
+    'rrb-group-d-all-subjects-pack': [
+      'rrb-group-d-mathematics',
+      'rrb-group-d-reasoning',
+      'rrb-group-d-general-science',
+      'rrb-group-d-general-awareness'
+    ],
+    'rrb-alp-all-subjects-pack': [
+      'rrb-alp-mathematics',
+      'rrb-alp-reasoning',
+      'rrb-alp-general-science',
+      'rrb-alp-general-awareness'
+    ],
+    'rrb-technician-all-subjects-pack': [
+      'rrb-technician-mathematics',
+      'rrb-technician-reasoning',
+      'rrb-technician-general-science',
+      'rrb-technician-general-awareness'
+    ]
+  };
+
+  const isPack = Object.prototype.hasOwnProperty.call(packSubjects, courseId);
+
   try {
     const { data, error } = await supabase
       .from('course_purchases')
@@ -59,33 +94,29 @@ async function hasActiveCoursePurchase(userId, courseId) {
       validityMonths: row.validity_months || 6
     }));
 
-    if (directActive || courseId === 'ssc-all-subjects-pack') return directActive;
+    if (directActive || isPack) return directActive;
 
-    const packCourses = [
-      'ssc-mathematics',
-      'ssc-reasoning-masterclass',
-      'ssc-general-awareness',
-      'ssc-english-foundation'
-    ];
-    return packCourses.includes(courseId)
-      ? hasActiveCoursePurchase(userId, 'ssc-all-subjects-pack')
-      : false;
+    const packId = Object.keys(packSubjects).find(id =>
+      packSubjects[id].includes(courseId)
+    );
+
+    return packId ? hasActiveCoursePurchase(userId, packId) : false;
   } catch (error) {
     console.error('Supabase purchase verification failed:', error.message);
     const unlocks = readUnlocks();
     const courses = (unlocks[userId] && unlocks[userId].courses) || {};
     const directActive = isCourseActive(courses[courseId]);
-    if (directActive || courseId === 'ssc-all-subjects-pack') return directActive;
 
-    const packCourses = [
-      'ssc-mathematics',
-      'ssc-reasoning-masterclass',
-      'ssc-general-awareness',
-      'ssc-english-foundation'
-    ];
-    return packCourses.includes(courseId)
-      ? hasActiveCoursePurchase(userId, 'ssc-all-subjects-pack')
-      : false;
+    if (directActive || isPack) return directActive;
+
+    const packId = Object.keys(packSubjects).find(id =>
+      packSubjects[id].includes(courseId)
+    );
+
+    if (!packId) return false;
+
+    const packActive = isCourseActive(courses[packId]);
+    return packActive;
   }
 }
 
@@ -370,7 +401,27 @@ const allowedCheckoutCourses = new Set([
   'ssc-general-awareness',
   'ssc-english-foundation',
   'ssc-mathematics',
-  'ssc-all-subjects-pack'
+  'ssc-all-subjects-pack',
+  'rrb-ntpc-reasoning',
+  'rrb-ntpc-mathematics',
+  'rrb-ntpc-general-science',
+  'rrb-ntpc-general-awareness',
+  'rrb-group-d-reasoning',
+  'rrb-group-d-mathematics',
+  'rrb-group-d-general-science',
+  'rrb-group-d-general-awareness',
+  'rrb-alp-reasoning',
+  'rrb-alp-mathematics',
+  'rrb-alp-general-science',
+  'rrb-alp-general-awareness',
+  'rrb-technician-reasoning',
+  'rrb-technician-mathematics',
+  'rrb-technician-general-science',
+  'rrb-technician-general-awareness',
+  'rrb-ntpc-all-subjects-pack',
+  'rrb-group-d-all-subjects-pack',
+  'rrb-alp-all-subjects-pack',
+  'rrb-technician-all-subjects-pack'
 ]);
 
 function createCheckoutSessionToken(uid, courseId) {
@@ -505,7 +556,7 @@ app.post('/create-order', async (req, res) => {
       return res.status(400).json({ error: 'Invalid course selection' });
     }
 
-    const amount = req.body.courseId === 'ssc-all-subjects-pack' ? 14900 : 4900;
+    const amount = (req.body.courseId === 'ssc-all-subjects-pack' || req.body.courseId.endsWith('-all-subjects-pack')) ? 14900 : 4900;
     const currency = 'INR';
 
     const order = await razorpay.orders.create({
