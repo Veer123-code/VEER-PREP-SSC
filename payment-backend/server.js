@@ -894,6 +894,8 @@ app.get('/my-courses', async (req, res) => {
       if (error) throw error;
 
       const activeCourses = {};
+      const purchaseHistory = {};
+
       for (const row of (data || [])) {
         const purchase = {
           orderId: row.order_id,
@@ -904,12 +906,17 @@ app.get('/my-courses', async (req, res) => {
           validityMonths: row.validity_months || 6,
         };
 
+        purchaseHistory[row.course_id] = purchase;
+
         if (isCourseActive(purchase)) {
           activeCourses[row.course_id] = purchase;
         }
       }
 
-      return res.json({ courses: activeCourses });
+      return res.json({
+        courses: activeCourses,
+        purchaseHistory,
+      });
     } catch (dbError) {
       console.error('Supabase course lookup failed; using local fallback:', dbError.message);
 
@@ -919,7 +926,11 @@ app.get('/my-courses', async (req, res) => {
         Object.entries(savedCourses).filter(([, purchase]) => isCourseActive(purchase))
       );
 
-      return res.json({ courses: activeCourses, source: 'fallback' });
+      return res.json({
+        courses: activeCourses,
+        purchaseHistory: savedCourses,
+        source: 'fallback',
+      });
     }
   } catch (error) {
     console.error('Course access lookup failed:', error.message);

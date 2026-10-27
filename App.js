@@ -232,6 +232,7 @@ const [purchasedMarqueeTextWidth, setPurchasedMarqueeTextWidth] = useState(0);
   };
 
   const [unlockedCourses, setUnlockedCourses] = useState({});
+  const [purchaseHistory, setPurchaseHistory] = useState({});
   const [generalAwarenessFiles, setGeneralAwarenessFiles] = useState([]);
   const [generalAwarenessFolders, setGeneralAwarenessFolders] = useState([]);
   const [generalAwarenessLoading, setGeneralAwarenessLoading] = useState(false);
@@ -1138,6 +1139,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
       if (!user) {
         setUnlockedCourses({});
+        setPurchaseHistory({});
         return;
       }
 
@@ -1151,6 +1153,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
         if (!cancelled && response.ok) {
           setUnlockedCourses(data.courses || {});
+          setPurchaseHistory(data.purchaseHistory || data.courses || {});
         } else if (!response.ok) {
           console.log('Course access load failed:', data.error || response.status);
         }
@@ -1163,6 +1166,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
       loadUnlockedCourses();
     } else {
       setUnlockedCourses({});
+      setPurchaseHistory({});
     }
 
     return () => { cancelled = true; };
@@ -1184,6 +1188,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 
         if (response.ok) {
           setUnlockedCourses(data.courses || {});
+          setPurchaseHistory(data.purchaseHistory || data.courses || {});
         } else {
           console.log('Course refresh failed:', data.error || response.status);
         }
@@ -4140,7 +4145,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 {id:'ssc-reasoning-masterclass',title:'SSC Reasoning',desc:'Verbal and non-verbal reasoning',image:require('./assets/images/ssc-reasoning.jpeg'),target:'Master Reasoning Syllabus',color:'#2563EB'},
                 {id:'ssc-general-awareness',title:'SSC General Awareness',desc:'History, geography, polity and science',image:require('./assets/images/ssc-general-awareness.jpeg'),target:'SSC General Awareness Syllabus',color:'#059669'},
                 {id:'ssc-english-foundation',title:'SSC English',desc:'Grammar and vocabulary',image:require('./assets/images/ssc-english.jpeg'),target:'SSC English Folders',color:'#D97706'}
-              ].filter(course => packOwned || !!unlockedCourses[course.id]);
+              ].filter(course => packOwned || !!unlockedCourses[course.id] || !!purchaseHistory[course.id] || !!purchaseHistory['ssc-all-subjects-pack']);
 
               return subjects.length ? (
                 <View style={{paddingHorizontal:10,width:'100%',alignSelf:'stretch',flexDirection:'column'}}>
@@ -4152,15 +4157,39 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                       </View>
                       <Text style={{fontSize:22,fontWeight:'900',lineHeight:29,minHeight:32,color:'#000000'}}>{course.title}</Text>
                       <Text style={{fontSize:16,fontWeight:'600',lineHeight:23,minHeight:30,color:darkMode?'#B4C1D6':'#68758B',marginTop:5}}>{course.desc}</Text>
-                      <View style={{marginTop:12,backgroundColor:'#078653',paddingVertical:12,borderRadius:12,alignItems:'center',width:'100%',borderWidth:1,borderColor:'#16A36A'}}>
-                        <Text style={{color:'#FFFFFF',fontSize:15,fontWeight:'900',letterSpacing:0.5}}>✓ PURCHASED</Text>
-                      </View>
                       {(() => {
-                        const purchase = unlockedCourses[course.id] && typeof unlockedCourses[course.id] === 'object'
-                          ? unlockedCourses[course.id]
-                          : unlockedCourses['ssc-all-subjects-pack'] && typeof unlockedCourses['ssc-all-subjects-pack'] === 'object'
-                            ? unlockedCourses['ssc-all-subjects-pack']
+                        const purchase = purchaseHistory[course.id] && typeof purchaseHistory[course.id] === 'object'
+                          ? purchaseHistory[course.id]
+                          : purchaseHistory['ssc-all-subjects-pack'] && typeof purchaseHistory['ssc-all-subjects-pack'] === 'object'
+                            ? purchaseHistory['ssc-all-subjects-pack']
+                            : unlockedCourses[course.id] && typeof unlockedCourses[course.id] === 'object'
+                              ? unlockedCourses[course.id]
+                              : null;
+                        const purchasedAt = purchase && (purchase.purchaseDate || purchase.unlockedAt);
+                        const expiry = purchase && purchase.expiresAt
+                          ? new Date(purchase.expiresAt)
+                          : purchasedAt
+                            ? (() => {
+                                const d = new Date(purchasedAt);
+                                d.setMonth(d.getMonth() + (Number(purchase.validityMonths) || 6));
+                                return d;
+                              })()
                             : null;
+                        const active = !!expiry && !Number.isNaN(expiry.getTime()) && expiry.getTime() > Date.now();
+                        return (
+                          <View style={{marginTop:12,backgroundColor:active?'#078653':'#B45309',paddingVertical:12,borderRadius:12,alignItems:'center',width:'100%',borderWidth:1,borderColor:active?'#16A36A':'#D97706'}}>
+                            <Text style={{color:'#FFFFFF',fontSize:15,fontWeight:'900',letterSpacing:0.5}}>{active ? '✓ PURCHASED — ACTIVE' : '⚠ PURCHASE EXPIRED / CHECK VALIDITY'}</Text>
+                          </View>
+                        );
+                      })()}
+                      {(() => {
+                        const purchase = purchaseHistory[course.id] && typeof purchaseHistory[course.id] === 'object'
+                          ? purchaseHistory[course.id]
+                          : purchaseHistory['ssc-all-subjects-pack'] && typeof purchaseHistory['ssc-all-subjects-pack'] === 'object'
+                            ? purchaseHistory['ssc-all-subjects-pack']
+                            : unlockedCourses[course.id] && typeof unlockedCourses[course.id] === 'object'
+                              ? unlockedCourses[course.id]
+                              : null;
                         const purchasedAt = purchase && (purchase.purchaseDate || purchase.unlockedAt);
                         const expiry = purchase && purchase.expiresAt
                           ? new Date(purchase.expiresAt)
@@ -4192,9 +4221,31 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                           </View>
                         );
                       })()}
-                      <View style={{backgroundColor:darkMode?'#3B82F6':'#2457D6',paddingVertical:15,borderRadius:12,alignItems:'center',marginTop:14,width:'100%',borderWidth:1,borderColor:darkMode?'#60A5FA':'#1D4ED8',elevation:3}}>
-                        <Text style={{color:'#FFFFFF',fontWeight:'800'}}>Continue Learning →</Text>
-                      </View>
+                      {(() => {
+                        const purchase = purchaseHistory[course.id] && typeof purchaseHistory[course.id] === 'object'
+                          ? purchaseHistory[course.id]
+                          : purchaseHistory['ssc-all-subjects-pack'] && typeof purchaseHistory['ssc-all-subjects-pack'] === 'object'
+                            ? purchaseHistory['ssc-all-subjects-pack']
+                            : unlockedCourses[course.id] && typeof unlockedCourses[course.id] === 'object'
+                              ? unlockedCourses[course.id]
+                              : null;
+                        const purchasedAt = purchase && (purchase.purchaseDate || purchase.unlockedAt);
+                        const expiry = purchase && purchase.expiresAt
+                          ? new Date(purchase.expiresAt)
+                          : purchasedAt
+                            ? (() => {
+                                const d = new Date(purchasedAt);
+                                d.setMonth(d.getMonth() + (Number(purchase.validityMonths) || 6));
+                                return d;
+                              })()
+                            : null;
+                        const active = !!expiry && !Number.isNaN(expiry.getTime()) && expiry.getTime() > Date.now();
+                        return (
+                          <View style={{backgroundColor:active?(darkMode?'#3B82F6':'#2457D6'):'#B45309',paddingVertical:15,borderRadius:12,alignItems:'center',marginTop:14,width:'100%',borderWidth:1,borderColor:active?(darkMode?'#60A5FA':'#1D4ED8'):'#D97706',elevation:3}}>
+                            <Text style={{color:'#FFFFFF',fontWeight:'800'}}>{active ? 'Continue Learning →' : 'Renew Course →'}</Text>
+                          </View>
+                        );
+                      })()}
                     </TouchableOpacity>
                   ))}
                 </View>
