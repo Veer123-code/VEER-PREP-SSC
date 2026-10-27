@@ -775,15 +775,33 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
     let cancelled = false;
 
     const loadGeneralAwareness = async () => {
-      const isSyllabus = page === 'SSC General Awareness Syllabus';
-      const isTopic = page.startsWith('SSC General Awareness Topic: ');
+      const isSyllabus = page === 'SSC General Awareness Syllabus' ||
+        page.startsWith('RRB General Awareness Syllabus: ');
+      const isTopic = page.startsWith('SSC General Awareness Topic: ') ||
+        page.startsWith('RRB General Awareness Topic: ');
 
       if (!isSyllabus && !isTopic) return;
+
+      const isRRB = page.startsWith('RRB General Awareness ');
+      const exam = isRRB ? page.split(': ')[1]?.split(': ')[0] : '';
+      const validExams = ['rrb-ntpc', 'rrb-group-d', 'rrb-alp', 'rrb-technician'];
 
       setGeneralAwarenessError('');
       setGeneralAwarenessFiles([]);
 
-      if (!(unlockedCourses['ssc-general-awareness'] || unlockedCourses['ssc-all-subjects-pack'])) {
+      if (isRRB && !validExams.includes(exam)) {
+        setGeneralAwarenessLoading(false);
+        setGeneralAwarenessError('Invalid RRB exam.');
+        return;
+      }
+
+      const hasAccess = isRRB
+        ? !!(unlockedCourses[exam + '-general-awareness'] ||
+             unlockedCourses[exam + '-all-subjects-pack'])
+        : !!(unlockedCourses['ssc-general-awareness'] ||
+             unlockedCourses['ssc-all-subjects-pack']);
+
+      if (!hasAccess) {
         setGeneralAwarenessLoading(false);
         return;
       }
@@ -795,19 +813,25 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         if (!user) throw new Error('Please log in again to access General Awareness materials.');
 
         const token = await user.getIdToken();
+        const examParam = isRRB ? '&exam=' + encodeURIComponent(exam) : '';
 
         if (isSyllabus) {
           const response = await fetch(
-            ARTICLES_API + '/general-awareness/folders',
+            ARTICLES_API + '/general-awareness/folders' +
+              (isRRB ? '?exam=' + encodeURIComponent(exam) : ''),
             { headers: { Authorization: 'Bearer ' + token } }
           );
           const data = await response.json();
           if (!response.ok) throw new Error(data.error || 'Could not load folders.');
           if (!cancelled) setGeneralAwarenessFolders(data.folders || []);
         } else {
-          const folder = page.replace('SSC General Awareness Topic: ', '');
+          const prefix = isRRB
+            ? 'RRB General Awareness Topic: ' + exam + ': '
+            : 'SSC General Awareness Topic: ';
+          const folder = page.replace(prefix, '');
           const response = await fetch(
-            ARTICLES_API + '/general-awareness/topic-files?topic=' + encodeURIComponent(folder),
+            ARTICLES_API + '/general-awareness/topic-files?topic=' +
+              encodeURIComponent(folder) + examParam,
             { headers: { Authorization: 'Bearer ' + token } }
           );
           const data = await response.json();
@@ -3204,7 +3228,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
 {!menuOpen && (
         <View style={{flexDirection:'row',backgroundColor:'#FFFFFF',borderRadius:17,padding:5,marginTop:14,borderWidth:1,borderColor:'#E2D6FF'}}>
           <TouchableOpacity
-            onPress={() => setPage('Courses')}
+            onPress={() => setPage(page.startsWith('RRB General Awareness Syllabus: ') ? 'RRB Exam: ' + ({'rrb-ntpc':'RRB NTPC','rrb-group-d':'RRB Group D','rrb-alp':'RRB ALP','rrb-technician':'RRB Technician'}[page.replace('RRB General Awareness Syllabus: ', '')] || 'RRB NTPC') : 'Courses')}
             activeOpacity={0.8}
             style={{flex:1,flexDirection:'row',paddingVertical:12,alignItems:'center',justifyContent:'center',backgroundColor:page==='Courses'?'#E9DEFF':'transparent',borderRadius:12,borderWidth:page==='Courses'?1:0,borderColor:'#C4AEFF'}}
           >
@@ -4266,10 +4290,10 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               {key:'rrb-technician',title:'RRB Technician'}
             ];
             const rrbSubjects = [
-              {suffix:'mathematics',title:'Mathematics'},
-              {suffix:'reasoning',title:'Reasoning'},
-              {suffix:'general-science',title:'General Science'},
-              {suffix:'general-awareness',title:'General Awareness'}
+              {suffix:'mathematics',title:'Mathematics',image:require('./assets/images/rrb mathematics.png'),accent:'#2563EB'},
+              {suffix:'reasoning',title:'Reasoning',image:require('./assets/images/rrb reasoning.png'),accent:'#7C3AED'},
+              {suffix:'general-science',title:'General Science',image:require('./assets/images/General Science.png'),accent:'#059669'},
+              {suffix:'general-awareness',title:'General Awareness',image:require('./assets/images/rrb general awareness.png'),accent:'#D97706'}
             ];
             const rrbPurchases = rrbExams.flatMap(exam => {
               const packId = exam.key + '-all-subjects-pack';
@@ -4316,6 +4340,9 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                   return (
                     <TouchableOpacity key={course.id} onPress={() => setPage(course.target)}
                       style={{backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:16,padding:15,marginTop:12,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#E0E7F2',elevation:2}}>
+                      <View style={{width:'100%',height:190,borderRadius:12,backgroundColor:darkMode?'#202F49':'#F0F4FF',marginBottom:12,overflow:'hidden'}}>
+                        <Image source={rrbSubjects.find(subject => course.id.endsWith('-' + subject.suffix))?.image || require('./assets/images/All in one rrb.png')} style={{width:'100%',height:'100%'}} resizeMode="contain" />
+                      </View>
                       <Text style={{fontSize:17,fontWeight:'900',color:darkMode?'#F3F6FC':'#173B83'}}>{course.title}</Text>
                       <View style={{marginTop:10,backgroundColor:active?'#078653':'#B45309',padding:10,borderRadius:10,alignItems:'center'}}>
                         <Text style={{color:'#FFFFFF',fontWeight:'900'}}>
@@ -4602,7 +4629,13 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                   </View>
                   <Text style={{fontSize:14,fontWeight:'900',color:mainText,marginTop:8,minHeight:34}}>{subject.title}</Text>
                   <Text style={{fontSize:12,color:mutedText,marginTop:6}}> {owned ? 'Purchased' : 'Course access: ₹49'} </Text>
-                  <TouchableOpacity onPress={() => owned ? Alert.alert('Study material', 'PDF files for this subject still need to be connected.') : startCheckout(courseId)} style={{backgroundColor:owned?'#078653':'#2457D6',padding:10,borderRadius:9,alignItems:'center',marginTop:10}}>
+                  <TouchableOpacity onPress={() => {
+                    if (!owned) return startCheckout(courseId);
+                    if (subject.suffix === 'mathematics') setPage('RRB Mathematics Syllabus: ' + examKey);
+                    else if (subject.suffix === 'reasoning') setPage('RRB Reasoning Syllabus: ' + examKey);
+                    else if (subject.suffix === 'general-awareness') setPage('RRB General Awareness Syllabus: ' + examKey);
+                    else Alert.alert('General Science', 'Science study PDFs are included in General Awareness materials.');
+                  }} style={{backgroundColor:owned?'#078653':'#2457D6',padding:10,borderRadius:9,alignItems:'center',marginTop:10}}>
                     <Text style={{color:'#FFFFFF',fontSize:11,fontWeight:'800'}}>{owned ? '✓ PURCHASED' : 'Buy – ₹49'}</Text>
                   </TouchableOpacity>
                 </View>;
@@ -4821,7 +4854,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           </View>
         </>}
 
-        {page === 'SSC General Awareness Syllabus' && <>
+        {(page === 'SSC General Awareness Syllabus' || page.startsWith('RRB General Awareness Syllabus: ')) && <>
           <View style={{padding:18}}>
 
 
@@ -4892,7 +4925,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               const color = colors[index % colors.length];
               return (
                 <TouchableOpacity key={folder.name}
-                  onPress={() => setPage('SSC General Awareness Topic: ' + folder.name)}
+                  onPress={() => setPage(page.startsWith('RRB General Awareness Syllabus: ') ? 'RRB General Awareness Topic: ' + page.replace('RRB General Awareness Syllabus: ', '') + ': ' + folder.name : 'SSC General Awareness Topic: ' + folder.name)}
                   style={{marginBottom:14,borderRadius:18,backgroundColor:darkMode?'#172033':'#FFFFFF',borderWidth:1,borderColor:color+'66',borderBottomWidth:4,borderBottomColor:color,elevation:4,overflow:'hidden'}}>
                   <View style={{flexDirection:'row',alignItems:'center',padding:14}}>
                     <View style={{width:60,height:60,borderRadius:14,backgroundColor:color+'20',alignItems:'center',justifyContent:'center',marginRight:12,borderWidth:1,borderColor:color+'55'}}>
@@ -4919,15 +4952,15 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           </View>
         </>}
 
-        {page.startsWith('SSC General Awareness Topic: ') && <>
+        {(page.startsWith('SSC General Awareness Topic: ') || page.startsWith('RRB General Awareness Topic: ')) && <>
           <View style={{padding:20}}>
 
 
             <Text style={{fontSize:23,fontWeight:'900',color:mainText}}>
-              {page.replace('SSC General Awareness Topic: ','')}
+              {page.startsWith('RRB General Awareness Topic: ') ? page.replace(/^RRB General Awareness Topic: [^:]+: /, '') : page.replace('SSC General Awareness Topic: ','')}
             </Text>
 
-            {(unlockedCourses['ssc-general-awareness'] || unlockedCourses['ssc-all-subjects-pack']) ? <>
+            {(page.startsWith('RRB General Awareness Topic: ') ? (unlockedCourses[page.split(': ')[1] + '-general-awareness'] || unlockedCourses[page.split(': ')[1] + '-all-subjects-pack']) : (unlockedCourses['ssc-general-awareness'] || unlockedCourses['ssc-all-subjects-pack'])) ? <>
               <Text style={{fontSize:14,color:'#059669',fontWeight:'900',marginTop:10}}>🔓 COURSE ACCESS UNLOCKED</Text>
               <Text style={{fontSize:14,color:mutedText,marginTop:8,lineHeight:22}}>This topic is included in your purchased course. Detailed lesson notes, PDFs and videos need to be added to this topic separately.</Text>
               {/* GENERAL_AWARENESS_PDF_LIST_UI */}
@@ -4941,9 +4974,11 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                   <Text style={{color:'#DC2626',marginTop:14}}>{generalAwarenessError}</Text>
                 ) : generalAwarenessFiles.length > 0 ? (
                   generalAwarenessFiles.map(item => {
-                    const folder = page.replace('SSC General Awareness Topic: ', '');
+                    const isRRBTopic = page.startsWith('RRB General Awareness Topic: ');
+                    const exam = isRRBTopic ? page.split(': ')[1] : '';
+                    const folder = isRRBTopic ? page.replace(/^RRB General Awareness Topic: [^:]+: /, '') : page.replace('SSC General Awareness Topic: ', '');
                     const endpoint = ARTICLES_API + '/general-awareness/topic-pdf-url?topic=' +
-                      encodeURIComponent(folder) + '&file=' + encodeURIComponent(item.name);
+                      encodeURIComponent(folder) + '&file=' + encodeURIComponent(item.name) + (isRRBTopic ? '&exam=' + encodeURIComponent(exam) : '');
                     const fileName = 'GA-' + folder.replace(/[^a-zA-Z0-9_-]/g, '-') + '-' +
                       item.name.replace(/[^a-zA-Z0-9._-]/g, '_');
 
@@ -5015,7 +5050,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               </View>
 
               <TouchableOpacity
-                onPress={() => setPage('SSC General Awareness Syllabus')}
+                onPress={() => setPage(page.startsWith('RRB General Awareness Topic: ') ? 'RRB General Awareness Syllabus: ' + page.split(': ')[1] : 'SSC General Awareness Syllabus')}
                 style={{width:'100%',alignSelf:'stretch',marginTop:22,marginBottom:12,paddingVertical:17,paddingHorizontal:12,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',justifyContent:'center'}}
               >
                 <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>← Back to General Awareness Course</Text>
@@ -5030,7 +5065,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           </View>
         </>}
 
-        {page === 'Master Reasoning Syllabus' && <>
+        {(page === 'Master Reasoning Syllabus' || page.startsWith('RRB Reasoning Syllabus: ')) && <>
           <View style={{padding:18}}>
 
 
@@ -5091,11 +5126,13 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               {title:'Seating Arrangement',desc:'Linear and Circular Seating',icon:'🪑',color:'#DB2777'},
               {title:'Venn Diagram',desc:'Groups and Relationships',icon:'⭕',color:'#2563EB'}
             ].map((folder,index) => {
-              const unlocked = !!(unlockedCourses['ssc-reasoning-masterclass'] || unlockedCourses['ssc-all-subjects-pack']);
+              const isRRB = page.startsWith('RRB Reasoning Syllabus: ');
+              const exam = isRRB ? page.replace('RRB Reasoning Syllabus: ', '') : '';
+              const unlocked = isRRB ? !!(unlockedCourses[exam + '-reasoning'] || unlockedCourses[exam + '-all-subjects-pack']) : !!(unlockedCourses['ssc-reasoning-masterclass'] || unlockedCourses['ssc-all-subjects-pack']);
               return (
                 <TouchableOpacity key={folder.title}
                   onPress={() => {
-                    setPage('Master Reasoning Topic: ' + folder.title);
+                    setPage(page.startsWith('RRB Reasoning Syllabus: ') ? 'RRB Reasoning Topic: ' + page.replace('RRB Reasoning Syllabus: ', '') + ': ' + folder.title : 'Master Reasoning Topic: ' + folder.title);
                   }}
                   style={{width:'48.5%',marginBottom:12,borderRadius:16,backgroundColor:darkMode?'#172033':'#FFFFFF',borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5',overflow:'hidden'}}>
                   <View style={{padding:12,minHeight:174}}>
@@ -5122,16 +5159,18 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           </View>
         </>}
 
-        {page.startsWith('Master Reasoning Topic: ') && <>
+        {(page.startsWith('Master Reasoning Topic: ') || page.startsWith('RRB Reasoning Topic: ')) && <>
           <View style={{padding:20}}>
-            <TouchableOpacity onPress={() => setPage('Master Reasoning Syllabus')}
+            <TouchableOpacity onPress={() => setPage(page.startsWith('RRB Reasoning Topic: ') ? 'RRB Reasoning Syllabus: ' + page.split(': ')[1] : 'Master Reasoning Syllabus')}
               style={{padding:14,borderRadius:13,backgroundColor:darkMode?'#173B35':'#E3F4EE',alignItems:'center',marginBottom:20}}>
               <Text style={{color:darkMode?'#6EE7B7':'#087F67',fontWeight:'900'}}>← Back to Reasoning Syllabus</Text>
             </TouchableOpacity>
-            {(unlockedCourses['ssc-reasoning-masterclass'] || unlockedCourses['ssc-all-subjects-pack']) ? <>
+            {(page.startsWith('RRB Reasoning Topic: ') ? (unlockedCourses[page.split(': ')[1] + '-reasoning'] || unlockedCourses[page.split(': ')[1] + '-all-subjects-pack']) : (unlockedCourses['ssc-reasoning-masterclass'] || unlockedCourses['ssc-all-subjects-pack'])) ? <>
               {(() => {
-                const topic = page.replace('Master Reasoning Topic: ', '');
-                const endpoint = ARTICLES_API + '/reasoning/topic-pdf-url?topic=' + encodeURIComponent(topic);
+                const isRRB = page.startsWith('RRB Reasoning Topic: ');
+                const exam = isRRB ? page.split(': ')[1] : '';
+                const topic = isRRB ? page.replace(/^RRB Reasoning Topic: [^:]+: /, '') : page.replace('Master Reasoning Topic: ', '');
+                const endpoint = ARTICLES_API + '/reasoning/topic-pdf-url?topic=' + encodeURIComponent(topic) + (isRRB ? '&exam=' + encodeURIComponent(exam) : '')
                 return <>
                   <Text style={{fontSize:24,fontWeight:'900',color:mainText}}>{topic}</Text>
                   <Text style={{fontSize:14,color:mutedText,marginTop:8,marginBottom:18}}>SSC Reasoning Study PDF</Text>
@@ -5226,10 +5265,10 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           </View>
         </>}
 
-        {page === 'Quant Practice' && (unlockedCourses['ssc-mathematics'] || unlockedCourses['ssc-all-subjects-pack']) && <>
+        {((page === 'Quant Practice' && (unlockedCourses['ssc-mathematics'] || unlockedCourses['ssc-all-subjects-pack'])) || (page.startsWith('RRB Mathematics Syllabus: ') && (unlockedCourses[page.split(': ')[1]+'-mathematics'] || unlockedCourses[page.split(': ')[1]+'-all-subjects-pack']))) && <>
           <View style={{padding:18}}>
             <Text style={{fontSize:25,fontWeight:'900',color:mainText,marginTop:8}}>
-              SSC Mathematics
+              {page === 'Quant Practice' ? 'SSC Mathematics' : 'RRB Mathematics • ' + page.split(': ')[1]}
             </Text>
             <Text style={{fontSize:14,color:mutedText,marginTop:8,lineHeight:22}}>
               Topic-wise Study Notes • View PDFs or download for offline study.
@@ -5251,7 +5290,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 'Problems on Trains'
               ].map((topic,index) => (
                 <TouchableOpacity key={topic}
-                  onPress={() => setPage('SSC Mathematics Topic: '+topic)}
+                  onPress={() => setPage(page === 'Quant Practice' ? 'SSC Mathematics Topic: '+topic : 'RRB Mathematics Topic: '+page.split(': ')[1]+': '+topic)}
                   style={{width:'48.2%',minHeight:112,backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:15,padding:12,marginTop:12,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#DCE5F5',justifyContent:'space-between'}}>
                   <View style={{width:32,height:32,borderRadius:9,backgroundColor:darkMode?'#173D35':'#E3F4EE',alignItems:'center',justifyContent:'center'}}>
                     <Text style={{fontWeight:'900',color:darkMode?'#6EE7B7':'#087F67'}}>{index+1}</Text>
@@ -5268,10 +5307,10 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           </View>
         </>}
 
-        {page.startsWith('SSC Mathematics Topic: ') && (unlockedCourses['ssc-mathematics'] || unlockedCourses['ssc-all-subjects-pack']) && <>
+        {((page.startsWith('SSC Mathematics Topic: ') && (unlockedCourses['ssc-mathematics'] || unlockedCourses['ssc-all-subjects-pack'])) || (page.startsWith('RRB Mathematics Topic: ') && (unlockedCourses[page.split(': ')[1]+'-mathematics'] || unlockedCourses[page.split(': ')[1]+'-all-subjects-pack']))) && <>
           <View style={{padding:22}}>
             <Text style={[styles.pageTitle,{color:mainText}]}>
-              {page.replace('SSC Mathematics Topic: ', '')}
+              {page.startsWith('RRB Mathematics Topic: ') ? page.replace(/^RRB Mathematics Topic: [^:]+: /, '') : page.replace('SSC Mathematics Topic: ', '')}
             </Text>
             <Text style={{color:mutedText,marginTop:8,lineHeight:22}}>
               Open or download your Mathematics study PDF from Supabase.
@@ -5280,8 +5319,10 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               <TouchableOpacity
                 disabled={pdfDownloadBusy}
                 onPress={async () => {
-                  const topic = page.replace('SSC Mathematics Topic: ', '');
-                  const endpoint = ARTICLES_API + '/mathematics/topic-pdf-url?topic=' + encodeURIComponent(topic);
+                  const isRRB = page.startsWith('RRB Mathematics Topic: ');
+                  const exam = isRRB ? page.split(': ')[1] : '';
+                  const topic = isRRB ? page.replace(/^RRB Mathematics Topic: [^:]+: /, '') : page.replace('SSC Mathematics Topic: ', '');
+                  const endpoint = ARTICLES_API + '/mathematics/topic-pdf-url?topic=' + encodeURIComponent(topic) + (isRRB ? '&exam=' + encodeURIComponent(exam) : '');
                   const tab = Platform.OS === 'web' ? window.open('about:blank', '_blank') : null;
                   try {
                     const user = auth.currentUser;
@@ -5309,8 +5350,10 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               <TouchableOpacity
                 disabled={pdfDownloadBusy}
                 onPress={async () => {
-                  const topic = page.replace('SSC Mathematics Topic: ', '');
-                  const endpoint = ARTICLES_API + '/mathematics/topic-pdf-url?topic=' + encodeURIComponent(topic);
+                  const isRRB = page.startsWith('RRB Mathematics Topic: ');
+                  const exam = isRRB ? page.split(': ')[1] : '';
+                  const topic = isRRB ? page.replace(/^RRB Mathematics Topic: [^:]+: /, '') : page.replace('SSC Mathematics Topic: ', '');
+                  const endpoint = ARTICLES_API + '/mathematics/topic-pdf-url?topic=' + encodeURIComponent(topic) + (isRRB ? '&exam=' + encodeURIComponent(exam) : '');
                   const fileName = 'Mathematics-' + topic.replace(/[^a-zA-Z0-9_-]/g, '-') + '.pdf';
                   await downloadStudyPdfForOffline(endpoint, fileName);
                 }}
@@ -5320,7 +5363,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 </Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={() => setPage('Quant Practice')}
+            <TouchableOpacity onPress={() => setPage(page.startsWith('RRB Mathematics Topic: ') ? 'RRB Mathematics Syllabus: ' + page.split(': ')[1] : 'Quant Practice')}
               style={{padding:16,borderRadius:14,backgroundColor:'#2457D6',alignItems:'center',marginTop:16}}>
               <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>← Back to Mathematics Topics</Text>
             </TouchableOpacity>

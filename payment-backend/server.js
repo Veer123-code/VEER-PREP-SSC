@@ -1058,13 +1058,24 @@ app.get('/mathematics/topic-pdf-url', async (req, res) => {
       return res.status(404).json({ error: 'No Mathematics PDF is available for this topic yet.' });
     }
 
-    const eligible =
-      (await hasActiveCoursePurchase(user.uid, 'ssc-mathematics')) ||
-      (await hasActiveCoursePurchase(user.uid, 'ssc-all-subjects-pack'));
-
+    const exam = typeof req.query.exam === 'string' ? req.query.exam : '';
+    let eligible;
+    if (!exam) {
+      eligible =
+        (await hasActiveCoursePurchase(user.uid, 'ssc-mathematics')) ||
+        (await hasActiveCoursePurchase(user.uid, 'ssc-all-subjects-pack'));
+    } else if (['rrb-ntpc','rrb-group-d','rrb-alp','rrb-technician'].includes(exam)) {
+      eligible =
+        (await hasActiveCoursePurchase(user.uid, exam + '-mathematics')) ||
+        (await hasActiveCoursePurchase(user.uid, exam + '-all-subjects-pack'));
+    } else {
+      return res.status(400).json({ error: 'Invalid exam.' });
+    }
     if (!eligible) {
       return res.status(403).json({
-        error: 'Purchase the SSC Mathematics course to access these PDFs.'
+        error: exam
+          ? 'Purchase this RRB exam Mathematics course or its All-in-One Pack to access these PDFs.'
+          : 'Purchase the SSC Mathematics course to access these PDFs.'
       });
     }
 
@@ -1105,13 +1116,24 @@ app.get('/reasoning/topic-pdf-url', async (req, res) => {
       return res.status(404).json({ error: 'No Reasoning PDF is available for this topic yet.' });
     }
 
-    const eligible =
-      (await hasActiveCoursePurchase(user.uid, 'ssc-reasoning-masterclass')) ||
-      (await hasActiveCoursePurchase(user.uid, 'ssc-all-subjects-pack'));
-
+    const exam = typeof req.query.exam === 'string' ? req.query.exam : '';
+    let eligible;
+    if (!exam) {
+      eligible =
+        (await hasActiveCoursePurchase(user.uid, 'ssc-reasoning-masterclass')) ||
+        (await hasActiveCoursePurchase(user.uid, 'ssc-all-subjects-pack'));
+    } else if (['rrb-ntpc','rrb-group-d','rrb-alp','rrb-technician'].includes(exam)) {
+      eligible =
+        (await hasActiveCoursePurchase(user.uid, exam + '-reasoning')) ||
+        (await hasActiveCoursePurchase(user.uid, exam + '-all-subjects-pack'));
+    } else {
+      return res.status(400).json({ error: 'Invalid exam.' });
+    }
     if (!eligible) {
       return res.status(403).json({
-        error: 'Purchase the SSC Reasoning course to access these PDFs.'
+        error: exam
+          ? 'Purchase this RRB exam Reasoning course or its All-in-One Pack to access these PDFs.'
+          : 'Purchase the SSC Reasoning course to access these PDFs.'
       });
     }
 
@@ -1129,6 +1151,25 @@ app.get('/reasoning/topic-pdf-url', async (req, res) => {
 });
 
 
+async function hasGeneralAwarenessAccess(userId, exam) {
+  if (exam === undefined || exam === '') {
+    return hasActiveCoursePurchase(userId, 'ssc-general-awareness') ||
+      hasActiveCoursePurchase(userId, 'ssc-all-subjects-pack');
+  }
+
+  const allowedExams = [
+    'rrb-ntpc',
+    'rrb-group-d',
+    'rrb-alp',
+    'rrb-technician'
+  ];
+
+  if (!allowedExams.includes(exam)) return false;
+
+  return (await hasActiveCoursePurchase(userId, exam + '-general-awareness')) ||
+    (await hasActiveCoursePurchase(userId, exam + '-all-subjects-pack'));
+}
+
 app.get('/general-awareness/folders', async (req, res) => {
   try {
     const user = await getAuthenticatedUser(req);
@@ -1136,7 +1177,8 @@ app.get('/general-awareness/folders', async (req, res) => {
       return res.status(401).json({ error: 'Please log in to access General Awareness folders.' });
     }
 
-    if (!(await hasActiveCoursePurchase(user.uid, 'ssc-general-awareness'))) {
+    const requestedExam = typeof req.query.exam === 'string' ? req.query.exam : undefined;
+    if (!(await hasGeneralAwarenessAccess(user.uid, requestedExam))) {
       return res.status(403).json({ error: 'Purchase the General Awareness course to access these folders.' });
     }
 
@@ -1164,7 +1206,8 @@ app.get('/general-awareness/topic-files', async (req, res) => {
       return res.status(401).json({ error: 'Please log in to access General Awareness PDFs.' });
     }
 
-    if (!(await hasActiveCoursePurchase(user.uid, 'ssc-general-awareness'))) {
+    const requestedExam = typeof req.query.exam === 'string' ? req.query.exam : undefined;
+    if (!(await hasGeneralAwarenessAccess(user.uid, requestedExam))) {
       return res.status(403).json({ error: 'Purchase the General Awareness course to access these PDFs.' });
     }
 
@@ -1213,7 +1256,8 @@ app.get('/general-awareness/topic-pdf-url', async (req, res) => {
       return res.status(401).json({ error: 'Please log in to access General Awareness PDFs.' });
     }
 
-    if (!(await hasActiveCoursePurchase(user.uid, 'ssc-general-awareness'))) {
+    const requestedExam = typeof req.query.exam === 'string' ? req.query.exam : undefined;
+    if (!(await hasGeneralAwarenessAccess(user.uid, requestedExam))) {
       return res.status(403).json({
         error: 'Purchase the General Awareness course to access these PDFs.'
       });
