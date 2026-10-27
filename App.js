@@ -4258,6 +4258,88 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             })()}
 
 
+          {page === 'Courses' && (() => {
+            const rrbExams = [
+              {key:'rrb-ntpc',title:'RRB NTPC'},
+              {key:'rrb-group-d',title:'RRB Group D'},
+              {key:'rrb-alp',title:'RRB ALP'},
+              {key:'rrb-technician',title:'RRB Technician'}
+            ];
+            const rrbSubjects = [
+              {suffix:'mathematics',title:'Mathematics'},
+              {suffix:'reasoning',title:'Reasoning'},
+              {suffix:'general-science',title:'General Science'},
+              {suffix:'general-awareness',title:'General Awareness'}
+            ];
+            const rrbPurchases = rrbExams.flatMap(exam => {
+              const packId = exam.key + '-all-subjects-pack';
+              const packPurchase = purchaseHistory[packId] || unlockedCourses[packId];
+              return rrbSubjects.map(subject => {
+                const id = exam.key + '-' + subject.suffix;
+                const directPurchase = purchaseHistory[id] || unlockedCourses[id];
+                return {
+                  id,
+                  title:exam.title + ' — ' + subject.title,
+                  target:'RRB Exam: ' + exam.title,
+                  purchase:directPurchase || packPurchase,
+                  owned:!!directPurchase || !!packPurchase
+                };
+              }).filter(course => course.owned);
+            });
+
+            if (!rrbPurchases.length) return null;
+            return (
+              <View style={{paddingHorizontal:10,width:'100%',alignSelf:'stretch'}}>
+                <Text style={{fontSize:20,fontWeight:'900',color:darkMode?'#F3F6FC':'#173B83',marginTop:18}}>
+                  RRB PURCHASES — MY COURSES
+                </Text>
+                {rrbPurchases.map(course => {
+                  const purchase = course.purchase && typeof course.purchase === 'object' ? course.purchase : null;
+                  const purchasedAt = purchase && (purchase.purchaseDate || purchase.unlockedAt);
+                  const expiry = purchase && purchase.expiresAt
+                    ? new Date(purchase.expiresAt)
+                    : purchasedAt
+                      ? (() => {
+                          const d = new Date(purchasedAt);
+                          d.setMonth(d.getMonth() + (Number(purchase.validityMonths) || 6));
+                          return d;
+                        })()
+                      : null;
+                  const validExpiry = expiry && !Number.isNaN(expiry.getTime()) ? expiry : null;
+                  const active = !!validExpiry && validExpiry.getTime() > Date.now();
+                  const daysLeft = validExpiry ? Math.max(0, Math.ceil((validExpiry.getTime() - Date.now()) / 86400000)) : null;
+                  const formatDate = value => {
+                    if (!value) return 'N/A';
+                    const d = new Date(value);
+                    return Number.isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString();
+                  };
+                  return (
+                    <TouchableOpacity key={course.id} onPress={() => setPage(course.target)}
+                      style={{backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:16,padding:15,marginTop:12,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#E0E7F2',elevation:2}}>
+                      <Text style={{fontSize:17,fontWeight:'900',color:darkMode?'#F3F6FC':'#173B83'}}>{course.title}</Text>
+                      <View style={{marginTop:10,backgroundColor:active?'#078653':'#B45309',padding:10,borderRadius:10,alignItems:'center'}}>
+                        <Text style={{color:'#FFFFFF',fontWeight:'900'}}>
+                          {active ? '✓ PURCHASED — ACTIVE' : '⚠ PURCHASE EXPIRED / CHECK VALIDITY'}
+                        </Text>
+                      </View>
+                      <Text style={{marginTop:10,fontSize:14,lineHeight:22,color:darkMode?'#E0E7FF':'#334155'}}>Purchased: {formatDate(purchasedAt)}</Text>
+                      <Text style={{fontSize:14,lineHeight:22,color:darkMode?'#E0E7FF':'#334155'}}>Valid until: {validExpiry ? formatDate(validExpiry) : 'N/A'}</Text>
+                      <Text style={{fontSize:14,lineHeight:22,fontWeight:'800',color:active?'#078653':'#DC2626'}}>
+                        Status: {validExpiry ? (active ? 'ACTIVE' : 'EXPIRED') : 'VALIDITY NOT AVAILABLE'}
+                      </Text>
+                      <Text style={{fontSize:14,lineHeight:22,fontWeight:'800',color:active?'#078653':'#DC2626'}}>
+                        {daysLeft === null ? 'Remaining days: N/A' : active ? 'Days remaining: ' + daysLeft : 'Course expired'}
+                      </Text>
+                      <Text style={{marginTop:10,color:active?'#2457D6':'#B45309',fontWeight:'800'}}>
+                        {active ? 'Open RRB Course →' : 'Renew Course →'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            );
+          })()}
+
           {page === 'Paid Courses' && (
             <View style={{paddingHorizontal:10,flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>
               {[
