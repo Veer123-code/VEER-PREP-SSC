@@ -3473,6 +3473,16 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
         {title:'SSC Courses',keywords:'ssc course staff selection commission',page:'SSC Courses'},
         {title:'TGPSC Courses',keywords:'tgpsc telangana public service commission',page:'TGPSC Courses'},
         {title:'RRB Courses',keywords:'rrb railway recruitment board',page:'RRB Courses'},
+        {title:'RRB NTPC',keywords:'rrb ntpc railway non technical mathematics maths reasoning general science general awareness gk',page:'RRB Exam: RRB NTPC'},
+        {title:'RRB Group D',keywords:'rrb group d railway level 1 mathematics maths reasoning general science general awareness',page:'RRB Exam: RRB Group D'},
+        {title:'RRB Technician',keywords:'rrb technician technician grade 1 grade 3 mathematics maths reasoning general science general awareness',page:'RRB Exam: RRB Technician'},
+        {title:'RRB ALP',keywords:'rrb alp assistant loco pilot mathematics maths reasoning general science general awareness',page:'RRB Exam: RRB ALP'},
+        {title:'RRB Tradesman',keywords:'rrb tradesman trade man railway trade exam',page:'RRB Courses'},
+        {title:'SSC GD',keywords:'ssc gd constable general duty mathematics maths reasoning general awareness english hindi',page:'SSC Courses'},
+        {title:'SSC MTS',keywords:'ssc mts multitasking staff numerical ability maths reasoning general awareness english',page:'SSC Courses'},
+        {title:'SSC CGL',keywords:'ssc cgl combined graduate level quantitative aptitude maths reasoning english general awareness',page:'SSC Courses'},
+        {title:'SSC JE',keywords:'ssc je junior engineer civil mechanical electrical engineering reasoning general awareness',page:'SSC Courses'},
+        {title:'RRB JE',keywords:'rrb je railway junior engineer civil mechanical electrical engineering mathematics reasoning general science',page:'RRB Courses'},
         {title:'Downloads',keywords:'downloads downloaded files materials',page:'Downloads'},
         {title:'Live Classes',keywords:'live classes online classes lessons',page:'Live Classes'},
         {title:'My Progress',keywords:'my progress scores performance results',page:'My Progress'},
@@ -4149,7 +4159,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
           </View>)}
         </>}
 
-        {(page === 'Courses' || page === 'Paid Courses' || page === 'SSC Courses' || page === 'TGPSC Courses' || page === 'RRB Courses' || page.startsWith('SSC Exam:') || page.startsWith('RRB Exam:')) && <>
+        {(page === 'Courses' || page === 'Paid Courses' || page === 'SSC Courses' || page === 'TGPSC Courses' || page === 'RRB Courses' || page.startsWith('SSC Exam:') || page.startsWith('RRB Exam:') || page.startsWith('TGPSC Exam:')) && <>
 
 
             <View style={{alignSelf:'center',width:'95%',marginTop:12,marginBottom:4,backgroundColor:darkMode?'#253D70':'#2457D6',borderRadius:16,paddingVertical:13,paddingHorizontal:12,alignItems:'center',justifyContent:'center',elevation:3}}>
@@ -4165,10 +4175,10 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             {page === 'Courses' && (() => {
               const packOwned = !!unlockedCourses['ssc-all-subjects-pack'];
               const subjects = [
-                {id:'ssc-mathematics',title:'SSC Mathematics',desc:'Arithmetic and topic-wise practice',image:require('./assets/images/ssc-mathematics.jpeg'),target:'Quant Practice',color:'#7C3AED'},
-                {id:'ssc-reasoning-masterclass',title:'SSC Reasoning',desc:'Verbal and non-verbal reasoning',image:require('./assets/images/ssc-reasoning.jpeg'),target:'Master Reasoning Syllabus',color:'#2563EB'},
-                {id:'ssc-general-awareness',title:'SSC General Awareness',desc:'History, geography, polity and science',image:require('./assets/images/ssc-general-awareness.jpeg'),target:'SSC General Awareness Syllabus',color:'#059669'},
-                {id:'ssc-english-foundation',title:'SSC English',desc:'Grammar and vocabulary',image:require('./assets/images/ssc-english.jpeg'),target:'SSC English Folders',color:'#D97706'}
+                {id:'ssc-mathematics',title:'SSC Mathematics',desc:'Arithmetic and topic-wise practice',image:require('./assets/images/my-purchase/Mathematics.png'),target:'Quant Practice',color:'#7C3AED'},
+                {id:'ssc-reasoning-masterclass',title:'SSC Reasoning',desc:'Verbal and non-verbal reasoning',image:require('./assets/images/my-purchase/Reasoning.png'),target:'Master Reasoning Syllabus',color:'#2563EB'},
+                {id:'ssc-general-awareness',title:'SSC General Awareness',desc:'History, geography, polity and science',image:require('./assets/images/my-purchase/General Awareness.png'),target:'SSC General Awareness Syllabus',color:'#059669'},
+                {id:'ssc-english-foundation',title:'SSC English',desc:'Grammar and vocabulary',image:require('./assets/images/my-purchase/English.png'),target:'SSC English Folders',color:'#D97706'}
               ].filter(course => packOwned || !!unlockedCourses[course.id] || !!purchaseHistory[course.id] || !!purchaseHistory['ssc-all-subjects-pack']);
 
               return subjects.length ? (
@@ -4177,7 +4187,7 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                     <TouchableOpacity key={course.id} onPress={() => setPage(course.target)}
                       style={{width:'100%',alignSelf:'stretch',backgroundColor:darkMode?'#17243B':'#FFFFFF',borderRadius:16,padding:16,marginTop:14,borderWidth:1,borderColor:darkMode?'#2B3D5C':'#E0E7F2',elevation:3}}>
                       <View style={{width:'100%',height:230,borderRadius:12,backgroundColor:darkMode?course.color+'33':'#F0F4FF',marginBottom:14,overflow:'hidden',alignSelf:'stretch'}}>
-                        <Image source={course.image} style={{width:'100%',height:'100%'}} resizeMode="contain" />
+                        <Image source={course.image} style={{width:'100%',height:'100%'}} resizeMode="cover" />
                       </View>
                       <Text style={{fontSize:22,fontWeight:'900',lineHeight:29,minHeight:32,color:'#000000'}}>{course.title}</Text>
                       <Text style={{fontSize:16,fontWeight:'600',lineHeight:23,minHeight:30,color:darkMode?'#B4C1D6':'#68758B',marginTop:5}}>{course.desc}</Text>
@@ -4290,10 +4300,10 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
               {key:'rrb-technician',title:'RRB Technician'}
             ];
             const rrbSubjects = [
-              {suffix:'mathematics',title:'Mathematics',image:require('./assets/images/rrb mathematics.png'),accent:'#2563EB'},
-              {suffix:'reasoning',title:'Reasoning',image:require('./assets/images/rrb reasoning.png'),accent:'#7C3AED'},
-              {suffix:'general-science',title:'General Science',image:require('./assets/images/General Science.png'),accent:'#059669'},
-              {suffix:'general-awareness',title:'General Awareness',image:require('./assets/images/rrb general awareness.png'),accent:'#D97706'}
+              {suffix:'mathematics',title:'Mathematics',image:require('./assets/images/my-purchase/Mathematics.png'),accent:'#2563EB'},
+              {suffix:'reasoning',title:'Reasoning',image:require('./assets/images/my-purchase/Reasoning.png'),accent:'#7C3AED'},
+              {suffix:'general-science',title:'General Science',image:require('./assets/images/my-purchase/General Science.png'),accent:'#059669'},
+              {suffix:'general-awareness',title:'General Awareness',image:require('./assets/images/my-purchase/General Awareness.png'),accent:'#D97706'}
             ];
             const rrbPurchases = rrbExams.flatMap(exam => {
               const packId = exam.key + '-all-subjects-pack';
@@ -4432,12 +4442,12 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
     <Image
       source={
         course.title === 'SSC Mathematics'
-          ? require('./assets/images/ssc-mathematics.jpeg')
+          ? require('./assets/images/my-purchase/Mathematics.png')
           : course.id === 'ssc-reasoning-masterclass'
-          ? require('./assets/images/ssc-reasoning.jpeg')
+          ? require('./assets/images/my-purchase/Reasoning.png')
           : course.id === 'ssc-general-awareness'
-          ? require('./assets/images/ssc-general-awareness.jpeg')
-          : require('./assets/images/ssc-english.jpeg')
+          ? require('./assets/images/my-purchase/General Awareness.png')
+          : require('./assets/images/my-purchase/English.png')
       }
       style={{width:'100%',height:'100%'}}
       resizeMode="cover"
@@ -4550,12 +4560,70 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
                 <Text style={{fontSize:15,fontWeight:'900',color:'#000000',minHeight:38}}>{exam.title}</Text>
                 <Text style={{fontSize:11,lineHeight:16,minHeight:48,color:darkMode?'#B4C1D6':'#68758B',marginTop:5}}>{t('Telangana history, polity, economy and general studies','తెలంగాణ చరిత్ర, రాజ్యాంగం, ఆర్థిక వ్యవస్థ మరియు జనరల్ స్టడీస్')}</Text>
                 <Text style={{fontSize:16,fontWeight:'900',color:darkMode?'#F6C453':'#B77908',marginTop:7}}>₹49</Text>
-                <TouchableOpacity onPress={() => Alert.alert(exam.title + ' course content will be added next.')} style={{backgroundColor:darkMode?'#2563EB':'#2457D6',paddingVertical:11,paddingHorizontal:4,borderRadius:10,alignItems:'center',marginTop:10,minHeight:40,justifyContent:'center'}}>
+                <TouchableOpacity onPress={() => setPage('TGPSC Exam: ' + exam.title)} style={{backgroundColor:darkMode?'#2563EB':'#2457D6',paddingVertical:11,paddingHorizontal:4,borderRadius:10,alignItems:'center',marginTop:10,minHeight:40,justifyContent:'center'}}>
                   <Text style={{color:'#FFFFFF',fontSize:12,fontWeight:'800',textAlign:'center'}}>{t('Explore Course →','కోర్సును చూడండి →')}</Text>
                 </TouchableOpacity>
               </View>
             ))}
           </View>}
+
+          {page.startsWith('TGPSC Exam:') && (() => {
+            const examTitle = page.replace('TGPSC Exam: ', '');
+            const groupKey = examTitle === 'Group 1' ? 'group-1' : examTitle === 'Group 2' ? 'group-2' : examTitle === 'Group 3' ? 'group-3' : 'group-4';
+            const subjects = [
+              {suffix:'english',title:'English',icon:'📘',image:require('./assets/images/my-purchase/English.png'),accent:'#2563EB',tint:'#E8F0FF'},
+              {suffix:'mathematics',title:'Mathematics',icon:'🧮',image:require('./assets/images/my-purchase/Mathematics.png'),accent:'#7C3AED',tint:'#F0EAFE'},
+              {suffix:'reasoning',title:'Reasoning',icon:'🧠',image:require('./assets/images/my-purchase/Reasoning.png'),accent:'#059669',tint:'#DDF8EE'},
+              {suffix:'telangana-movement',title:'Telangana Movement',icon:'✊',image:require('./assets/images/my-purchase/General Awareness.png'),accent:'#D97706',tint:'#FFF0D8'},
+              {suffix:'telangana-history',title:'Telangana History',icon:'🏛️',image:require('./assets/images/my-purchase/General Awareness.png'),accent:'#DC2626',tint:'#FEE2E2'},
+              {suffix:'telangana-geography',title:'Telangana Geography',icon:'🗺️',image:require('./assets/images/my-purchase/General Awareness.png'),accent:'#0891B2',tint:'#CFFAFE'},
+              {suffix:'telangana-economy',title:'Telangana Economy',icon:'📊',image:require('./assets/images/my-purchase/Telangana Economics.png'),accent:'#65A30D',tint:'#ECFCCB'},
+              {suffix:'general-awareness',title:'General Awareness',icon:'🌍',image:require('./assets/images/my-purchase/General Awareness.png'),accent:'#9333EA',tint:'#F3E8FF'}
+            ];
+            const startCheckout = async (courseId) => {
+              try {
+                if (unlockedCourses[courseId] || purchaseHistory[courseId]) {
+                  Alert.alert('Purchased', 'Your purchase is recorded. Study material access will be connected separately.');
+                  return;
+                }
+                const user = auth.currentUser;
+                if (!user) throw new Error('Please log in before purchasing.');
+                const token = await user.getIdToken();
+                const response = await fetch('https://' + 'study-with-veer-payment-backend.onrender.com/create-checkout-session', {
+                  method:'POST',
+                  headers:{'Content-Type':'application/json','Authorization':'Bearer ' + token},
+                  body:JSON.stringify({courseId})
+                });
+                const data = await response.json();
+                if (!response.ok || !data.sessionToken) throw new Error(data.error || 'Could not start checkout.');
+                const checkoutUrl = 'https://' + 'study-with-veer-payment-backend.onrender.com/checkout.html#session=' + encodeURIComponent(data.sessionToken);
+                if (Platform.OS === 'web') window.location.href = checkoutUrl;
+                else await Linking.openURL(checkoutUrl);
+              } catch (e) {
+                if (Platform.OS === 'web') window.alert('Checkout error: ' + (e.message || String(e)));
+                else Alert.alert('Checkout error', e.message || 'Could not open checkout.');
+              }
+            };
+            return <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>
+              {subjects.map(subject => {
+                const courseId = 'tgpsc-' + groupKey + '-' + subject.suffix;
+                const owned = !!(unlockedCourses[courseId] || purchaseHistory[courseId]);
+                return <View key={courseId} style={{width:'48.2%',backgroundColor:cardBg,borderRadius:16,padding:10,marginTop:14,borderWidth:1,borderColor:subject.accent+'66',overflow:'hidden',elevation:3}}>
+                  <View style={{height:112,borderRadius:12,backgroundColor:subject.tint,overflow:'hidden',marginBottom:9}}>
+                    <Image source={subject.image} style={{width:'100%',height:'100%'}} resizeMode="cover" />
+                  </View>
+                  <View style={{alignSelf:'flex-start',backgroundColor:subject.tint,borderRadius:8,paddingHorizontal:8,paddingVertical:4}}>
+                    <Text style={{fontSize:11,fontWeight:'900',color:subject.accent}}>TGPSC SUBJECT</Text>
+                  </View>
+                  <Text style={{fontSize:14,fontWeight:'900',color:mainText,marginTop:8,minHeight:38}}>{subject.title}</Text>
+                  <Text style={{fontSize:12,color:mutedText,marginTop:6}}>{owned ? 'Purchased' : examTitle + ' • Course access: ₹49'}</Text>
+                  <TouchableOpacity onPress={() => startCheckout(courseId)} style={{backgroundColor:owned?'#078653':'#2457D6',padding:10,borderRadius:9,alignItems:'center',marginTop:10}}>
+                    <Text style={{color:'#FFFFFF',fontSize:11,fontWeight:'800'}}>{owned ? '✓ PURCHASED' : 'Buy – ₹49'}</Text>
+                  </TouchableOpacity>
+                </View>;
+              })}
+            </View>;
+          })()}
 
           {page === 'RRB Courses' && <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>
             {[
@@ -4583,12 +4651,12 @@ const [fullNameFocused, setFullNameFocused] = useState(false);
             const examKey = examTitle === 'RRB NTPC' ? 'rrb-ntpc' : examTitle === 'RRB Group D' ? 'rrb-group-d' : examTitle === 'RRB ALP' ? 'rrb-alp' : 'rrb-technician';
             const packId = examKey + '-all-subjects-pack';
             const subjects = [
-              {suffix:'mathematics',title:'Mathematics',icon:'🧮',image:require('./assets/images/rrb mathematics.png'),accent:'#2563EB',tint:'#E8F0FF'},
-              {suffix:'reasoning',title:'Reasoning',icon:'🧠',image:require('./assets/images/rrb reasoning.png'),accent:'#7C3AED',tint:'#F0EAFE'},
-              {suffix:'general-science',title:'General Science',icon:'🔬',image:require('./assets/images/General Science.png'),accent:'#059669',tint:'#DDF8EE'},
-              {suffix:'general-awareness',title:'General Awareness',icon:'🌍',image:require('./assets/images/rrb general awareness.png'),accent:'#D97706',tint:'#FFF0D8'}
+              {suffix:'mathematics',title:'Mathematics',icon:'🧮',image:require('./assets/images/my-purchase/Mathematics.png'),accent:'#2563EB',tint:'#E8F0FF'},
+              {suffix:'reasoning',title:'Reasoning',icon:'🧠',image:require('./assets/images/my-purchase/Reasoning.png'),accent:'#7C3AED',tint:'#F0EAFE'},
+              {suffix:'general-science',title:'General Science',icon:'🔬',image:require('./assets/images/my-purchase/General Science.png'),accent:'#059669',tint:'#DDF8EE'},
+              {suffix:'general-awareness',title:'General Awareness',icon:'🌍',image:require('./assets/images/my-purchase/General Awareness.png'),accent:'#D97706',tint:'#FFF0D8'}
             ];
-            const packOwned = !!unlockedCourses[packId];
+            const packOwned = !!(unlockedCourses[packId] || purchaseHistory[packId]);
             const startCheckout = async (courseId) => {
               try {
                 if (unlockedCourses[courseId] || (courseId !== packId && packOwned)) {
