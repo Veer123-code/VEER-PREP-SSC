@@ -94,7 +94,16 @@ async function hasActiveCoursePurchase(userId, courseId) {
       validityMonths: row.validity_months || 6
     }));
 
-    if (directActive || isPack) return directActive;
+    if (directActive) return true;
+
+    // If Supabase has no record, safely check the existing local fallback.
+    if (!data || data.length === 0) {
+      const unlocks = readUnlocks();
+      const courses = (unlocks[userId] && unlocks[userId].courses) || {};
+      if (isCourseActive(courses[courseId])) return true;
+    }
+
+    if (isPack) return false;
 
     const packId = Object.keys(packSubjects).find(id =>
       packSubjects[id].includes(courseId)
@@ -1035,16 +1044,21 @@ app.get('/english/topic-pdf-url', async (req, res) => {
       return res.status(404).json({ error: 'No matching PDF is available for this topic yet.' });
     }
 
-    const eligible =
-      (await hasActiveCoursePurchase(user.uid, 'ssc-english-foundation')) ||
-      (await hasActiveCoursePurchase(user.uid, 'ssc-reasoning-masterclass')) ||
-      (await hasActiveCoursePurchase(user.uid, 'ssc-general-awareness')) ||
-      (await hasActiveCoursePurchase(user.uid, 'ssc-all-subjects-pack')) ||
-      (await hasActiveCoursePurchase(user.uid, 'english-articles-pdf'));
+    const tgpscGroup = typeof req.query.group === 'string' ? req.query.group : '';
+    const isTgpscGroup = /^tgpsc-group-[1-4]$/.test(tgpscGroup);
+    const eligible = isTgpscGroup
+      ? await hasActiveCoursePurchase(user.uid, tgpscGroup + '-english')
+      : (
+          (await hasActiveCoursePurchase(user.uid, 'ssc-english-foundation')) ||
+          (await hasActiveCoursePurchase(user.uid, 'ssc-reasoning-masterclass')) ||
+          (await hasActiveCoursePurchase(user.uid, 'ssc-general-awareness')) ||
+          (await hasActiveCoursePurchase(user.uid, 'ssc-all-subjects-pack')) ||
+          (await hasActiveCoursePurchase(user.uid, 'english-articles-pdf'))
+        );
 
     if (!eligible) {
       return res.status(403).json({
-        error: 'English study PDFs require an eligible course purchase.'
+        error: isTgpscGroup ? 'Purchase this TGPSC Group English course to access these PDFs.' : 'English study PDFs require an eligible course purchase.'
       });
     }
 
@@ -1092,6 +1106,7 @@ app.get('/mathematics/topic-pdf-url', async (req, res) => {
     }
 
     const exam = typeof req.query.exam === 'string' ? req.query.exam : '';
+    console.log('Mathematics exam diagnostic:', JSON.stringify({ exam, topic: req.query.topic }));
     let eligible;
     if (!exam) {
       eligible =
@@ -1101,14 +1116,18 @@ app.get('/mathematics/topic-pdf-url', async (req, res) => {
       eligible =
         (await hasActiveCoursePurchase(user.uid, exam + '-mathematics')) ||
         (await hasActiveCoursePurchase(user.uid, exam + '-all-subjects-pack'));
+    } else if (/^tgpsc-group-[1-4]$/.test(exam)) {
+      eligible = await hasActiveCoursePurchase(user.uid, exam + '-mathematics');
     } else {
       return res.status(400).json({ error: 'Invalid exam.' });
     }
     if (!eligible) {
       return res.status(403).json({
-        error: exam
-          ? 'Purchase this RRB exam Mathematics course or its All-in-One Pack to access these PDFs.'
-          : 'Purchase the SSC Mathematics course to access these PDFs.'
+        error: /^tgpsc-group-[1-4]$/.test(exam)
+          ? 'Purchase this TGPSC Group Mathematics course to access these PDFs.'
+          : exam
+            ? 'Purchase this RRB exam Mathematics course or its All-in-One Pack to access these PDFs.'
+            : 'Purchase the SSC Mathematics course to access these PDFs.'
       });
     }
 
@@ -1159,14 +1178,18 @@ app.get('/reasoning/topic-pdf-url', async (req, res) => {
       eligible =
         (await hasActiveCoursePurchase(user.uid, exam + '-reasoning')) ||
         (await hasActiveCoursePurchase(user.uid, exam + '-all-subjects-pack'));
+    } else if (/^tgpsc-group-[1-4]$/.test(exam)) {
+      eligible = await hasActiveCoursePurchase(user.uid, exam + '-reasoning');
     } else {
       return res.status(400).json({ error: 'Invalid exam.' });
     }
     if (!eligible) {
       return res.status(403).json({
-        error: exam
-          ? 'Purchase this RRB exam Reasoning course or its All-in-One Pack to access these PDFs.'
-          : 'Purchase the SSC Reasoning course to access these PDFs.'
+        error: /^tgpsc-group-[1-4]$/.test(exam)
+          ? 'Purchase this TGPSC Group Reasoning course to access these PDFs.'
+          : exam
+            ? 'Purchase this RRB exam Reasoning course or its All-in-One Pack to access these PDFs.'
+            : 'Purchase the SSC Reasoning course to access these PDFs.'
       });
     }
 
@@ -1202,6 +1225,51 @@ async function hasGeneralAwarenessAccess(userId, exam) {
   return (await hasActiveCoursePurchase(userId, exam + '-general-awareness')) ||
     (await hasActiveCoursePurchase(userId, exam + '-all-subjects-pack'));
 }
+
+app.get('/tgpsc/telangana-pdf-url', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Please log in to view this PDF.' });
+
+    const exam = typeof req.query.exam === 'string' ? req.query.exam : '';
+    const subject = typeof req.query.subject === 'string' ? req.query.subject : '';
+    const filename = typeof req.query.file === 'string' ? req.query.file : '';
+
+    if (!/^tgpsc-group-[1-4]$/.test(exam)) {
+      return res.status(400).json({ error: 'Invalid TGPSC exam.' });
+    }
+
+    const allowedFiles = {
+      'Telangana Movement': ['TS MOVEMENT .pdf'],
+      'Telangana History': [
+        'LEC - 1 & 2.pdf',
+        'lec - 3.pdf',
+        'lec 4.pdf',
+        'lec 5.pdf',
+        'lec 6.pdf',
+        'Lec 7.pdf'
+      ]
+    };
+
+    if (!allowedFiles[subject] || !allowedFiles[subject].includes(filename)) {
+      return res.status(400).json({ error: 'Invalid Telangana study PDF.' });
+    }
+
+    const courseId = exam + '-' + (subject === 'Telangana History' ? 'telangana-history' : 'telangana-movement');
+    if (!(await hasActiveCoursePurchase(user.uid, courseId))) {
+      return res.status(403).json({ error: 'Purchase this TGPSC subject to access its PDFs.' });
+    }
+
+    const result = await supabase.storage.from('Mathematics-pdfs')
+      .createSignedUrl('TGPSC/' + filename, 60);
+    if (result.error) throw result.error;
+
+    return res.json({ url: result.data.signedUrl, expiresIn: 60 });
+  } catch (error) {
+    console.error('TGPSC Telangana PDF access failed:', error.message);
+    return res.status(500).json({ error: 'Could not open this Telangana PDF.' });
+  }
+});
 
 app.get('/general-awareness/folders', async (req, res) => {
   try {
