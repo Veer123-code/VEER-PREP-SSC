@@ -1197,7 +1197,7 @@ async function hasGeneralAwarenessAccess(userId, exam) {
     'rrb-technician'
   ];
 
-  if (!allowedExams.includes(exam)) return false;
+  if (!allowedExams.includes(exam) && !/^tgpsc-group-[1-4]$/.test(exam)) return false;
 
   return (await hasActiveCoursePurchase(userId, exam + '-general-awareness')) ||
     (await hasActiveCoursePurchase(userId, exam + '-all-subjects-pack'));
