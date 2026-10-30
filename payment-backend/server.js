@@ -249,6 +249,78 @@ app.post('/auth/native-phone-custom-token', async (req, res) => {
 
 const firebaseAdminDb = getFirestore();
 
+const announcementImageTypes = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp'
+};
+
+app.post('/notifications/upload-photo',
+  express.raw({ type: Object.keys(announcementImageTypes), limit: '5mb' }),
+  async (req, res) => {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Please log in first.' });
+
+    const adminUids = (process.env.ADMIN_UIDS || '').split(',').map(x => x.trim()).filter(Boolean);
+    if (!adminUids.includes(user.uid)) {
+      return res.status(403).json({ error: 'Admin permission required.' });
+    }
+
+    const contentType = req.get('content-type') || '';
+    const extension = announcementImageTypes[contentType];
+    if (!extension || !Buffer.isBuffer(req.body) || !req.body.length) {
+      return res.status(400).json({ error: 'Please upload a valid JPEG, PNG, or WebP photo.' });
+    }
+
+    try {
+      const objectPath = 'announcements/' + crypto.randomUUID() + '.' + extension;
+      const { error } = await supabase.storage
+        .from('announcements-media')
+        .upload(objectPath, req.body, {
+          contentType,
+          upsert: false
+        });
+
+      if (error) throw error;
+      return res.json({ uploaded: true, attachmentPath: objectPath, attachmentType: contentType });
+    } catch (error) {
+      console.error('Announcement photo upload failed:', error.message);
+      return res.status(500).json({ error: 'Could not upload announcement photo.' });
+    }
+  }
+);
+
+app.get('/notifications/:notificationId/photo-url', async (req, res) => {
+  const user = await getAuthenticatedUser(req);
+  if (!user) return res.status(401).json({ error: 'Please log in first.' });
+
+  try {
+    const notification = await firebaseAdminDb
+      .collection('users').doc(user.uid)
+      .collection('notifications').doc(req.params.notificationId).get();
+
+    if (!notification.exists) {
+      return res.status(404).json({ error: 'Notification not found.' });
+    }
+
+    const attachmentPath = notification.data().attachmentPath;
+    if (typeof attachmentPath !== 'string' || !attachmentPath.startsWith('announcements/')) {
+      return res.status(404).json({ error: 'This notification has no photo.' });
+    }
+
+    const { data, error } = await supabase.storage
+      .from('announcements-media')
+      .createSignedUrl(attachmentPath, 3600);
+
+    if (error) throw error;
+    return res.json({ url: data.signedUrl });
+  } catch (error) {
+    console.error('Announcement photo URL failed:', error.message);
+    return res.status(500).json({ error: 'Could not load announcement photo.' });
+  }
+});
+
+
 app.post('/notifications/register-token', async (req, res) => {
   const user = await getAuthenticatedUser(req);
   if (!user) {
@@ -310,6 +382,20 @@ app.post('/notifications/send', async (req, res) => {
 
   const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
   const body = typeof req.body?.body === 'string' ? req.body.body.trim() : '';
+  const attachmentPath = typeof req.body?.attachmentPath === 'string'
+    ? req.body.attachmentPath.trim()
+    : '';
+  const attachmentType = typeof req.body?.attachmentType === 'string'
+    ? req.body.attachmentType.trim()
+    : '';
+
+  if (
+    attachmentPath &&
+    (!attachmentPath.startsWith('announcements/') ||
+      !['image/jpeg', 'image/png', 'image/webp'].includes(attachmentType))
+  ) {
+    return res.status(400).json({ error: 'Invalid announcement photo attachment.' });
+  }
 
   if (!title || title.length > 80 || !body || body.length > 300) {
     return res.status(400).json({
@@ -337,7 +423,8 @@ app.post('/notifications/send', async (req, res) => {
           body,
           createdAt: FieldValue.serverTimestamp(),
           readAt: null,
-          type: 'admin'
+          type: 'admin',
+          ...(attachmentPath ? { attachmentPath, attachmentType } : {})
         });
 
         notifiedUsers++;
