@@ -817,9 +817,33 @@ app.get('/invoice/:paymentId', async (req, res) => {
 
     const unlocks = readUnlocks();
     const userCourses = (unlocks[user.uid] && unlocks[user.uid].courses) || {};
-    const entry = Object.entries(userCourses).find(([, value]) =>
+    let entry = Object.entries(userCourses).find(([, value]) =>
       value && value.paymentId === paymentId
     );
+
+    if (!entry) {
+      const { data: dbPurchase, error: dbPurchaseError } = await supabase
+        .from('course_purchases')
+        .select('course_id, order_id, payment_id, purchase_date, expires_at, validity_months')
+        .eq('user_id', user.uid)
+        .eq('payment_id', paymentId)
+        .maybeSingle();
+
+      if (dbPurchaseError) {
+        console.error('Invoice Supabase lookup failed:', dbPurchaseError.message);
+        return res.status(500).json({ error: 'Could not look up your verified purchase.' });
+      }
+
+      if (dbPurchase) {
+        entry = [dbPurchase.course_id, {
+          orderId: dbPurchase.order_id,
+          paymentId: dbPurchase.payment_id,
+          purchaseDate: dbPurchase.purchase_date,
+          expiresAt: dbPurchase.expires_at,
+          validityMonths: dbPurchase.validity_months
+        }];
+      }
+    }
 
     if (!entry) {
       return res.status(404).json({ error: 'Verified purchase not found for this account.' });
@@ -839,16 +863,49 @@ app.get('/invoice/:paymentId', async (req, res) => {
     }
 
     const orderRecord = readOrders()[purchase.orderId];
-    if (!orderRecord || orderRecord.uid !== user.uid ||
-        orderRecord.courseId !== courseId || orderRecord.paymentId && orderRecord.paymentId !== paymentId) {
+
+    if (orderRecord &&
+        (orderRecord.uid !== user.uid ||
+         orderRecord.courseId !== courseId ||
+         (orderRecord.paymentId && orderRecord.paymentId !== paymentId))) {
       return res.status(403).json({ error: 'Purchase record could not be verified.' });
+    }
+
+    let expectedAmount;
+    let expectedCurrency;
+
+    if (orderRecord) {
+      expectedAmount = orderRecord.amount;
+      expectedCurrency = orderRecord.currency || 'INR';
+    } else {
+      let razorpayOrder;
+      try {
+        razorpayOrder = await razorpay.orders.fetch(purchase.orderId);
+      } catch (orderError) {
+        console.error('Invoice order verification failed:', orderError.message);
+        return res.status(403).json({ error: 'Original order could not be verified.' });
+      }
+
+      const expectedCourseAmount =
+        (courseId === 'ssc-all-subjects-pack' || courseId.endsWith('-all-subjects-pack'))
+          ? 14900 : 4900;
+
+      if (!razorpayOrder ||
+          razorpayOrder.id !== purchase.orderId ||
+          razorpayOrder.amount !== expectedCourseAmount ||
+          razorpayOrder.currency !== 'INR') {
+        return res.status(403).json({ error: 'Original order could not be verified.' });
+      }
+
+      expectedAmount = expectedCourseAmount;
+      expectedCurrency = 'INR';
     }
 
     const payment = await razorpay.payments.fetch(paymentId);
     if (!payment || payment.status !== 'captured' ||
         payment.order_id !== purchase.orderId ||
-        payment.amount !== orderRecord.amount ||
-        payment.currency !== (orderRecord.currency || 'INR')) {
+        payment.amount !== expectedAmount ||
+        payment.currency !== expectedCurrency) {
       return res.status(403).json({ error: 'A captured payment could not be confirmed.' });
     }
 
