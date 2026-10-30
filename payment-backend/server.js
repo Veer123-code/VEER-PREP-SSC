@@ -656,6 +656,183 @@ app.get('/checkout-session-info', (req, res) => {
   return res.json({ courseId: session.courseId });
 });
 
+
+app.post('/create-upi-qr', async (req, res) => {
+  let createdQr = null;
+
+  try {
+    const auth = await getPaymentUser(req);
+    const user = auth && auth.user;
+    const courseId = req.body && req.body.courseId;
+
+    if (!user) {
+      return res.status(401).json({ error: 'Please log in again.' });
+    }
+
+    if (auth.sessionCourseId && courseId !== auth.sessionCourseId) {
+      return res.status(403).json({ error: 'Checkout session course mismatch.' });
+    }
+
+    if (!allowedCheckoutCourses.has(courseId)) {
+      return res.status(400).json({ error: 'Invalid course selection.' });
+    }
+
+    const amount = (
+      courseId === 'ssc-all-subjects-pack' ||
+      courseId.endsWith('-all-subjects-pack')
+    ) ? 14900 : 4900;
+
+    const closeBy = Math.floor(Date.now() / 1000) + 1800;
+
+    createdQr = await razorpay.qrCode.create({
+      type: 'upi_qr',
+      usage: 'single_use',
+      fixed_amount: true,
+      payment_amount: amount,
+      name: 'STUDY WITH VEER',
+      description: 'Course purchase: ' + courseId,
+      close_by: closeBy,
+      notes: {
+        user_id: user.uid,
+        course_id: courseId
+      }
+    });
+
+    const { error } = await supabase.from('upi_qr_orders').insert({
+      qr_code_id: createdQr.id,
+      user_id: user.uid,
+      course_id: courseId,
+      amount,
+      currency: 'INR',
+      status: 'created'
+    });
+
+    if (error) {
+      try {
+        await razorpay.qrCode.close(createdQr.id);
+      } catch (_) {}
+      throw error;
+    }
+
+    return res.json({
+      qrCodeId: createdQr.id,
+      imageUrl: createdQr.image_url,
+      amount,
+      currency: 'INR',
+      closeBy
+    });
+  } catch (error) {
+    console.error('UPI QR creation failed:', error.message);
+    return res.status(500).json({ error: 'Could not create UPI QR.' });
+  }
+});
+
+app.post('/upi-qr-status', async (req, res) => {
+  try {
+    const auth = await getPaymentUser(req);
+    const user = auth && auth.user;
+    const qrCodeId = req.body && req.body.qrCodeId;
+
+    if (!user) {
+      return res.status(401).json({ error: 'Please log in again.' });
+    }
+
+    if (typeof qrCodeId !== 'string' || !qrCodeId.startsWith('qr_')) {
+      return res.status(400).json({ error: 'Invalid QR code ID.' });
+    }
+
+    const { data: qrOrder, error } = await supabase
+      .from('upi_qr_orders')
+      .select('*')
+      .eq('qr_code_id', qrCodeId)
+      .eq('user_id', user.uid)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!qrOrder) {
+      return res.status(404).json({ error: 'QR order not found.' });
+    }
+
+    if (auth.sessionCourseId && qrOrder.course_id !== auth.sessionCourseId) {
+      return res.status(403).json({ error: 'Checkout session course mismatch.' });
+    }
+
+    if (qrOrder.status === 'paid') {
+      return res.json({ status: 'paid', courseId: qrOrder.course_id });
+    }
+
+    if (qrOrder.status !== 'created') {
+      return res.json({ status: qrOrder.status });
+    }
+
+    // Razorpay API is the authority for payment confirmation.
+    const paymentList = await razorpay.qrCode.fetchAllPayments(qrCodeId, {
+      count: 100
+    });
+
+    const payment = (paymentList.items || []).find(item =>
+      item &&
+      item.status === 'captured' &&
+      item.captured === true &&
+      Number(item.amount) === Number(qrOrder.amount) &&
+      item.currency === qrOrder.currency &&
+      item.method === 'upi'
+    );
+
+    if (payment) {
+      const purchaseDate = new Date(Number(payment.created_at) * 1000);
+
+      if (!Number.isFinite(purchaseDate.getTime())) {
+        throw new Error('Invalid Razorpay payment timestamp.');
+      }
+
+      const expiryDate = addSixMonths(purchaseDate);
+      if (!expiryDate) {
+        throw new Error('Could not calculate course expiry.');
+      }
+
+      const { data: confirmed, error: rpcError } = await supabase.rpc(
+        'confirm_upi_qr_payment',
+        {
+          p_qr_code_id: qrCodeId,
+          p_payment_id: payment.id,
+          p_purchase_date: purchaseDate.toISOString(),
+          p_expires_at: expiryDate.toISOString()
+        }
+      );
+
+      if (rpcError) throw rpcError;
+
+      if (confirmed === true) {
+        return res.json({
+          status: 'paid',
+          courseId: qrOrder.course_id
+        });
+      }
+    }
+
+    const qrDetails = await razorpay.qrCode.fetch(qrCodeId);
+
+    if (qrDetails.status === 'closed') {
+      await supabase
+        .from('upi_qr_orders')
+        .update({ status: 'expired' })
+        .eq('qr_code_id', qrCodeId)
+        .eq('user_id', user.uid)
+        .eq('status', 'created');
+
+      return res.json({ status: 'expired' });
+    }
+
+    return res.json({ status: 'pending' });
+  } catch (error) {
+    console.error('UPI QR status check failed:', error.message);
+    return res.status(503).json({
+      error: 'Could not verify payment right now. Please try again.'
+    });
+  }
+});
+
 const orderFile = path.join(__dirname, 'payment-orders.json');
 
 function readOrders() {

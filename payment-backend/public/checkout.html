@@ -35,6 +35,14 @@ h2{font-size:22px;line-height:1.3;margin:17px 0 7px;color:#172554}
 #pay .arrow{display:inline-block;margin-left:8px}
 #pay:disabled{opacity:.65;cursor:wait;animation:none}
 #status{min-height:20px;text-align:center;font-size:12px;line-height:1.5;color:#53627b;margin:13px 0 0;overflow-wrap:anywhere}
+
+#upiQrButton{width:100%;margin-top:12px;border:1px solid #cbd5e1;border-radius:15px;padding:15px;color:#173b83;background:#fff;font-size:15px;font-weight:700;cursor:pointer}
+#upiQrButton:disabled{opacity:.6;cursor:wait}
+#upiQrPanel{margin-top:18px;padding:17px;border:1px solid #dbe3f2;border-radius:17px;background:#f8faff;text-align:center}
+#upiQrPanel[hidden]{display:none}
+#upiQrImage{display:block;width:220px;height:220px;max-width:100%;object-fit:contain;margin:14px auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px}
+#upiQrStatus{font-size:12px;line-height:1.5;color:#53627b;margin:10px 0 0;overflow-wrap:anywhere}
+#upiQrPanel .qr-help{font-size:12px;line-height:1.5;color:#64748b;margin:8px 0}
 .secure{display:flex;justify-content:center;align-items:center;gap:7px;margin:19px 0 0;color:#718096;font-size:11px}
 .footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:17px}
 @keyframes payColorFlow{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
@@ -72,7 +80,15 @@ h2{font-size:22px;line-height:1.3;margin:17px 0 7px;color:#172554}
       <span class="pay-shine"></span>
       <span class="pay-label">Continue to Payment</span><span class="arrow">→</span>
     </button>
-    <p id="status" role="status" aria-live="polite"></p>
+
+<button id="upiQrButton" type="button">Pay using UPI QR</button>
+<div id="upiQrPanel" hidden>
+  <strong>Scan with any UPI app</strong>
+  <p class="qr-help">Open your UPI app on another device and scan this QR code. Pay the exact amount shown.</p>
+  <img id="upiQrImage" alt="Single-use UPI payment QR code">
+  <p id="upiQrStatus" role="status" aria-live="polite">Preparing your QR code...</p>
+</div>
+<p id="status" role="status" aria-live="polite"></p>
     <div class="secure"><span>🔒</span> Secure payment powered by Razorpay</div>
   </section>
   <footer class="footer">Please do not close the page while payment is being verified.</footer>
@@ -85,6 +101,14 @@ h2{font-size:22px;line-height:1.3;margin:17px 0 7px;color:#172554}
   const courseNameEl = document.getElementById('courseName');
   const priceEl = document.getElementById('price');
   const totalEl = document.getElementById('total');
+  const upiButton = document.getElementById('upiQrButton');
+  const qrPanel = document.getElementById('upiQrPanel');
+  const qrImage = document.getElementById('upiQrImage');
+  const qrStatus = document.getElementById('upiQrStatus');
+  let activeQrCodeId = null;
+  let qrPollTimer = null;
+  let qrCheckBusy = false;
+
   const params = new URLSearchParams(location.hash.slice(1));
   const sessionToken = params.get('session');
 
@@ -207,6 +231,112 @@ h2{font-size:22px;line-height:1.3;margin:17px 0 7px;color:#172554}
       button.disabled = false;
     }
   }
+
+
+  async function checkUpiQrStatus() {
+    if (!activeQrCodeId || qrCheckBusy) return;
+    qrCheckBusy = true;
+
+    try {
+      const response = await fetch('/upi-qr-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Checkout-Session': sessionToken
+        },
+        body: JSON.stringify({ qrCodeId: activeQrCodeId })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Payment status check failed.');
+      }
+
+      if (data.status === 'paid') {
+        clearInterval(qrPollTimer);
+        qrPollTimer = null;
+        activeQrCodeId = null;
+        qrStatus.textContent = 'Payment verified! Course access is being updated...';
+        statusEl.textContent = 'UPI payment verified. Returning to STUDY WITH VEER...';
+        setTimeout(() => {
+          location.href = 'studywithveer://payment-success';
+        }, 900);
+      } else if (data.status === 'expired' || data.status === 'failed') {
+        clearInterval(qrPollTimer);
+        qrPollTimer = null;
+        activeQrCodeId = null;
+        qrStatus.textContent = 'This QR code has expired. Please return to the app and try again.';
+        upiButton.disabled = false;
+      } else {
+        qrStatus.textContent = 'Waiting for payment confirmation... Keep this page open.';
+      }
+    } catch (error) {
+      qrStatus.textContent = 'Checking payment status. Please wait...';
+    } finally {
+      qrCheckBusy = false;
+    }
+  }
+
+  async function startUpiQr() {
+    if (!sessionToken) {
+      statusEl.textContent = 'Checkout session missing. Please return to the app and try again.';
+      return;
+    }
+
+    upiButton.disabled = true;
+    qrStatus.textContent = 'Preparing your UPI QR code...';
+    qrPanel.hidden = false;
+
+    try {
+      const infoResponse = await fetch('/checkout-session-info', {
+        headers: { 'X-Checkout-Session': sessionToken }
+      });
+      const info = await infoResponse.json();
+
+      if (!infoResponse.ok || !info.courseId) {
+        throw new Error(info.error || 'Checkout session expired. Return to the app and try again.');
+      }
+
+      courseNameEl.textContent = names[info.courseId] || info.courseName || 'Selected course';
+
+      const response = await fetch('/create-upi-qr', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Checkout-Session': sessionToken
+        },
+        body: JSON.stringify({ courseId: info.courseId })
+      });
+
+      const qr = await response.json();
+
+      if (!response.ok || !qr.qrCodeId || !qr.imageUrl) {
+        throw new Error(qr.error || 'Could not create UPI QR code.');
+      }
+
+      activeQrCodeId = qr.qrCodeId;
+      const displayAmount = formatPrice(Number(qr.amount) / 100, qr.currency || 'INR');
+      priceEl.textContent = displayAmount;
+      totalEl.textContent = displayAmount;
+
+      qrImage.src = qr.imageUrl;
+      qrPanel.hidden = false;
+      qrStatus.textContent = 'Scan the QR using a UPI app. Waiting for payment...';
+      statusEl.textContent = 'UPI QR created for ' + displayAmount + '.';
+
+      await checkUpiQrStatus();
+      if (activeQrCodeId && !qrPollTimer) {
+        qrPollTimer = setInterval(checkUpiQrStatus, 4000);
+      }
+    } catch (error) {
+      qrStatus.textContent = error.message || 'Could not start UPI QR payment.';
+      statusEl.textContent = 'UPI QR could not be created. You can use Razorpay checkout instead.';
+      upiButton.disabled = false;
+    }
+  }
+
+  upiButton.addEventListener('click', startUpiQr);
 
   button.addEventListener('click', startCheckout);
 })();
