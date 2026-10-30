@@ -857,7 +857,10 @@ app.get('/invoice/:paymentId', async (req, res) => {
       'ssc-mathematics': 'SSC Mathematics',
       'ssc-all-subjects-pack': 'SSC All Subjects Pack',
     };
-    const courseName = courseNames[courseId];
+    const courseName = courseNames[courseId] ||
+      (courseId.startsWith('tgpsc-group-') ? 'TGPSC ' + courseId.replace('tgpsc-group-', 'Group ').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) :
+       courseId.startsWith('rrb-') ? 'RRB ' + courseId.replace(/^rrb-/, '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) :
+       null);
     if (!courseName || !purchase.orderId) {
       return res.status(404).json({ error: 'Invoice details are unavailable.' });
     }
