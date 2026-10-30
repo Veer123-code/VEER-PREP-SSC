@@ -722,7 +722,13 @@ app.post('/create-upi-qr', async (req, res) => {
       closeBy
     });
   } catch (error) {
-    console.error('UPI QR creation failed:', error.message);
+    console.error('UPI QR creation failed:', {
+      message: error?.message,
+      description: error?.error?.description,
+      code: error?.error?.code,
+      statusCode: error?.statusCode,
+      field: error?.error?.field
+    });
     return res.status(500).json({ error: 'Could not create UPI QR.' });
   }
 });
