@@ -448,6 +448,96 @@ app.get('/notifications/admin-status', async (req, res) => {
   return res.json({ isAdmin: adminUids.includes(user.uid) });
 });
 
+
+function isVideoAdmin(uid) {
+  return (process.env.ADMIN_UIDS || '')
+    .split(',').map(value => value.trim()).filter(Boolean).includes(uid);
+}
+
+app.get('/videos/list', async (req, res) => {
+  const user = await getAuthenticatedUser(req);
+  if (!user) return res.status(401).json({ error: 'Please log in first.' });
+
+  try {
+    const snapshot = await firebaseAdminDb.collection('publicVideos').get();
+    const videos = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })).sort((a, b) =>
+      (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)
+    );
+
+    return res.json({ videos });
+  } catch (error) {
+    console.error('Video list failed:', error.message);
+    return res.status(500).json({ error: 'Could not load videos.' });
+  }
+});
+
+app.post('/videos/publish', async (req, res) => {
+  const user = await getAuthenticatedUser(req);
+  if (!user) return res.status(401).json({ error: 'Please log in first.' });
+  if (!isVideoAdmin(user.uid)) {
+    return res.status(403).json({ error: 'Admin permission required.' });
+  }
+
+  const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+  const description = typeof req.body?.description === 'string'
+    ? req.body.description.trim() : '';
+  const videoUrl = typeof req.body?.videoUrl === 'string'
+    ? req.body.videoUrl.trim() : '';
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(videoUrl);
+  } catch (_) {
+    return res.status(400).json({ error: 'Enter a valid YouTube link.' });
+  }
+
+  if (!['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be'].includes(parsedUrl.hostname) ||
+      !['https:'].includes(parsedUrl.protocol)) {
+    return res.status(400).json({ error: 'Only YouTube links are allowed.' });
+  }
+
+  if (!title || title.length > 100 || description.length > 500) {
+    return res.status(400).json({ error: 'Title required (max 100); description max 500 characters.' });
+  }
+
+  try {
+    const doc = await firebaseAdminDb.collection('publicVideos').add({
+      title,
+      description,
+      videoUrl: parsedUrl.toString(),
+      createdAt: FieldValue.serverTimestamp(),
+      createdBy: user.uid
+    });
+    return res.json({ published: true, id: doc.id });
+  } catch (error) {
+    console.error('Video publish failed:', error.message);
+    return res.status(500).json({ error: 'Could not publish video.' });
+  }
+});
+
+app.delete('/videos/:id', async (req, res) => {
+  const user = await getAuthenticatedUser(req);
+  if (!user) return res.status(401).json({ error: 'Please log in first.' });
+  if (!isVideoAdmin(user.uid)) {
+    return res.status(403).json({ error: 'Admin permission required.' });
+  }
+
+  if (!/^[A-Za-z0-9_-]{1,100}$/.test(req.params.id)) {
+    return res.status(400).json({ error: 'Invalid video ID.' });
+  }
+
+  try {
+    await firebaseAdminDb.collection('publicVideos').doc(req.params.id).delete();
+    return res.json({ deleted: true });
+  } catch (error) {
+    console.error('Video delete failed:', error.message);
+    return res.status(500).json({ error: 'Could not delete video.' });
+  }
+});
+
 app.post('/notifications/send', async (req, res) => {
   const user = await getAuthenticatedUser(req);
   if (!user) {
