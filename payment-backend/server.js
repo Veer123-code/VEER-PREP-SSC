@@ -249,6 +249,89 @@ app.post('/auth/native-phone-custom-token', async (req, res) => {
 
 const firebaseAdminDb = getFirestore();
 
+function isMetricsAdmin(uid) {
+  return (process.env.ADMIN_UIDS || '')
+    .split(',')
+    .map(value => value.trim())
+    .filter(Boolean)
+    .includes(uid);
+}
+
+app.post('/analytics/record-login', async (req, res) => {
+  const user = await getAuthenticatedUser(req);
+  if (!user) return res.status(401).json({ error: 'Please log in first.' });
+
+  try {
+    const now = new Date();
+    const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+    const activityRef = firebaseAdminDb.collection('loginActivity').doc(user.uid);
+    const dailyRef = firebaseAdminDb.collection('dailyLoginStats').doc(day);
+    const uniqueLoginRef = dailyRef.collection('users').doc(user.uid);
+
+    await firebaseAdminDb.runTransaction(async transaction => {
+      const uniqueLogin = await transaction.get(uniqueLoginRef);
+
+      transaction.set(activityRef, {
+        lastLoginAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      if (!uniqueLogin.exists) {
+        transaction.create(uniqueLoginRef, {
+          loggedInAt: FieldValue.serverTimestamp()
+        });
+        transaction.set(dailyRef, {
+          date: day,
+          uniqueLogins: FieldValue.increment(1)
+        }, { merge: true });
+      }
+    });
+
+    return res.json({ recorded: true });
+  } catch (error) {
+    console.error('Login analytics recording failed:', error.message);
+    return res.status(500).json({ error: 'Could not record login activity.' });
+  }
+});
+
+app.get('/analytics/admin-dashboard', async (req, res) => {
+  const user = await getAuthenticatedUser(req);
+  if (!user) return res.status(401).json({ error: 'Please log in first.' });
+  if (!isMetricsAdmin(user.uid)) {
+    return res.status(403).json({ error: 'Admin permission required.' });
+  }
+
+  try {
+    let totalStudents = 0;
+    let nextPageToken;
+
+    do {
+      const page = await firebaseAdminAuth.listUsers(1000, nextPageToken);
+      totalStudents += page.users.length;
+      nextPageToken = page.pageToken;
+    } while (nextPageToken);
+
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const dailyDoc = await firebaseAdminDb.collection('dailyLoginStats').doc(today).get();
+    const recentSnapshot = await firebaseAdminDb.collection('loginActivity')
+      .orderBy('lastLoginAt', 'desc')
+      .limit(20)
+      .get();
+
+    return res.json({
+      totalStudents,
+      todayLogins: dailyDoc.exists ? (dailyDoc.data().uniqueLogins || 0) : 0,
+      recentActivity: recentSnapshot.docs.map(doc => ({
+        student: doc.id.slice(-6),
+        lastLoginAt: doc.data().lastLoginAt?.toDate?.()?.toISOString() || null
+      }))
+    });
+  } catch (error) {
+    console.error('Admin dashboard metrics failed:', error.message);
+    return res.status(500).json({ error: 'Could not load dashboard metrics.' });
+  }
+});
+
+
 const announcementImageTypes = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
@@ -436,6 +519,7 @@ app.post('/notifications/send', async (req, res) => {
             messages.push({
               to: token,
               sound: 'default',
+              channelId: 'veer-default',
               title,
               body,
               data: { type: 'admin-notification' }
@@ -1906,6 +1990,7 @@ app.post('/chat/messages/:chatId', async (req, res) => {
             pushMessages.push({
               to: pushToken,
               sound: 'default',
+              channelId: 'veer-default',
               title: isAdmin ? 'STUDY WITH VEER — Admin Reply' : 'STUDY WITH VEER — New Chat Message',
               body: text.slice(0, 160),
               data: { type: 'chat-message', chatId }
