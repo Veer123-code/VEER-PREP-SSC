@@ -454,6 +454,69 @@ function isVideoAdmin(uid) {
     .split(',').map(value => value.trim()).filter(Boolean).includes(uid);
 }
 
+app.post('/notifications/test', async (req, res) => {
+  const user = await getAuthenticatedUser(req);
+  if (!user) return res.status(401).json({ error: 'Please log in first.' });
+  if (!isVideoAdmin(user.uid)) {
+    return res.status(403).json({ error: 'Admin permission required.' });
+  }
+
+  try {
+    const snapshot = await firebaseAdminDb
+      .collection('users').doc(user.uid)
+      .collection('pushTokens').get();
+
+    const tokens = [...new Set(snapshot.docs
+      .map(doc => doc.data()?.token)
+      .filter(token => typeof token === 'string' &&
+        /^Expo(nent)?PushToken\[[^\]]+\]$/.test(token)))];
+
+    if (!tokens.length) {
+      return res.status(404).json({
+        error: 'No registered push token found for this admin account. Open the latest app and log in again.'
+      });
+    }
+
+    const messages = tokens.map(to => ({
+      to,
+      sound: 'default',
+      title: 'STUDY WITH VEER',
+      body: 'Push notification test successful!',
+      channelId: 'veer-default',
+      data: { type: 'admin-test' }
+    }));
+
+    const response = await fetch(
+      'https://' + 'exp.host/--/api/v2/push/send',
+      {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Accept-encoding': 'gzip, deflate',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(messages)
+      }
+    );
+
+    const result = await response.json();
+    if (!response.ok) {
+      console.error('Admin push test failed:', response.status, result);
+      return res.status(502).json({ error: 'Expo push service rejected the test.' });
+    }
+
+    const tickets = Array.isArray(result.data) ? result.data : [result.data];
+    return res.json({
+      sentToAdminDevices: messages.length,
+      accepted: tickets.filter(ticket => ticket?.status === 'ok').length,
+      errors: tickets.filter(ticket => ticket?.status === 'error').length
+    });
+  } catch (error) {
+    console.error('Admin push test failed:', error.message);
+    return res.status(500).json({ error: 'Could not send admin test notification.' });
+  }
+});
+
 app.get('/videos/list', async (req, res) => {
   const user = await getAuthenticatedUser(req);
   if (!user) return res.status(401).json({ error: 'Please log in first.' });
