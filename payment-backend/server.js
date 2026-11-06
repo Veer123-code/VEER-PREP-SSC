@@ -479,6 +479,7 @@ app.post('/notifications/test', async (req, res) => {
 
     const messages = tokens.map(to => ({
       to,
+      priority: 'high',
       sound: 'default',
       title: 'STUDY WITH VEER',
       body: 'Push notification test successful!',
@@ -671,6 +672,7 @@ app.post('/notifications/send', async (req, res) => {
           if (typeof token === 'string' && /^Expo(nent)?PushToken\[[^\]]+\]$/.test(token)) {
             messages.push({
               to: token,
+              priority: 'high',
               sound: 'default',
               channelId: 'veer-default',
               title,
